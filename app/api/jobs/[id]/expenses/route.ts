@@ -1,0 +1,159 @@
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { category, description, amount, vendor, purchase_date, notes, receipt_url } = body
+
+    // Validation
+    if (!category || !description || !amount) {
+      return NextResponse.json(
+        { error: 'Category, description, and amount are required' },
+        { status: 400 }
+      )
+    }
+
+    if (amount <= 0) {
+      return NextResponse.json(
+        { error: 'Amount must be greater than 0' },
+        { status: 400 }
+      )
+    }
+
+    // Verify user has access to this job
+    const { data: job } = await supabase
+      .from('jobs')
+      .select('id, business_id')
+      .eq('id', id)
+      .single()
+
+    if (!job) {
+      return NextResponse.json(
+        { error: 'Job not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get user's business to verify access
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('business_id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (!userProfile || userProfile.business_id !== job.business_id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 403 }
+      )
+    }
+
+    // Create the expense
+    const { data: expense, error } = await supabase
+      .from('job_expenses')
+      .insert({
+        job_id: id,
+        business_id: job.business_id,
+        category,
+        description: description.trim(),
+        amount,
+        vendor: vendor || null,
+        purchase_date: purchase_date || new Date().toISOString().split('T')[0],
+        notes: notes || null,
+        receipt_url: receipt_url || null,
+        created_by: user.id,
+      })
+      .select('*, creator:users!created_by(id, full_name, email)')
+      .single()
+
+    if (error) throw error
+
+    // Profit calculations are auto-updated by database trigger
+
+    return NextResponse.json({ success: true, expense })
+  } catch (error: any) {
+    console.error('Add expense error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to add expense' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Get user profile
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('business_id, role')
+      .eq('id', user.id)
+      .single()
+
+    if (!userProfile) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Verify job belongs to user's business
+    const { data: job } = await supabase
+      .from('jobs')
+      .select('id, business_id')
+      .eq('id', id)
+      .single()
+
+    if (!job || job.business_id !== userProfile.business_id) {
+      return NextResponse.json(
+        { error: 'Job not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get expenses
+    const { data: expenses, error } = await supabase
+      .from('job_expenses')
+      .select('*, creator:users!created_by(id, full_name, email)')
+      .eq('job_id', id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    return NextResponse.json({ expenses: expenses || [] })
+  } catch (error: any) {
+    console.error('Get expenses error:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to get expenses' },
+      { status: 500 }
+    )
+  }
+}
