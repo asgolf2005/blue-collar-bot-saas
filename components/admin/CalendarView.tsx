@@ -6,6 +6,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOf
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, Plus } from 'lucide-react'
 import { useRealtimeJobsWithRelations } from '@/hooks/useRealtimeJobsWithRelations'
+import { showToast } from '@/lib/utils/toast'
 
 type ViewMode = 'month' | 'week' | 'day'
 
@@ -19,6 +20,8 @@ export default function CalendarView({ jobs: initialJobs, businessId }: { jobs: 
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [selectedTech, setSelectedTech] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [draggingJobId, setDraggingJobId] = useState<string | null>(null)
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null)
 
   // Get unique technicians for filter
   const technicians = useMemo(() => {
@@ -119,6 +122,103 @@ export default function CalendarView({ jobs: initialJobs, businessId }: { jobs: 
       cancelled: 'bg-red-500',
     }
     return colors[status] || 'bg-gray-500'
+  }
+
+  const handleDragStart = (event: React.DragEvent, job: JobWithDetails) => {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData(
+      'application/json',
+      JSON.stringify({
+        jobId: job.id,
+        status: job.status,
+        scheduledStart: job.scheduled_start,
+        scheduledEnd: job.scheduled_end,
+      })
+    )
+    setDraggingJobId(job.id)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingJobId(null)
+    setDragOverDay(null)
+  }
+
+  const handleDragOver = (event: React.DragEvent, dayKey: string) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDragOverDay(dayKey)
+  }
+
+  const handleDragLeave = (dayKey: string) => {
+    if (dragOverDay === dayKey) {
+      setDragOverDay(null)
+    }
+  }
+
+  const handleDrop = async (event: React.DragEvent, day: Date) => {
+    event.preventDefault()
+    setDragOverDay(null)
+
+    const payload = event.dataTransfer.getData('application/json')
+    if (!payload) return
+
+    let data: {
+      jobId: string
+      status: string
+      scheduledStart: string
+      scheduledEnd?: string | null
+    }
+
+    try {
+      data = JSON.parse(payload)
+    } catch (error) {
+      return
+    }
+
+    const originalStart = new Date(data.scheduledStart)
+    if (Number.isNaN(originalStart.getTime())) return
+
+    const newStart = new Date(day)
+    newStart.setHours(
+      originalStart.getHours(),
+      originalStart.getMinutes(),
+      originalStart.getSeconds(),
+      originalStart.getMilliseconds()
+    )
+
+    if (isSameDay(originalStart, newStart)) {
+      return
+    }
+
+    let newEnd: string | undefined
+    if (data.scheduledEnd) {
+      const originalEnd = new Date(data.scheduledEnd)
+      const durationMs = originalEnd.getTime() - originalStart.getTime()
+      if (!Number.isNaN(durationMs) && durationMs > 0) {
+        newEnd = new Date(newStart.getTime() + durationMs).toISOString()
+      }
+    }
+
+    try {
+      const response = await fetch('/api/jobs/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: data.jobId,
+          status: data.status,
+          scheduledStart: newStart.toISOString(),
+          scheduledEnd: newEnd,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to reschedule job')
+      }
+
+      showToast.success('Job rescheduled')
+    } catch (error) {
+      showToast.error('Failed to reschedule job')
+    }
   }
 
   return (
@@ -256,13 +356,19 @@ export default function CalendarView({ jobs: initialJobs, businessId }: { jobs: 
             const isCurrentMonth = viewMode !== 'month' || day.getMonth() === currentDate.getMonth()
             const isToday = isSameDay(day, new Date())
             const minHeight = viewMode === 'day' ? 'min-h-[400px]' : viewMode === 'week' ? 'min-h-[180px]' : 'min-h-[120px]'
+            const isDragOver = dragOverDay === dayKey
 
             return (
               <div
                 key={day.toISOString()}
                 className={`bg-white ${minHeight} p-2 ${
                   !isCurrentMonth ? 'opacity-40' : ''
-                } ${isToday ? 'ring-2 ring-inset ring-primary-500' : ''}`}
+                } ${isToday ? 'ring-2 ring-inset ring-primary-500' : ''} ${
+                  isDragOver ? 'ring-2 ring-inset ring-primary-300 bg-primary/5' : ''
+                }`}
+                onDragOver={(event) => handleDragOver(event, dayKey)}
+                onDragLeave={() => handleDragLeave(dayKey)}
+                onDrop={(event) => handleDrop(event, day)}
               >
                 <div className={`text-sm font-medium mb-2 ${isToday ? 'text-primary-600' : 'text-gray-900'}`}>
                   {viewMode === 'month' && format(day, 'd')}
@@ -274,8 +380,13 @@ export default function CalendarView({ jobs: initialJobs, businessId }: { jobs: 
                     <Link
                       key={job.id}
                       href={`/admin/jobs/${job.id}`}
-                      className={`block text-xs p-2 rounded text-white ${getStatusColor(job.status)} hover:opacity-90 transition group`}
+                      className={`block text-xs p-2 rounded text-white ${getStatusColor(job.status)} hover:opacity-90 transition group ${
+                        draggingJobId === job.id ? 'opacity-60' : ''
+                      }`}
                       title={`${job.customer.name} - ${job.description || 'No description'}`}
+                      draggable
+                      onDragStart={(event) => handleDragStart(event, job)}
+                      onDragEnd={handleDragEnd}
                     >
                       <div className="font-medium truncate">
                         {format(new Date(job.scheduled_start), 'h:mm a')} - {job.customer.name}

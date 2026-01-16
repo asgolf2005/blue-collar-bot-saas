@@ -292,14 +292,18 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
           return false
         }
 
-        const tokens = searchValue.split(/\s+/).filter(Boolean)
+        const tokens = searchValue
+          .split(/\s+/)
+          .map(token => token.replace(/[^a-z0-9]+/g, ''))
+          .filter(Boolean)
 
+        const serviceText = job.description || getServiceLabel(job)
         const combined = [
           job.customer?.name,
           job.customer?.phone,
           job.customer?.email,
           job.customer?.address,
-          getServiceLabel(job),
+          serviceText,
           job.technician?.full_name,
           job.technician?.email,
         ]
@@ -307,7 +311,10 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
           .join(' ')
           .toLowerCase()
 
-        const allTokensPresent = tokens.every(token => combined.includes(token))
+        const words = combined.split(/[^a-z0-9]+/).filter(Boolean)
+        const allTokensPresent = tokens.every(token =>
+          words.some(word => word.startsWith(token))
+        )
         if (!allTokensPresent) return false
       }
 
