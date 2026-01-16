@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { constructWebhookEvent } from '@/lib/stripe/utils'
+import { mapStripeStatusToDb, getTierFromPriceId } from '@/lib/stripe/subscriptions'
 import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
 
@@ -167,6 +168,114 @@ export async function POST(request: Request) {
 
             console.log(`Invoice ${invoice.id} marked as cancelled (refunded)`)
           }
+        }
+        break
+      }
+
+      // ========================================
+      // SUBSCRIPTION EVENTS
+      // ========================================
+
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription
+        const priceId = subscription.items.data[0]?.price.id
+
+        console.log(`Subscription ${subscription.id} ${event.type === 'customer.subscription.created' ? 'created' : 'updated'}`)
+
+        // Get business_id from customer metadata
+        const customer = await supabaseAdmin
+          .from('businesses')
+          .select('id')
+          .eq('stripe_customer_id', subscription.customer as string)
+          .single()
+
+        if (!customer.data) {
+          console.error(`No business found for Stripe customer ${subscription.customer}`)
+          break
+        }
+
+        // Upsert subscription record
+        const { error: upsertError } = await supabaseAdmin
+          .from('subscriptions')
+          .upsert({
+            business_id: customer.data.id,
+            stripe_customer_id: subscription.customer as string,
+            stripe_subscription_id: subscription.id,
+            tier: getTierFromPriceId(priceId),
+            status: mapStripeStatusToDb(subscription.status),
+            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'business_id',
+          })
+
+        if (upsertError) {
+          console.error('Failed to upsert subscription:', upsertError)
+        } else {
+          console.log(`Subscription record updated for business ${customer.data.id}`)
+        }
+
+        break
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription
+        console.log(`Subscription ${subscription.id} deleted`)
+
+        // Update subscription status to canceled
+        const { error: updateError } = await supabaseAdmin
+          .from('subscriptions')
+          .update({
+            status: 'canceled',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscription.id)
+
+        if (updateError) {
+          console.error('Failed to update subscription on deletion:', updateError)
+        } else {
+          console.log(`Subscription ${subscription.id} marked as canceled`)
+        }
+
+        break
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice
+
+        // Only handle subscription invoices (not one-time invoice payments)
+        if (invoice.subscription) {
+          console.log(`Subscription payment succeeded for invoice ${invoice.id}`)
+
+          // Subscription record will be updated via subscription.updated event
+          // This event is mainly for logging and potential email notifications
+        }
+        break
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice
+
+        if (invoice.subscription) {
+          console.error(`Subscription payment failed for invoice ${invoice.id}`)
+
+          // Update subscription status to past_due
+          const { error: updateError } = await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              status: 'past_due',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('stripe_subscription_id', invoice.subscription as string)
+
+          if (updateError) {
+            console.error('Failed to update subscription on payment failure:', updateError)
+          }
+
+          // TODO: Send email notification to business owner about failed payment
         }
         break
       }
