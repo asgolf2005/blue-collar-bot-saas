@@ -15,22 +15,23 @@ export default async function RevenueChart({ businessId, rangeStart, rangeEnd, r
   const startDate = new Date(rangeStart)
   const endDate = new Date(rangeEnd)
 
-  // Get all invoices in date range
+  const startDateStr = format(startDate, 'yyyy-MM-dd')
+  const endDateStr = format(endDate, 'yyyy-MM-dd')
+
+  // Get all invoices in date range (use issue_date for accuracy)
   const { data: invoices } = await supabase
     .from('invoices')
-    .select('created_at, total, status')
+    .select('issue_date, total, status')
     .eq('business_id', businessId)
-    .gte('created_at', startDate.toISOString())
-    .lte('created_at', endDate.toISOString())
-    .order('created_at', { ascending: true })
+    .gte('issue_date', startDateStr)
+    .lte('issue_date', endDateStr)
+    .order('issue_date', { ascending: true })
 
   // Group by date
   const dateRange = eachDayOfInterval({ start: startDate, end: endDate })
   const dailyRevenue = dateRange.map(date => {
     const dateStr = format(date, 'yyyy-MM-dd')
-    const dayInvoices = invoices?.filter(inv =>
-      format(new Date(inv.created_at), 'yyyy-MM-dd') === dateStr
-    ) || []
+    const dayInvoices = invoices?.filter(inv => inv.issue_date === dateStr) || []
 
     return {
       date: format(date, 'MMM dd'),
@@ -41,8 +42,8 @@ export default async function RevenueChart({ businessId, rangeStart, rangeEnd, r
     }
   })
 
-  // Calculate max value for scaling
-  const maxValue = Math.max(...dailyRevenue.map(d => d.total), 100)
+  // Calculate max value for scaling (highest day in the period)
+  const maxValue = Math.max(...dailyRevenue.map(d => Math.max(d.total, d.paid)), 1)
 
   // Show every 5th day label to avoid crowding
   const showLabel = (index: number) => index % 5 === 0 || index === dailyRevenue.length - 1
@@ -64,37 +65,41 @@ export default async function RevenueChart({ businessId, rangeStart, rangeEnd, r
         <div className="flex items-end justify-between h-48 gap-0.5">
           {dailyRevenue.map((day, index) => {
             const heightPercent = (day.total / maxValue) * 100
-            const paidPercent = day.total > 0 ? (day.paid / day.total) * 100 : 0
+            const paidHeightPercent = (day.paid / maxValue) * 100
 
             return (
-              <div key={index} className="flex-1 flex flex-col items-center justify-end group relative">
+              <div key={index} className="flex-1 h-full flex flex-col items-center justify-end group relative">
                 {/* Tooltip */}
                 <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
                   <div className="bg-surface-50/95 border border-surface-200 text-ink text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-glass">
                     <p className="font-medium text-ink mb-1">{day.date}</p>
-                    <p className="text-muted">Total: <span className="text-primary">${day.total.toFixed(0)}</span></p>
+                    <p className="text-muted">Invoiced: <span className="text-primary">${day.total.toFixed(0)}</span></p>
                     <p className="text-muted">Paid: <span className="text-success">${day.paid.toFixed(0)}</span></p>
                   </div>
                 </div>
 
-                {/* Bar */}
-                <div
-                  className="w-full rounded-t transition-all cursor-pointer min-h-[2px] relative overflow-hidden bg-gradient-to-t from-primary/80 to-primary/40"
-                  style={{
-                    height: `${Math.max(heightPercent, 2)}%`,
-                  }}
-                >
-                  {/* Paid portion (success color overlay) */}
-                  {paidPercent > 0 && (
+                {/* Bars */}
+                <div className="w-full h-full flex items-end justify-center gap-0.5">
+                  <div
+                    className="w-1/2 rounded-t transition-all cursor-pointer min-h-[2px] relative overflow-hidden bg-gradient-to-t from-primary/80 to-primary/40"
+                    style={{
+                      height: `${Math.max(heightPercent, 2)}%`,
+                    }}
+                  >
+                    {/* Hover glow effect */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10" />
+                  </div>
+                  <div
+                    className="w-1/2 rounded-t transition-all cursor-pointer min-h-[2px] relative overflow-hidden bg-gradient-to-t from-success/80 to-success/50"
+                    style={{
+                      height: `${Math.max(paidHeightPercent, 2)}%`,
+                    }}
+                  >
+                    {/* Hover glow effect */}
                     <div
-                      className="absolute bottom-0 left-0 right-0 transition-all bg-gradient-to-t from-success/80 to-success/50"
-                      style={{
-                        height: `${paidPercent}%`,
-                      }}
+                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10"
                     />
-                  )}
-                  {/* Hover glow effect */}
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10" />
+                  </div>
                 </div>
               </div>
             )
@@ -115,7 +120,7 @@ export default async function RevenueChart({ businessId, rangeStart, rangeEnd, r
       <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-surface-200">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-sm bg-primary"></div>
-          <span className="text-xs text-muted">Total Revenue</span>
+          <span className="text-xs text-muted">Invoiced Revenue</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-sm bg-success"></div>

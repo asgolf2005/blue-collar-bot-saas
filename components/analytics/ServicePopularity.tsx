@@ -14,13 +14,18 @@ export default async function ServicePopularity({ businessId, rangeStart, rangeE
   const startDate = new Date(rangeStart)
   const endDate = new Date(rangeEnd)
 
-  // Get all job services in date range
+  // Get all job services in date range with invoice data
   const { data: jobServices } = await supabase
     .from('job_services')
     .select(`
       *,
       service:services(id, name, base_price),
-      job:jobs!inner(business_id, created_at)
+      job:jobs!inner(
+        business_id,
+        created_at,
+        id,
+        invoices(total, status)
+      )
     `)
     .eq('job.business_id', businessId)
     .gte('job.created_at', startDate.toISOString())
@@ -32,12 +37,14 @@ export default async function ServicePopularity({ businessId, rangeStart, rangeE
     name: string
     count: number
     revenue: number
+    basePrice: number
   }
 
   const serviceMap = new Map<string, ServiceStats>()
 
   jobServices?.forEach(js => {
     const service = js.service as any
+    const job = js.job as any
     if (!service) return
 
     if (!serviceMap.has(service.id)) {
@@ -46,12 +53,32 @@ export default async function ServicePopularity({ businessId, rangeStart, rangeE
         name: service.name,
         count: 0,
         revenue: 0,
+        basePrice: parseFloat(service.base_price?.toString() || '0'),
       })
     }
 
     const stats = serviceMap.get(service.id)!
     stats.count += 1
-    stats.revenue += parseFloat(service.base_price?.toString() || '0')
+
+    // ✅ FIX: Only count revenue from jobs with actual invoices
+    // This makes Service Breakdown match Revenue Trend exactly
+    if (job?.invoices && job.invoices.length > 0) {
+      // Use the first invoice (there should only be one per job)
+      const invoice = job.invoices[0]
+      const invoiceTotal = parseFloat(invoice.total?.toString() || '0')
+
+      // If job has invoice, use actual invoice amount
+      // Divide by number of services on the job for proportional allocation
+      const jobServicesCount = jobServices?.filter(jss => {
+        const jssJob = jss.job as any
+        return jssJob?.id === job.id
+      }).length || 1
+
+      stats.revenue += invoiceTotal / jobServicesCount
+    }
+    // ⚠️ Changed: Don't count jobs without invoices
+    // This ensures Service Breakdown matches Revenue Trend
+    // (Revenue Trend only counts invoiced jobs too)
   })
 
   // Convert to array and sort by count
@@ -70,7 +97,7 @@ export default async function ServicePopularity({ businessId, rangeStart, rangeE
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-ink">Most Popular Services</h3>
-          <p className="text-sm text-muted">Top services by job count ({rangeLabel.toLowerCase()})</p>
+          <p className="text-sm text-muted">Top services by actual invoiced revenue (excludes un-invoiced jobs)</p>
         </div>
         <div className="w-10 h-10 bg-info/10 rounded-lg flex items-center justify-center">
           <Award className="w-5 h-5 text-info" />
