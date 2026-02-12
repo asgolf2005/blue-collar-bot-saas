@@ -2,22 +2,12 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { constructWebhookEvent } from '@/lib/stripe/utils'
 import { mapStripeStatusToDb, getTierFromPriceId } from '@/lib/stripe/subscriptions'
-import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdminClient()
     const body = await request.text()
     const headersList = await headers()
     const signature = headersList.get('stripe-signature')

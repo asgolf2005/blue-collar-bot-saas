@@ -1,13 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { createCustomerAccount } from '@/lib/utils/create-customer-account'
 import { n8nWebhookSchema, validateInput } from '@/lib/validation/schemas'
 import { timingSafeEqual } from 'crypto'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 // ✅ SECURITY: Timing-safe comparison to prevent timing attacks
 function timingSafeCompare(a: string, b: string): boolean {
@@ -24,6 +19,7 @@ function timingSafeCompare(a: string, b: string): boolean {
 
 export async function POST(request: Request) {
   try {
+    const supabaseAdmin = getSupabaseAdminClient()
     const authHeader = request.headers.get('authorization')
     const expectedAuth = `Bearer ${process.env.N8N_WEBHOOK_SECRET}`
 

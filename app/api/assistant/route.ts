@@ -16,16 +16,21 @@ const DEFAULT_LIMIT = 8
 
 const ALLOWED_STATUSES = ['scheduled', 'on_the_way', 'arrived', 'in_progress', 'completed', 'cancelled'] as const
 
-const supabaseAdmin = createAdminClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
+const getSupabaseAdmin = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+  }
+
+  return createAdminClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  }
-)
+  })
+}
 
 const buildSystemPrompt = (
   businessName: string | null,
@@ -409,6 +414,7 @@ const runTool = async (toolName: string, args: any, context: { businessId: strin
       let customerName: string | null = null
 
       try {
+        const supabaseAdmin = getSupabaseAdmin()
         const { data: customer } = await supabaseAdmin
           .from('customers')
           .select('name')
@@ -428,6 +434,7 @@ const runTool = async (toolName: string, args: any, context: { businessId: strin
       ].filter(Boolean)
 
       try {
+        const supabaseAdmin = getSupabaseAdmin()
         await supabaseAdmin
           .from('notifications')
           .insert({

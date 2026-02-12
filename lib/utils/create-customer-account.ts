@@ -1,17 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/email/resend'
 import { buildCustomerWelcomeEmail } from '@/lib/email/templates'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 /**
  * Auto-create a customer portal account
@@ -19,6 +8,7 @@ const supabaseAdmin = createClient(
  */
 export async function createCustomerAccount(customerId: string, customerEmail: string | null) {
   try {
+    const supabaseAdmin = getSupabaseAdminClient()
     // Get customer info
     const { data: customer, error: customerError } = await supabaseAdmin
       .from('customers')
@@ -155,6 +145,7 @@ function generateSecurePassword(length: number = 16): string {
  */
 export async function sendPasswordResetLink(customerEmail: string) {
   try {
+    const supabaseAdmin = getSupabaseAdminClient()
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(customerEmail, {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/customer`,
     })

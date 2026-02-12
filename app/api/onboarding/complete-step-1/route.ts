@@ -1,20 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-
-// Use service role to bypass RLS for initial setup
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
   try {
+    // Use service role to bypass RLS for initial setup
+    const supabaseAdmin = getSupabaseAdminClient()
     const body = await request.json()
     const { user_id, business_name, owner_name, email, phone, address, calendar_id } = body
 

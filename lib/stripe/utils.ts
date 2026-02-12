@@ -1,4 +1,4 @@
-import { stripe, STRIPE_CONFIG } from './client'
+import { getStripeClient, STRIPE_CONFIG } from './client'
 import type Stripe from 'stripe'
 
 export interface CreateCheckoutSessionParams {
@@ -17,6 +17,7 @@ export interface CreateCheckoutSessionParams {
 export async function createCheckoutSession(
   params: CreateCheckoutSessionParams
 ): Promise<Stripe.Checkout.Session> {
+  const stripe = getStripeClient()
   const session = await stripe.checkout.sessions.create({
     payment_method_types: STRIPE_CONFIG.paymentMethodTypes as any,
     mode: 'payment',
@@ -57,6 +58,7 @@ export async function createCheckoutSession(
  * Retrieve a checkout session by ID
  */
 export async function getCheckoutSession(sessionId: string): Promise<Stripe.Checkout.Session> {
+  const stripe = getStripeClient()
   return await stripe.checkout.sessions.retrieve(sessionId, {
     expand: ['payment_intent', 'line_items'],
   })
@@ -66,6 +68,7 @@ export async function getCheckoutSession(sessionId: string): Promise<Stripe.Chec
  * Create a refund for a payment
  */
 export async function createRefund(paymentIntentId: string, amount?: number): Promise<Stripe.Refund> {
+  const stripe = getStripeClient()
   return await stripe.refunds.create({
     payment_intent: paymentIntentId,
     amount, // Optional: partial refund amount in cents
@@ -76,6 +79,7 @@ export async function createRefund(paymentIntentId: string, amount?: number): Pr
  * Get payment intent details
  */
 export async function getPaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
+  const stripe = getStripeClient()
   return await stripe.paymentIntents.retrieve(paymentIntentId)
 }
 
@@ -86,6 +90,7 @@ export function constructWebhookEvent(
   rawBody: string | Buffer,
   signature: string
 ): Stripe.Event {
+  const stripe = getStripeClient()
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
   if (!webhookSecret) {

@@ -1,23 +1,13 @@
 import { createClient as createServerClient } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email/resend'
 import { buildInvoiceEmail } from '@/lib/email/templates'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: Request) {
   try {
-    // ✅ SECURITY: Authenticate user before allowing invoice creation
+    const supabaseAdmin = getSupabaseAdminClient()
+    // âœ… SECURITY: Authenticate user before allowing invoice creation
     const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -25,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // ✅ SECURITY: Verify user is an admin
+    // âœ… SECURITY: Verify user is an admin
     const { data: profile } = await supabase
       .from('users')
       .select('business_id, role')
@@ -39,7 +29,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { business_id, job_id, customer_id, line_items, tax_rate, notes, due_in_days } = body
 
-    // ✅ SECURITY: Verify the business_id matches the authenticated user's business
+    // âœ… SECURITY: Verify the business_id matches the authenticated user's business
     if (business_id !== profile.business_id) {
       return NextResponse.json(
         { error: 'Forbidden - Cannot create invoices for other businesses' },

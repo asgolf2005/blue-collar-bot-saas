@@ -1,4 +1,4 @@
-import { stripe } from './client'
+import { getStripeClient } from './client'
 import type Stripe from 'stripe'
 
 /**
@@ -64,6 +64,7 @@ export async function createOrGetStripeCustomer(params: {
   name: string
   existingStripeCustomerId?: string
 }): Promise<Stripe.Customer> {
+  const stripe = getStripeClient()
   // If customer already exists, retrieve it
   if (params.existingStripeCustomerId) {
     try {
@@ -92,6 +93,7 @@ export async function createSubscription(params: {
   tier: SubscriptionTierKey
   trialDays?: number
 }): Promise<Stripe.Subscription> {
+  const stripe = getStripeClient()
   const tierConfig = SUBSCRIPTION_TIERS[params.tier]
 
   if (!tierConfig.stripePriceId) {
@@ -129,6 +131,7 @@ export async function updateSubscriptionTier(params: {
   newTier: SubscriptionTierKey
   prorationBehavior?: 'create_prorations' | 'none' | 'always_invoice'
 }): Promise<Stripe.Subscription> {
+  const stripe = getStripeClient()
   const tierConfig = SUBSCRIPTION_TIERS[params.newTier]
 
   if (!tierConfig.stripePriceId) {
@@ -157,6 +160,7 @@ export async function cancelSubscription(params: {
   stripeSubscriptionId: string
   cancelImmediately?: boolean
 }): Promise<Stripe.Subscription> {
+  const stripe = getStripeClient()
   if (params.cancelImmediately) {
     return await stripe.subscriptions.cancel(params.stripeSubscriptionId)
   } else {
@@ -172,6 +176,7 @@ export async function cancelSubscription(params: {
 export async function reactivateSubscription(
   stripeSubscriptionId: string
 ): Promise<Stripe.Subscription> {
+  const stripe = getStripeClient()
   return await stripe.subscriptions.update(stripeSubscriptionId, {
     cancel_at_period_end: false,
   })
@@ -183,6 +188,7 @@ export async function reactivateSubscription(
 export async function getSubscription(
   stripeSubscriptionId: string
 ): Promise<Stripe.Subscription> {
+  const stripe = getStripeClient()
   return await stripe.subscriptions.retrieve(stripeSubscriptionId, {
     expand: ['default_payment_method', 'latest_invoice'],
   })
@@ -195,6 +201,7 @@ export async function createBillingPortalSession(params: {
   stripeCustomerId: string
   returnUrl: string
 }): Promise<Stripe.BillingPortal.Session> {
+  const stripe = getStripeClient()
   return await stripe.billingPortal.sessions.create({
     customer: params.stripeCustomerId,
     return_url: params.returnUrl,

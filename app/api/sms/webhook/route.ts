@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 // Twilio webhook to handle SMS delivery status updates
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdminClient()
     const formData = await request.formData()
     const messageId = formData.get('MessageSid') as string
     const messageStatus = formData.get('MessageStatus') as string
