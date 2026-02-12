@@ -3,42 +3,13 @@
 import { Invoice, Customer } from '@/lib/types'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { FileText, AlertCircle, CheckCircle, Clock, CreditCard } from 'lucide-react'
-import { useState } from 'react'
-import { showToast } from '@/lib/utils/toast'
+import { FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react'
 
 interface InvoiceWithCustomer extends Invoice {
   customer: Customer
 }
 
 export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer }) {
-  const [isProcessing, setIsProcessing] = useState(false)
-
-  async function handlePayNow(e: React.MouseEvent) {
-    e.preventDefault() // Prevent Link navigation
-    e.stopPropagation()
-
-    setIsProcessing(true)
-    try {
-      const response = await fetch('/api/stripe/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout session')
-      }
-
-      // Redirect to Stripe Checkout
-      window.location.href = data.url
-    } catch (error) {
-      showToast.error(error instanceof Error ? error.message : 'Failed to process payment')
-      setIsProcessing(false)
-    }
-  }
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { color: string; icon: any; label: string }> = {
       draft: {
@@ -97,7 +68,9 @@ export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer 
             <div className="text-2xl font-bold text-gray-900">
               ${invoice.total.toFixed(2)}
             </div>
-            <div className={`mt-2 px-3 py-1 rounded-full text-xs font-medium border inline-flex items-center gap-1 ${statusConfig.color}`}>
+            <div
+              className={`mt-2 px-3 py-1 rounded-full text-xs font-medium border inline-flex items-center gap-1 ${statusConfig.color}`}
+            >
               <StatusIcon className="w-3 h-3" />
               {statusConfig.label}
             </div>
@@ -116,21 +89,9 @@ export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer 
               <>Paid on {format(new Date(invoice.paid_at), 'MMM d, yyyy')}</>
             )}
           </span>
-          <div className="flex items-center gap-2">
-            {(invoice.status === 'sent' || invoice.status === 'overdue') && (
-              <button
-                onClick={handlePayNow}
-                disabled={isProcessing}
-                className="glass-btn-primary glass-btn-sm"
-              >
-                <CreditCard className="w-4 h-4" />
-                {isProcessing ? 'Processing...' : 'Pay Now'}
-              </button>
-            )}
-            <span className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-              View Details →
-            </span>
-          </div>
+          <span className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+            View Details {'>'}
+          </span>
         </div>
       </div>
     </Link>
