@@ -552,14 +552,19 @@ export async function POST(request: Request) {
       if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
         nextMessages = [...nextMessages, assistantMessage]
         for (const toolCall of assistantMessage.tool_calls) {
+          if (!('function' in toolCall)) {
+            continue
+          }
+
+          const functionCall = toolCall.function
           let args = {}
           try {
-            args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {}
+            args = functionCall.arguments ? JSON.parse(functionCall.arguments) : {}
           } catch (error) {
             args = {}
           }
 
-          const result = await runTool(toolCall.function.name, args, {
+          const result = await runTool(functionCall.name, args, {
             businessId: profile.business_id,
             supabase,
           })
