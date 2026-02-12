@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { Users, TrendingUp, DollarSign, Repeat } from 'lucide-react'
+import { Users, TrendingUp, DollarSign, Repeat, UserPlus, Activity } from 'lucide-react'
 
 interface CustomerInsightsProps {
   businessId: string
@@ -29,23 +29,48 @@ export default async function CustomerInsights({
 
   if (!customers || customers.length === 0) {
     return (
-      <div className="card">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-lg font-semibold text-ink">Customer Insights</h3>
-          <p className="text-sm text-muted">Customer behavior and trends ({rangeLabel.toLowerCase()})</p>
-          </div>
-          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
-            <Users className="w-5 h-5 text-primary" />
-          </div>
-        </div>
+      <div className="relative bg-[#0d1220] border border-amber-500/30 rounded-xl overflow-hidden group hover:border-amber-500/50 transition-all duration-500">
+        {/* Blueprint grid background */}
+        <div 
+          className="absolute inset-0 opacity-10 pointer-events-none"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(245,158,11,0.3) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(245,158,11,0.3) 1px, transparent 1px)
+            `,
+            backgroundSize: '20px 20px',
+          }}
+        />
+        
+        {/* Corner accents */}
+        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-amber-500/50 rounded-tl-lg" />
+        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-amber-500/50 rounded-tr-lg" />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-amber-500/50 rounded-bl-lg" />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-amber-500/50 rounded-br-lg" />
 
-        <div className="text-center py-12">
-          <Users className="w-12 h-12 text-muted mx-auto mb-3" />
-          <p className="text-muted">No customers found</p>
-          <p className="text-sm text-muted mt-1">
-            Add customers to see insights
-          </p>
+        <div className="relative z-10 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-white tracking-wide flex items-center gap-2">
+                <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                CUSTOMER INSIGHTS
+              </h3>
+              <p className="text-sm text-amber-500/60 font-mono mt-1">
+                CUSTOMER BEHAVIOR AND TRENDS
+              </p>
+            </div>
+            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <Users className="w-5 h-5 text-amber-400" />
+            </div>
+          </div>
+
+          <div className="text-center py-12">
+            <Users className="w-12 h-12 text-amber-500/30 mx-auto mb-3" />
+            <p className="text-white/50 font-mono">NO CUSTOMERS FOUND</p>
+            <p className="text-sm text-amber-500/40 font-mono mt-1">
+              ADD CUSTOMERS TO SEE INSIGHTS
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -129,102 +154,152 @@ export default async function CustomerInsights({
   const maxSpent = Math.max(...topCustomers.map(c => c.totalSpent), 1)
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-ink">Customer Insights</h3>
-          <p className="text-sm text-muted">Top customers and trends</p>
-        </div>
-        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
-          <Users className="w-5 h-5 text-primary" />
-        </div>
-      </div>
+    <div className="relative bg-[#0d1220] border border-amber-500/30 rounded-xl overflow-hidden group hover:border-amber-500/50 transition-all duration-500 hover:shadow-[0_0_30px_rgba(245,158,11,0.15)]">
+      {/* Blueprint grid background */}
+      <div 
+        className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(245,158,11,0.3) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(245,158,11,0.3) 1px, transparent 1px)
+          `,
+          backgroundSize: '20px 20px',
+        }}
+      />
+      
+      {/* Corner accents */}
+      <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-amber-500/50 rounded-tl-lg" />
+      <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-amber-500/50 rounded-tr-lg" />
+      <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-amber-500/50 rounded-bl-lg" />
+      <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-amber-500/50 rounded-br-lg" />
 
-      {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="p-3 bg-primary/10 rounded-xl border border-primary/20">
-          <div className="flex items-center gap-2 mb-1">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-xs text-primary font-medium">New ({rangeShortLabel})</span>
+      <div className="relative z-10 p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-white tracking-wide flex items-center gap-2">
+              <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+              CUSTOMER INSIGHTS
+            </h3>
+            <p className="text-sm text-amber-500/60 font-mono mt-1">
+              TOP CUSTOMERS AND TRENDS
+            </p>
           </div>
-          <p className="text-xl font-bold text-ink">{newCustomers}</p>
+          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+            <Users className="w-5 h-5 text-amber-400" />
+          </div>
         </div>
 
-        <div className="p-3 bg-info/10 rounded-xl border border-info/20">
-          <div className="flex items-center gap-2 mb-1">
-            <Repeat className="w-4 h-4 text-info" />
-            <span className="text-xs text-info font-medium">Repeat Rate</span>
+        {/* Quick stats */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
+            <div className="flex items-center gap-2 mb-1">
+              <UserPlus className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs text-cyan-400 font-mono">NEW ({rangeShortLabel})</span>
+            </div>
+            <p className="text-2xl font-bold text-white font-mono">{newCustomers}</p>
           </div>
-          <p className="text-xl font-bold text-ink">{repeatRate}%</p>
+
+          <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/30">
+            <div className="flex items-center gap-2 mb-1">
+              <Repeat className="w-4 h-4 text-purple-400" />
+              <span className="text-xs text-purple-400 font-mono">REPEAT RATE</span>
+            </div>
+            <p className="text-2xl font-bold text-white font-mono">{repeatRate}%</p>
+          </div>
+
+          <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/30">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs text-emerald-400 font-mono">AVG VALUE</span>
+            </div>
+            <p className="text-2xl font-bold text-white font-mono">${avgCustomerValue.toFixed(0)}</p>
+          </div>
         </div>
 
-        <div className="p-3 bg-success/10 rounded-xl border border-success/20">
-          <div className="flex items-center gap-2 mb-1">
-            <DollarSign className="w-4 h-4 text-success" />
-            <span className="text-xs text-success font-medium">Avg Value</span>
-          </div>
-          <p className="text-xl font-bold text-ink">${avgCustomerValue.toFixed(0)}</p>
-        </div>
-      </div>
+        {/* Top customers */}
+        <div className="mb-4">
+          <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-amber-400" />
+            TOP CUSTOMERS BY REVENUE
+          </h4>
 
-      {/* Top customers */}
-      <div className="mb-4">
-        <h4 className="text-sm font-semibold text-ink mb-3">Top Customers by Revenue</h4>
+          {topCustomers.length === 0 ? (
+            <div className="text-center py-8 border border-dashed border-amber-500/20 rounded-lg">
+              <p className="text-sm text-white/40 font-mono">NO PAID INVOICES YET</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topCustomers.map((customer, index) => {
+                const widthPercent = (customer.totalSpent / maxSpent) * 100
+                const rankColors = [
+                  { bg: 'from-amber-400 to-amber-500', glow: 'rgba(245,158,11,0.5)' },
+                  { bg: 'from-gray-300 to-gray-400', glow: 'rgba(156,163,175,0.5)' },
+                  { bg: 'from-orange-400 to-orange-500', glow: 'rgba(249,115,22,0.5)' },
+                  { bg: 'from-cyan-400 to-cyan-500', glow: 'rgba(6,182,212,0.5)' },
+                  { bg: 'from-cyan-400 to-cyan-500', glow: 'rgba(6,182,212,0.5)' },
+                ]
+                const color = rankColors[index] || rankColors[4]
 
-        {topCustomers.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-sm text-muted">No paid invoices yet</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {topCustomers.map((customer, index) => {
-              const widthPercent = (customer.totalSpent / maxSpent) * 100
-
-              return (
-                <div key={customer.id}>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="flex items-center justify-center w-6 h-6 bg-warning/10 rounded-full text-xs font-semibold text-warning flex-shrink-0 border border-warning/20">
-                        {index + 1}
+                return (
+                  <div key={customer.id} className="group">
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span 
+                          className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold font-mono"
+                          style={{ 
+                            background: color.glow.replace('0.5', '0.2'),
+                            color: index < 3 ? '#fbbf24' : '#22d3ee',
+                            boxShadow: `0 0 8px ${color.glow}`,
+                          }}
+                        >
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-white truncate">{customer.name}</p>
+                          <p className="text-xs text-white/40 font-mono">{customer.totalJobs} jobs</p>
+                        </div>
+                      </div>
+                      <span className="text-white font-mono font-semibold flex-shrink-0">
+                        ${customer.totalSpent.toFixed(0)}
                       </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-ink truncate">{customer.name}</p>
-                        <p className="text-xs text-muted">{customer.totalJobs} jobs</p>
+                    </div>
+
+                    {/* Progress bar with neon glow */}
+                    <div className="w-full bg-black/50 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500 relative"
+                        style={{ 
+                          width: `${widthPercent}%`,
+                          background: `linear-gradient(90deg, ${color.glow.replace('0.5', '0.8')}, ${color.glow.replace('0.5', '0.4')})`,
+                          boxShadow: `0 0 10px ${color.glow}`,
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                       </div>
                     </div>
-                    <span className="text-ink font-semibold flex-shrink-0">
-                      ${customer.totalSpent.toFixed(0)}
-                    </span>
                   </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
-                  {/* Progress bar */}
-                  <div className="w-full bg-surface-100 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-warning to-warning/70 h-2 rounded-full transition-all"
-                      style={{ width: `${widthPercent}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Summary */}
-      <div className="mt-6 pt-4 border-t border-surface-200">
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-muted">Active Customers</p>
-            <p className="text-lg font-semibold text-ink">{activeCustomerCount}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted">Repeat Customers</p>
-            <p className="text-lg font-semibold text-ink">{repeatCustomers}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted">New Customers</p>
-            <p className="text-lg font-semibold text-ink">{newCustomers}</p>
+        {/* Summary */}
+        <div className="mt-6 pt-4 border-t border-amber-500/20">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <p className="text-xs text-amber-500/60 font-mono uppercase tracking-wider mb-1">Active Customers</p>
+              <p className="text-xl font-bold text-white font-mono">{activeCustomerCount}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-amber-500/60 font-mono uppercase tracking-wider mb-1">Repeat Customers</p>
+              <p className="text-xl font-bold text-white font-mono">{repeatCustomers}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-amber-500/60 font-mono uppercase tracking-wider mb-1">New Customers</p>
+              <p className="text-xl font-bold text-white font-mono">{newCustomers}</p>
+            </div>
           </div>
         </div>
       </div>
