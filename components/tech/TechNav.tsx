@@ -3,12 +3,12 @@
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ThemeToggle } from '@/components/ui/ThemeProvider'
 import NotificationBell from '@/components/NotificationBell'
 
 export default function TechNav({ userName }: { userName: string }) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const pathname = usePathname()
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -17,8 +17,8 @@ export default function TechNav({ userName }: { userName: string }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) setUserId(user.id)
     }
-    getUser()
-  }, [])
+    void getUser()
+  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -67,12 +67,12 @@ export default function TechNav({ userName }: { userName: string }) {
   return (
     <>
       {/* Top Header */}
-      <header className="fixed top-0 left-0 right-0 z-40 h-16 bg-surface-50/95 backdrop-blur-xl border-b border-surface-200">
+      <header className="fixed top-0 left-0 right-0 z-40 h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
         <div className="max-w-2xl mx-auto h-full px-4 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-elevation-2">
-              <svg className="w-5 h-5 text-white dark:text-midnight-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
               </svg>
             </div>
@@ -84,7 +84,7 @@ export default function TechNav({ userName }: { userName: string }) {
           {/* User Info */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white dark:text-midnight-950 font-semibold text-xs">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-white font-semibold text-xs">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <span className="text-sm text-muted hidden sm:block">{userName}</span>
@@ -93,7 +93,7 @@ export default function TechNav({ userName }: { userName: string }) {
             <ThemeToggle />
             <button
               onClick={handleLogout}
-              className="w-9 h-9 rounded-xl bg-surface-100 flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 transition-all border border-surface-200"
+              className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 transition-all border border-slate-200 dark:border-slate-700"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -104,7 +104,7 @@ export default function TechNav({ userName }: { userName: string }) {
       </header>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-surface-50/95 backdrop-blur-xl border-t border-surface-200">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-2xl mx-auto h-16 px-4 flex items-center justify-around">
           {navItems.map((item) => {
             const isActive = pathname?.startsWith(item.href)

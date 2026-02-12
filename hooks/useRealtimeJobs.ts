@@ -1,6 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+/**
+ * @deprecated Use useRealtimeJobsUnified instead.
+ * This hook has issues with duplicate subscriptions and stale data.
+ */
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
@@ -38,7 +42,7 @@ export function useRealtimeJobs({
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // Update jobs state based on event type
   const handleJobChange = useCallback((payload: any, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { Bell, Calendar, AlertCircle, CheckCircle, Info } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -40,27 +40,13 @@ const colorClasses = {
 }
 
 export default function NotificationsCard() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setLoading(false)
-        return
-      }
-      setUserId(user.id)
-      await loadNotifications(user.id)
-    }
-
-    load()
-  }, [])
-
-  const loadNotifications = async (id: string) => {
+  const loadNotifications = useCallback(async (id: string) => {
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -80,7 +66,21 @@ export default function NotificationsCard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
+      setUserId(user.id)
+      await loadNotifications(user.id)
+    }
+
+    void load()
+  }, [loadNotifications, supabase.auth])
 
   const markAllAsRead = async () => {
     if (!userId) return

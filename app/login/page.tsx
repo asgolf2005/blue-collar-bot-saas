@@ -1,16 +1,35 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  ShieldCheck,
+  Workflow,
+} from 'lucide-react'
+
+type AuthMessage = { type: 'success' | 'error'; text: string } | null
+type PortalRole = 'admin' | 'tech' | 'customer'
+const HUD_FRAME_CLIP =
+  'polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px), 0 22px)'
+const HUD_INNER_CLIP =
+  'polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px)'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
+  const [selectedRole, setSelectedRole] = useState<PortalRole>('admin')
   const [focusedField, setFocusedField] = useState<string | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<AuthMessage>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -33,352 +52,272 @@ export default function LoginPage() {
         .eq('id', data.user.id)
         .single()
 
-      if (profile?.role === 'admin') {
-        router.push('/admin/jobs')
-      } else if (profile?.role === 'tech') {
-        router.push('/tech/today')
-      } else if (profile?.role === 'customer') {
+      const accountRole = profile?.role as PortalRole | undefined
+
+      if (accountRole && accountRole !== selectedRole) {
+        await supabase.auth.signOut()
+        throw new Error(
+          `This account is registered as ${accountRole.toUpperCase()}. Switch role and try again.`
+        )
+      }
+
+      // Some customer accounts may not have a users role row.
+      if (!accountRole && selectedRole === 'customer') {
+        const { data: customerProfile } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('user_id', data.user.id)
+          .single()
+
+        if (!customerProfile) {
+          await supabase.auth.signOut()
+          throw new Error('No customer profile found for this account.')
+        }
         router.push('/customer')
       } else {
-        router.push('/onboarding')
+        if (!accountRole) {
+          await supabase.auth.signOut()
+          throw new Error('No role is configured for this account.')
+        }
+
+        if (selectedRole === 'admin') {
+          router.push('/admin/jobs')
+        } else if (selectedRole === 'tech') {
+          router.push('/tech/today')
+        } else {
+          router.push('/customer')
+        }
       }
 
       router.refresh()
-    } catch (error: any) {
-      setMessage({
-        type: 'error',
-        text: error.message || 'Invalid email or password',
-      })
+    } catch (error: unknown) {
+      const text = error instanceof Error ? error.message : 'Invalid email or password'
+      setMessage({ type: 'error', text })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex overflow-hidden bg-midnight-950">
-      {/* Left Panel - Profit Dashboard Preview */}
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden">
-        {/* Animated background effects */}
-        <div className="absolute inset-0">
-          {/* Grid pattern */}
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              backgroundImage: `
-                linear-gradient(rgba(0, 195, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 195, 255, 0.03) 1px, transparent 1px)
-              `,
-              backgroundSize: '50px 50px'
-            }}
-          />
-
-          {/* Glowing orbs */}
-          <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full bg-electric-500/10 blur-[120px] animate-pulse" />
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-profit-500/8 blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 right-1/3 w-[300px] h-[300px] rounded-full bg-electric-600/5 blur-[80px]" />
-        </div>
-
-        {/* Content overlay */}
-        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-electric-500 to-electric-600 flex items-center justify-center shadow-elevation-3">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
-              </svg>
-            </div>
-            <div>
-              <span className="text-xl font-bold text-white">Blue Collar Bot</span>
-              <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-profit-500/20 text-profit-400 border border-profit-500/30">PRO</span>
-            </div>
-          </div>
-
-          {/* Hero Content */}
-          <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-electric-500/10 border border-electric-500/20 text-electric-400 text-sm font-medium mb-6">
-              <div className="w-2 h-2 rounded-full bg-profit-400 animate-pulse" />
-              Real-time profit tracking
-            </div>
-
-            <h1 className="text-5xl font-bold text-white leading-[1.1] tracking-tight">
-              Track every dollar.
-              <span className="block mt-2 text-transparent bg-clip-text bg-gradient-to-r from-electric-400 via-neon-cyan to-profit-400">
-                Maximize profit.
-              </span>
-            </h1>
-
-            <p className="mt-6 text-lg text-surface-400 leading-relaxed max-w-md">
-              AI-powered business intelligence for trade professionals. See exactly where your money goes and how to make more.
-            </p>
-
-            {/* Mock Dashboard Preview */}
-            <div className="mt-10 space-y-4">
-              {/* Stats row */}
-              <div className="flex gap-4">
-                <div className="flex-1 p-4 rounded-xl bg-midnight-900/60 backdrop-blur border border-white/5">
-                  <div className="text-xs text-surface-500 uppercase tracking-wider mb-1">Today&apos;s Revenue</div>
-                  <div className="text-2xl font-bold font-mono text-profit-400">$4,827</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <svg className="w-3 h-3 text-profit-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                    <span className="text-xs font-semibold text-profit-400">+23%</span>
-                  </div>
-                </div>
-                <div className="flex-1 p-4 rounded-xl bg-midnight-900/60 backdrop-blur border border-white/5">
-                  <div className="text-xs text-surface-500 uppercase tracking-wider mb-1">Jobs Completed</div>
-                  <div className="text-2xl font-bold font-mono text-white">12</div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <svg className="w-3 h-3 text-electric-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                    <span className="text-xs font-semibold text-electric-400">+4 from yesterday</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Mini chart */}
-              <div className="p-4 rounded-xl bg-midnight-900/60 backdrop-blur border border-white/5">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs text-surface-500 uppercase tracking-wider">Weekly Trend</span>
-                  <span className="text-xs font-mono text-profit-400">+$12,450</span>
-                </div>
-                <div className="flex items-end gap-1 h-12">
-                  {[40, 65, 45, 80, 55, 90, 75].map((height, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 rounded-sm bg-gradient-to-t from-electric-600 to-electric-400"
-                      style={{
-                        height: `${height}%`,
-                        opacity: i === 6 ? 1 : 0.6,
-                        boxShadow: i === 6 ? '0 0 10px rgba(0, 195, 255, 0.5)' : 'none'
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom testimonial */}
-          <div className="flex items-center gap-4 p-4 rounded-xl bg-midnight-900/40 backdrop-blur border border-white/5 max-w-md">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-electric-500 to-profit-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              JM
-            </div>
-            <div>
-              <p className="text-surface-300 text-sm italic">&ldquo;Finally know exactly where every dollar goes. Increased profit margin by 34% in 3 months.&rdquo;</p>
-              <p className="text-surface-500 text-xs mt-1">Jake Miller &mdash; Miller Electric Co.</p>
-            </div>
-          </div>
-        </div>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-cyan-500/25 blur-[130px]" />
+        <div className="absolute bottom-[-200px] left-1/2 h-[460px] w-[460px] -translate-x-1/2 rounded-full bg-blue-500/20 blur-[140px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_42%)]" />
+        <div
+          className="absolute inset-0 opacity-[0.1]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(34,211,238,0.34) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.34) 1px, transparent 1px)',
+            backgroundSize: '56px 56px',
+          }}
+        />
       </div>
 
-      {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 relative">
-        {/* Subtle background glow */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-electric-500/5 blur-[100px]" />
-        </div>
-
-        <div className="w-full max-w-[400px] relative z-10">
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-electric-500 to-electric-600 flex items-center justify-center shadow-elevation-2">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
-              </svg>
+      <main className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-[510px]">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/40 bg-cyan-500/20 text-cyan-300 shadow-neon-cyan">
+              <Workflow className="h-5 w-5" />
             </div>
-            <span className="text-lg font-bold text-white">Blue Collar Bot</span>
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cyan-300/90">Blue Collar Bot</p>
+            <h1 className="mt-3 font-display text-[52px] leading-none tracking-[0.08em] text-white">Access Portal</h1>
           </div>
 
-          {/* Form Header */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-white tracking-tight mb-2">
-              Welcome back
-            </h2>
-            <p className="text-surface-400">
-              Sign in to access your profit dashboard
-            </p>
-          </div>
+          <div
+            className="relative p-[1px] shadow-neon-cyan"
+            style={{
+              clipPath: HUD_FRAME_CLIP,
+              background:
+                'linear-gradient(140deg, rgba(34,211,238,0.58) 0%, rgba(56,189,248,0.34) 32%, rgba(16,185,129,0.26) 100%)',
+            }}
+          >
+            <div
+              className="relative overflow-hidden bg-slate-900/88 p-7 backdrop-blur-xl sm:p-8"
+              style={{ clipPath: HUD_INNER_CLIP }}
+            >
+              <div className="pointer-events-none absolute inset-0">
+                <div className="absolute -left-16 top-[-64px] h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl" />
+                <div className="absolute -right-20 bottom-[-68px] h-32 w-32 rounded-full bg-emerald-400/15 blur-3xl" />
+                <div className="absolute left-1/2 top-0 h-[2px] w-40 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300 to-transparent opacity-80" />
+              </div>
 
-          {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-5">
-            {/* Email Field */}
-            <div>
-              <label
-                htmlFor="email"
-                className={`block text-sm font-medium mb-2 transition-colors duration-200 ${
-                  focusedField === 'email' ? 'text-electric-400' : 'text-surface-400'
-                }`}
-              >
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="you@company.com"
-                required
-                disabled={loading}
-                className={`
-                  w-full h-12 px-4 rounded-xl
-                  bg-midnight-800/60 backdrop-blur
-                  border transition-all duration-200
-                  text-white text-[15px]
-                  placeholder:text-surface-600
-                  outline-none
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  ${focusedField === 'email'
-                    ? 'border-electric-500/50 shadow-elevation-2'
-                    : 'border-white/10 hover:border-white/20'
-                  }
-                `}
-              />
-            </div>
+              <div className="pointer-events-none absolute inset-0" style={{ clipPath: HUD_INNER_CLIP }}>
+                <div className="absolute inset-[10px] border border-cyan-500/20" style={{ clipPath: HUD_INNER_CLIP }} />
+                <div className="absolute left-3 top-3 h-4 w-4 border-l border-t border-cyan-300/70" />
+                <div className="absolute right-3 top-3 h-4 w-4 border-r border-t border-cyan-300/70" />
+                <div className="absolute bottom-3 left-3 h-4 w-4 border-b border-l border-cyan-300/70" />
+                <div className="absolute bottom-3 right-3 h-4 w-4 border-b border-r border-cyan-300/70" />
+              </div>
 
-            {/* Password Field */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label
-                  htmlFor="password"
-                  className={`block text-sm font-medium transition-colors duration-200 ${
-                    focusedField === 'password' ? 'text-electric-400' : 'text-surface-400'
+              <div className="relative">
+              <div className="mb-6 text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/85">Secure Login Node</p>
+                <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white">Welcome back</h2>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.16em] text-white/90">
+                    Sign In As
+                  </label>
+                  <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-700 bg-slate-950/70 p-1">
+                    {(['admin', 'tech', 'customer'] as const).map((role) => (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole(role)
+                          setMessage(null)
+                        }}
+                        className={`rounded-lg px-2 py-2 text-[11px] font-mono uppercase tracking-wide transition ${
+                          selectedRole === role
+                            ? 'bg-cyan-500/20 text-cyan-200 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.45)]'
+                            : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="email"
+                    className={`mb-2 block font-mono text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                      focusedField === 'email' ? 'text-cyan-300' : 'text-white/90'
+                    }`}
+                  >
+                    Work Email
+                  </label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-300/70" />
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="you@company.com"
+                      required
+                      disabled={loading}
+                      className={`h-12 w-full rounded-xl border bg-slate-950/80 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 ${
+                        focusedField === 'email'
+                          ? 'border-cyan-400 ring-2 ring-cyan-400/20'
+                          : 'border-slate-700 hover:border-cyan-500/50'
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label
+                      htmlFor="password"
+                      className={`font-mono text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                        focusedField === 'password' ? 'text-cyan-300' : 'text-white/90'
+                      }`}
+                    >
+                      Password
+                    </label>
+                    <a href="#" className="text-xs text-slate-400 transition hover:text-cyan-300">
+                      Forgot?
+                    </a>
+                  </div>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-300/70" />
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setFocusedField('password')}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="Enter your password"
+                      required
+                      disabled={loading}
+                      className={`h-12 w-full rounded-xl border bg-slate-950/80 pl-10 pr-11 text-sm text-white outline-none transition placeholder:text-slate-500 ${
+                        focusedField === 'password'
+                          ? 'border-cyan-400 ring-2 ring-cyan-400/20'
+                          : 'border-slate-700 hover:border-cyan-500/50'
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-cyan-300"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <label className="group flex items-center justify-between gap-3 rounded-xl border border-cyan-500/30 bg-slate-900/65 px-3 py-2.5 transition hover:border-cyan-400/50 hover:bg-slate-900/80">
+                  <span className="flex items-center gap-3">
+                    <span className="relative inline-flex h-6 w-11 items-center">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="peer sr-only"
+                      />
+                      <span className="h-6 w-11 rounded-full border border-slate-600 bg-slate-800 transition peer-checked:border-cyan-400/70 peer-checked:bg-cyan-500/25" />
+                      <span className="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-slate-300 transition peer-checked:translate-x-5 peer-checked:bg-cyan-200" />
+                    </span>
+                    <span className="text-sm font-medium text-white">Keep me signed in</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-300/95">
+                    Trusted
+                    <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                  </span>
+                </label>
+
+                {message && (
+                  <div
+                    className={`rounded-xl border px-3 py-2 text-sm ${
+                      message.type === 'success'
+                        ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-300'
+                        : 'border-rose-400/50 bg-rose-500/10 text-rose-300'
+                    }`}
+                  >
+                    {message.text}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition ${
+                    loading
+                      ? 'cursor-not-allowed bg-slate-700 text-slate-300'
+                      : 'bg-gradient-to-r from-cyan-600 to-blue-700 text-white shadow-elevation-2 hover:from-cyan-500 hover:to-blue-600'
                   }`}
                 >
-                  Password
-                </label>
-                <a href="#" className="text-sm text-surface-500 hover:text-electric-400 transition-colors font-medium">
-                  Forgot?
-                </a>
+                  {loading ? 'Signing in...' : 'Enter Workspace'}
+                  {!loading && <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />}
+                </button>
+              </form>
+
+              <div className="mt-6 border-t border-slate-700 pt-4 text-center text-sm text-slate-200">
+                Need an account?{' '}
+                <Link href="/signup" className="font-semibold text-cyan-300 hover:text-cyan-200">
+                  Start free trial
+                </Link>
               </div>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="Enter your password"
-                required
-                disabled={loading}
-                className={`
-                  w-full h-12 px-4 rounded-xl
-                  bg-midnight-800/60 backdrop-blur
-                  border transition-all duration-200
-                  text-white text-[15px]
-                  placeholder:text-surface-600
-                  outline-none
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  ${focusedField === 'password'
-                    ? 'border-electric-500/50 shadow-elevation-2'
-                    : 'border-white/10 hover:border-white/20'
-                  }
-                `}
-              />
-            </div>
-
-            {/* Remember Me */}
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input type="checkbox" className="peer sr-only" />
-                <div className="w-5 h-5 rounded-md border border-white/20 bg-midnight-800/60 peer-checked:bg-electric-500 peer-checked:border-electric-500 transition-all flex items-center justify-center">
-                  <svg className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
               </div>
-              <span className="text-sm text-surface-400 group-hover:text-surface-300 transition-colors">Remember me for 30 days</span>
-            </label>
-
-            {/* Error/Success Message */}
-            {message && (
-              <div className={`flex items-start gap-3 p-4 rounded-xl border ${
-                message.type === 'success'
-                  ? 'bg-profit-500/10 border-profit-500/30'
-                  : 'bg-loss-500/10 border-loss-500/30'
-              }`}>
-                <svg className={`w-5 h-5 shrink-0 mt-0.5 ${
-                  message.type === 'success' ? 'text-profit-400' : 'text-loss-400'
-                }`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  {message.type === 'success' ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  )}
-                </svg>
-                <span className={`text-sm font-medium ${message.type === 'success' ? 'text-profit-400' : 'text-loss-400'}`}>
-                  {message.text}
-                </span>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className={`
-                w-full h-12 rounded-xl font-semibold text-[15px]
-                flex items-center justify-center gap-2
-                transition-all duration-300
-                ${loading
-                  ? 'bg-midnight-700 cursor-not-allowed text-surface-500'
-                  : 'bg-gradient-to-r from-electric-500 to-electric-600 hover:from-electric-400 hover:to-electric-500 shadow-elevation-2 hover:shadow-elevation-3 hover:-translate-y-0.5'
-                }
-                text-white
-              `}
-            >
-              {loading ? (
-                <>
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span>Signing in...</span>
-                </>
-              ) : (
-                <>
-                  <span>Sign in to dashboard</span>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-4 text-sm text-surface-500 bg-midnight-950">or</span>
             </div>
           </div>
 
-          {/* Sign up link */}
-          <p className="text-center text-surface-400">
-            Don&apos;t have an account?{' '}
-            <Link
-              href="/signup"
-              className="text-electric-400 hover:text-electric-300 font-semibold transition-colors"
-            >
-              Start free trial
-            </Link>
-          </p>
-
-          {/* Terms */}
-          <p className="mt-8 text-center text-xs text-surface-600 leading-relaxed">
-            By signing in, you agree to our{' '}
-            <a href="#" className="text-surface-400 hover:text-electric-400 transition-colors">Terms</a>
-            {' '}and{' '}
-            <a href="#" className="text-surface-400 hover:text-electric-400 transition-colors">Privacy Policy</a>
-          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-cyan-200/70">
+            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">Realtime CRM</span>
+            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">Dispatch AI</span>
+            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">Instant Invoices</span>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

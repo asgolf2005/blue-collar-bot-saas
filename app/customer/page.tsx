@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { format, addDays } from 'date-fns'
 import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
+import { Wrench } from 'lucide-react'
 
 export default async function CustomerDashboard() {
   const supabase = await createClient()
@@ -175,7 +176,7 @@ export default async function CustomerDashboard() {
       <div className="mb-6 page-enter">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-            <span className="text-2xl">👋</span>
+            <Wrench className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
@@ -188,7 +189,7 @@ export default async function CustomerDashboard() {
 
       {/* Snapshot */}
       <div className="grid grid-cols-2 gap-3 mb-6 page-enter stagger-1">
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700">
           <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-medium">Next Visit</p>
           <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">
             {upcomingJobs?.[0]?.scheduled_start
@@ -201,13 +202,13 @@ export default async function CustomerDashboard() {
               : 'Call to book a visit'}
           </p>
         </div>
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700">
           <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-medium">Service History</p>
           <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">
             {totalJobCount || 0} jobs
           </p>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Last visit {lastServiceDate ? format(new Date(lastServiceDate), 'MMM d, yyyy') : '—'}
+            Last visit {lastServiceDate ? format(new Date(lastServiceDate), 'MMM d, yyyy') : 'N/A'}
           </p>
         </div>
       </div>
@@ -217,7 +218,7 @@ export default async function CustomerDashboard() {
         {/* Contact */}
         <a
           href={`tel:${business.phone}`}
-          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
+          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/25">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -231,7 +232,7 @@ export default async function CustomerDashboard() {
         {/* Upcoming */}
         <Link
           href="/customer/appointments"
-          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
+          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-lg shadow-cyan-500/25">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -245,7 +246,7 @@ export default async function CustomerDashboard() {
         {/* Invoices */}
         <Link
           href="/customer/invoices"
-          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
+          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
         >
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-lg ${
             totalOutstanding > 0 ? 'bg-gradient-to-br from-amber-500 to-orange-500 shadow-amber-500/25' : 'bg-gradient-to-br from-emerald-500 to-green-500 shadow-emerald-500/25'
@@ -269,7 +270,7 @@ export default async function CustomerDashboard() {
         {/* Account */}
         <Link
           href="/customer/profile"
-          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
+          className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-400 to-slate-500 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-lg shadow-slate-400/25">
             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -299,7 +300,7 @@ export default async function CustomerDashboard() {
             {recentJobs.map((job) => (
               <div
                 key={job.id}
-                className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700"
+                className="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -319,7 +320,7 @@ export default async function CustomerDashboard() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+          <div className="text-center py-8 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-3">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -346,7 +347,7 @@ export default async function CustomerDashboard() {
               <Link
                 key={job.id}
                 href={`/customer/appointments/${job.id}`}
-                className="block p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
+                className="block p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700 hover:border-blue-500/30 hover:shadow-blue-500/10 transition-all group"
               >
                 <div className="flex items-center gap-4">
                   <div className="text-center min-w-[50px] px-3 py-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25">
@@ -373,7 +374,7 @@ export default async function CustomerDashboard() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700">
+          <div className="text-center py-8 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-slate-200 dark:border-slate-700">
             <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-3">
               <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -411,7 +412,7 @@ export default async function CustomerDashboard() {
               <Link
                 key={invoice.id}
                 href={`/customer/invoices/${invoice.id}`}
-                className="block p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-xl border border-amber-300 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-600 transition-all group"
+                className="block p-4 rounded-2xl bg-white dark:bg-slate-800 shadow-elevation-1 border border-amber-300 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-600 transition-all group"
               >
                 <div className="flex items-center justify-between">
                   <div>

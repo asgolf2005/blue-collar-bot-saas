@@ -239,10 +239,12 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
 
     return ranges[timeRange]
   }, [timeRange])
+  const currentRange = rangeDefinition.current
+  const previousRange = rangeDefinition.previous
 
   const { stats, trends } = useMemo(
-    () => calculateJobMetrics(jobs, rangeDefinition.current, rangeDefinition.previous),
-    [jobs, rangeDefinition]
+    () => calculateJobMetrics(jobs, currentRange, previousRange),
+    [jobs, currentRange, previousRange]
   )
 
   // Extract unique technicians from jobs
@@ -442,7 +444,7 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
               ))}
             </div>
             <div className="w-full md:w-auto">
-              <KeyboardShortcutsCard role="admin" defaultExpanded={false} compact />
+              <KeyboardShortcutsCard role="admin" defaultExpanded={false} />
             </div>
           </div>
         </div>

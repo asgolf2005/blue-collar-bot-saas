@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,15 +22,12 @@ export default function NotificationsPageClient({
   title = 'Notifications',
   description = 'Updates about jobs, assignments, and payments.',
 }: NotificationsPageClientProps) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
-  const [unreadCount, setUnreadCount] = useState(
-    initialNotifications.filter((notification) => !notification.read).length
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.read).length,
+    [notifications]
   )
-
-  useEffect(() => {
-    setUnreadCount(notifications.filter((notification) => !notification.read).length)
-  }, [notifications])
 
   useEffect(() => {
     let channel: RealtimeChannel | null = null

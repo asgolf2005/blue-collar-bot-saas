@@ -151,7 +151,7 @@ export async function GET(request: Request) {
         // Fetch job details for each location
         if (latestLocations && latestLocations.length > 0) {
           const locationsWithJobs = await Promise.all(
-            latestLocations.map(async (loc) => {
+            latestLocations.map(async (loc: {job_id?: string; [key: string]: unknown}) => {
               if (loc.job_id) {
                 const { data: job } = await supabase
                   .from('jobs')

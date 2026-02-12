@@ -1,18 +1,40 @@
 'use client'
 
 import { JobStatus } from '@/lib/types'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Navigation, MapPin, Wrench, CheckCircle, Loader2, MapPinOff } from 'lucide-react'
+
+interface StatusButtonsProps {
+  jobId: string
+  currentStatus: JobStatus
+  customerAddress?: string
+}
+
+const statusSteps: JobStatus[] = ['scheduled', 'on_the_way', 'arrived', 'in_progress', 'completed']
+
+const statusLabels: Record<JobStatus, string> = {
+  scheduled: 'Scheduled',
+  on_the_way: 'On the way',
+  arrived: 'Arrived',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+const statusColors: Record<JobStatus, { bg: string; border: string; text: string; glow: string }> = {
+  scheduled: { bg: 'bg-cyan-500', border: 'border-cyan-500', text: 'text-cyan-400', glow: 'shadow-[0_0_30px_rgba(34,211,238,0.5)]' },
+  on_the_way: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-400', glow: 'shadow-[0_0_30px_rgba(251,191,36,0.5)]' },
+  arrived: { bg: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-400', glow: 'shadow-[0_0_30px_rgba(96,165,250,0.5)]' },
+  in_progress: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-400', glow: 'shadow-[0_0_30px_rgba(251,191,36,0.5)]' },
+  completed: { bg: 'bg-emerald-500', border: 'border-emerald-500', text: 'text-emerald-400', glow: 'shadow-[0_0_30px_rgba(52,211,153,0.5)]' },
+  cancelled: { bg: 'bg-red-500', border: 'border-red-500', text: 'text-red-400', glow: 'shadow-[0_0_30px_rgba(248,113,113,0.5)]' },
+}
 
 export default function StatusButtons({
   jobId,
   currentStatus,
   customerAddress,
-}: {
-  jobId: string
-  currentStatus: JobStatus
-  customerAddress?: string
-}) {
+}: StatusButtonsProps) {
   const [status, setStatus] = useState(currentStatus)
   const [updating, setUpdating] = useState(false)
   const [isTracking, setIsTracking] = useState(false)
@@ -21,7 +43,10 @@ export default function StatusButtons({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastPositionRef = useRef<GeolocationPosition | null>(null)
 
-  const sendLocation = async (position: GeolocationPosition) => {
+  const currentStepIndex = statusSteps.indexOf(status)
+  const progress = status === 'completed' ? 100 : (currentStepIndex / (statusSteps.length - 1)) * 100
+
+  const sendLocation = useCallback(async (position: GeolocationPosition) => {
     try {
       await fetch('/api/technician/location', {
         method: 'POST',
@@ -40,9 +65,9 @@ export default function StatusButtons({
     } catch (error) {
       console.error('Error sending location:', error)
     }
-  }
+  }, [jobId])
 
-  const startTracking = () => {
+  const startTracking = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation not supported')
       return
@@ -85,9 +110,9 @@ export default function StatusButtons({
         sendLocation(lastPositionRef.current)
       }
     }, 30000)
-  }
+  }, [sendLocation])
 
-  const stopTracking = async () => {
+  const stopTracking = useCallback(async () => {
     if (watchIdRef.current !== null) {
       navigator.geolocation.clearWatch(watchIdRef.current)
       watchIdRef.current = null
@@ -107,7 +132,7 @@ export default function StatusButtons({
     }
 
     setIsTracking(false)
-  }
+  }, [jobId])
 
   useEffect(() => {
     return () => {
@@ -127,7 +152,7 @@ export default function StatusButtons({
     if (status === 'completed' || status === 'cancelled' || status === 'scheduled') {
       stopTracking()
     }
-  }, [status])
+  }, [isTracking, startTracking, status, stopTracking])
 
   const updateStatus = async (newStatus: JobStatus) => {
     setUpdating(true)
@@ -161,120 +186,160 @@ export default function StatusButtons({
     }
   }
 
-  const statusButtons = [
-    {
-      status: 'on_the_way' as JobStatus,
-      label: "I'm on the way",
-      activeLabel: "On the way",
-      icon: Navigation,
-      color: 'bg-primary hover:bg-primary/90 text-white dark:text-midnight-950',
-      disabled: status !== 'scheduled',
-    },
-    {
-      status: 'arrived' as JobStatus,
-      label: "I've arrived",
-      activeLabel: "Arrived",
-      icon: MapPin,
-      color: 'bg-info hover:bg-info/90 text-white dark:text-midnight-950',
-      disabled: status !== 'on_the_way',
-    },
-    {
-      status: 'in_progress' as JobStatus,
-      label: 'Start work',
-      activeLabel: "Working",
-      icon: Wrench,
-      color: 'bg-warning hover:bg-warning/90 text-white dark:text-midnight-950',
-      disabled: status !== 'arrived' && status !== 'on_the_way',
-    },
-    {
-      status: 'completed' as JobStatus,
-      label: 'Complete job',
-      activeLabel: "Completed",
-      icon: CheckCircle,
-      color: 'bg-success hover:bg-success/90 text-white dark:text-midnight-950',
-      disabled: status !== 'in_progress',
-    },
-  ]
+  const getNextStatus = (): JobStatus | null => {
+    const currentIndex = statusSteps.indexOf(status)
+    if (currentIndex < statusSteps.length - 1 && status !== 'cancelled') {
+      return statusSteps[currentIndex + 1]
+    }
+    return null
+  }
+
+  const getStatusButtonConfig = (nextStatus: JobStatus) => {
+    switch (nextStatus) {
+      case 'on_the_way':
+        return {
+          label: "I'm on the way",
+          icon: <Navigation className="w-5 h-5" />,
+          color: statusColors.on_the_way,
+        }
+      case 'arrived':
+        return {
+          label: "I've arrived",
+          icon: <MapPin className="w-5 h-5" />,
+          color: statusColors.arrived,
+        }
+      case 'in_progress':
+        return {
+          label: 'Start work',
+          icon: <Wrench className="w-5 h-5" />,
+          color: statusColors.in_progress,
+        }
+      case 'completed':
+        return {
+          label: 'Complete job',
+          icon: <CheckCircle className="w-5 h-5" />,
+          color: statusColors.completed,
+        }
+      default:
+        return { label: 'Update', icon: null, color: statusColors.scheduled }
+    }
+  }
+
+  const nextStatus = getNextStatus()
+  const buttonConfig = nextStatus ? getStatusButtonConfig(nextStatus) : null
+  const colors = statusColors[status]
 
   if (status === 'completed') {
     return (
-      <div className="bg-surface-50/90 backdrop-blur-xl rounded-2xl border border-success/20 p-6 text-center">
-        <CheckCircle className="w-12 h-12 text-success mx-auto mb-2" />
-        <h3 className="text-lg font-semibold text-ink">Job Completed</h3>
-        <p className="text-muted text-sm mt-1">Great work!</p>
+      <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-6 text-center">
+        <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-500/30">
+          <CheckCircle className="w-8 h-8 text-emerald-400" />
+        </div>
+        <h3 className="text-lg font-bold text-white">Job Completed</h3>
+        <p className="text-sm text-emerald-400 mt-1">Great work! All done.</p>
+      </div>
+    )
+  }
+
+  if (status === 'cancelled') {
+    return (
+      <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-6 text-center">
+        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-red-500/30">
+          <MapPinOff className="w-8 h-8 text-red-400" />
+        </div>
+        <h3 className="text-lg font-bold text-white">Job Cancelled</h3>
+        <p className="text-sm text-red-400 mt-1">This job has been cancelled.</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-surface-50/90 backdrop-blur-xl rounded-2xl border border-surface-200 p-4">
+    <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-ink">Update Status</h2>
+        <div className="flex items-center gap-2">
+          <Wrench className="w-5 h-5 text-cyan-400" />
+          <h3 className="font-semibold text-white">Job Progress</h3>
+        </div>
         {isTracking && (
-          <div className="flex items-center text-xs text-success">
-            <div className="w-2 h-2 bg-success rounded-full animate-pulse mr-1.5"></div>
-            Sharing location
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Live</span>
           </div>
         )}
       </div>
-
-      {locationError && (status === 'on_the_way' || status === 'arrived') && (
-        <div className="mb-4 p-3 bg-warning/10 border border-warning/20 rounded-xl flex items-start">
-          <MapPinOff className="w-5 h-5 text-warning mr-2 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-warning font-medium">Location sharing unavailable</p>
-            <p className="text-xs text-warning/80 mt-0.5">{locationError}</p>
-            <button
-              onClick={startTracking}
-              className="text-xs text-warning underline mt-1 hover:text-warning"
-            >
-              Try again
-            </button>
+      
+      <div className="space-y-4">
+        {/* Progress Bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-xs">
+            <span className="text-slate-400 uppercase tracking-wider">Progress</span>
+            <span className="font-bold text-white">{Math.round(progress)}%</span>
+          </div>
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all duration-500 ${colors.bg} ${colors.glow}`}
+              style={{ width: `${progress}%` }}
+            />
           </div>
         </div>
-      )}
 
-      <div className="space-y-2">
-        {statusButtons.map((btn) => {
-          const Icon = btn.icon
-          const isActive = status === btn.status
+        {/* Current Status */}
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+          <span className="text-sm text-slate-400">Current Status</span>
+          <span className={`text-sm font-bold ${colors.text}`}>
+            {statusLabels[status]}
+          </span>
+        </div>
 
-          return (
-            <button
-              key={btn.status}
-              onClick={() => updateStatus(btn.status)}
-              disabled={btn.disabled || updating || isActive}
-              className={`w-full flex items-center justify-center py-3 px-4 rounded-xl font-medium transition ${
-                isActive
-                  ? 'bg-surface-100 text-muted cursor-not-allowed border border-surface-200'
-                  : btn.disabled || updating
-                  ? 'bg-surface-100 text-muted cursor-not-allowed opacity-50 border border-surface-200'
-                  : btn.color
-              }`}
-            >
-              {updating && !isActive ? (
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              ) : (
-                <Icon className={`w-5 h-5 mr-2 ${isActive && btn.status === 'on_the_way' ? 'animate-pulse' : ''}`} />
-              )}
-              {isActive ? btn.activeLabel : btn.label}
-              {isActive && <CheckCircle className="w-4 h-4 ml-2" />}
-            </button>
-          )
-        })}
+        {/* Location Error */}
+        {locationError && (status === 'on_the_way' || status === 'arrived') && (
+          <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+            <MapPinOff className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-400">Location unavailable</p>
+              <p className="text-xs text-slate-400 mt-0.5">{locationError}</p>
+              <button
+                onClick={startTracking}
+                className="text-xs text-cyan-400 underline mt-1 hover:text-cyan-300"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Main Action Button */}
+        {buttonConfig && nextStatus && (
+          <button
+            onClick={() => updateStatus(nextStatus)}
+            disabled={updating}
+            className={`w-full h-14 flex items-center justify-center gap-2 rounded-xl font-bold text-slate-900 transition-all active:scale-[0.98] disabled:opacity-50 ${buttonConfig.color.bg} ${buttonConfig.color.glow} hover:brightness-110`}
+          >
+            {updating ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                {buttonConfig.icon}
+                {buttonConfig.label}
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Get Directions Button */}
+        {customerAddress && (status === 'on_the_way' || status === 'scheduled') && (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customerAddress)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full h-12 px-4 bg-slate-700/50 text-white font-medium rounded-xl border border-slate-600 hover:border-cyan-500/30 hover:bg-slate-700 transition-all active:scale-[0.98]"
+          >
+            <Navigation className="w-5 h-5 text-cyan-400" />
+            Get Directions
+          </a>
+        )}
       </div>
-
-      {customerAddress && (status === 'on_the_way' || status === 'scheduled') && (
-        <a
-          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customerAddress)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 w-full flex items-center justify-center py-3 px-4 rounded-xl bg-surface-100 hover:bg-surface-50 text-surface-600 font-medium transition border border-surface-200"
-        >
-          <Navigation className="w-5 h-5 mr-2" />
-          Open in Maps
-        </a>
-      )}
     </div>
   )
 }

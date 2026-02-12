@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
-import GlobalSearch from '@/components/search/GlobalSearch'
-import GlobalKeyboardShortcuts from '@/components/keyboard/GlobalKeyboardShortcuts'
+import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 
 export default async function AdminLayout({
   children,
@@ -16,51 +15,59 @@ export default async function AdminLayout({
     redirect('/login')
   }
 
+  // Get user profile
   const { data: profile } = await supabase
     .from('users')
-    .select('full_name, role, business_id')
+    .select('full_name, role')
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'admin') {
-    redirect('/tech/today')
+  // Only admin and office roles can access admin panel
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'office')) {
+    redirect('/login')
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
-      {/* Ambient background effects */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Primary glow */}
-        <div className="absolute top-0 right-1/4 w-[800px] h-[800px] bg-primary/8 rounded-full blur-[150px]" />
-        {/* Secondary profit glow */}
-        <div className="absolute bottom-0 left-1/4 w-[600px] h-[600px] bg-success/6 rounded-full blur-[120px]" />
-        {/* Tertiary accent */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-primary/5 rounded-full blur-[180px]" />
-
-        {/* Subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.015]"
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0e1a] text-slate-900 dark:text-white transition-colors duration-300">
+      {/* Light Mode - Subtle Dot Pattern */}
+      <div className="fixed inset-0 pointer-events-none dark:hidden opacity-[0.4]">
+        <div 
+          className="absolute inset-0"
           style={{
-            backgroundImage: `
-              linear-gradient(rgba(31, 58, 95, 0.35) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(31, 58, 95, 0.35) 1px, transparent 1px)
-            `,
-            backgroundSize: '80px 80px'
+            backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+            backgroundSize: '24px 24px'
           }}
         />
       </div>
 
-      <AdminNav userName={profile.full_name} />
-      <GlobalSearch />
-      <GlobalKeyboardShortcuts role="admin" />
+      {/* Dark Mode - Blueprint Grid */}
+      <div className="fixed inset-0 pointer-events-none hidden dark:block opacity-[0.15]">
+        <div 
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, rgba(34, 211, 238, 0.3) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(34, 211, 238, 0.3) 1px, transparent 1px)
+            `,
+            backgroundSize: '48px 48px'
+          }}
+        />
+      </div>
 
-      <main className="lg:ml-20 min-h-screen relative">
-        {/* Mobile top padding for header */}
-        <div className="lg:hidden h-16" />
-        <div className="p-6 lg:p-8">
-          {children}
-        </div>
-      </main>
+      {/* Accent Glow - Dark Mode Only */}
+      <div className="fixed top-0 right-0 w-[600px] h-[500px] opacity-0 dark:opacity-[0.08] pointer-events-none transition-opacity duration-300">
+        <div className="absolute inset-0 bg-gradient-to-bl from-cyan-400 to-transparent blur-[100px]" />
+      </div>
+
+      <AdminNav userName={profile.full_name} />
+      
+      <ErrorBoundary>
+        <main className="lg:ml-[72px] min-h-screen pt-24 lg:pt-8 px-4 lg:px-6 pb-12 relative">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </main>
+      </ErrorBoundary>
     </div>
   )
 }

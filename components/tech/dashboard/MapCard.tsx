@@ -167,7 +167,7 @@ export default function MapCard({ jobs }: MapCardProps) {
     <div className="rounded-3xl bg-white dark:bg-surface-900 p-6 shadow-elevation-premium-2 border border-surface-200 dark:border-white/10">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-ink dark:text-surface-100 mb-1">Today's Route</h3>
+          <h3 className="text-lg font-semibold text-ink dark:text-surface-100 mb-1">Today&apos;s Route</h3>
           <p className="text-sm text-muted">
             {jobsWithAddresses.length} location{jobsWithAddresses.length !== 1 ? 's' : ''} on your map
           </p>
@@ -201,7 +201,7 @@ export default function MapCard({ jobs }: MapCardProps) {
               <div className="absolute inset-0 flex items-center justify-center bg-surface-50 dark:bg-surface-800">
                 <div className="text-center">
                   <MapPin className="w-12 h-12 text-muted mx-auto mb-3" />
-                  <p className="text-sm text-muted">No addresses available for today's jobs</p>
+                  <p className="text-sm text-muted">No addresses available for today&apos;s jobs</p>
                 </div>
               </div>
             )}

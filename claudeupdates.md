@@ -126,7 +126,8 @@ All subsequent changes will be documented below with:
 - Replaced generic buttons with `.glass-btn-primary` and `.glass-btn-secondary`
 - Added `motion-base` class for consistent animation timing
 - Added `accent-primary` to checkboxes for brand consistency
-- Improved hover states on service cards with `shadow-glow-primary`
+- Improved hover states on service cards with `shadow-glow-primary'
+
 
 **Before:** Generic Tailwind gray colors, plain inputs, basic error box
 **After:** Premium glassmorphism with multi-layered effects, sophisticated inputs with focus states, FormAlert component
@@ -151,7 +152,6 @@ All subsequent changes will be documented below with:
 - Consistent empty states using shared component
 - Proper color system throughout
 - Professional polish on all customer and admin pages
-
 ---
 
 ### Files: `/admin/customers/new` (NEW PAGE)
@@ -445,7 +445,8 @@ const totalOutstanding = (invoices?.filter(inv => inv.status !== 'paid')
 
 1. **Currency Display**: Verify invoice amounts show correctly in both admin and customer portals
 2. **Dark Mode**: Toggle theme and verify all pages render correctly
-3. **New Customer**: Test creating a customer via /admin/customers/new
+3. **New Customer**: Test creating a cus
+tomer via /admin/customers/new
 4. **Form Validation**: Test all forms with empty/invalid data
 5. **Empty States**: Clear all appointments/jobs and verify empty states display nicely
 6. **Responsive**: Test on mobile - premium design should adapt gracefully

@@ -88,7 +88,7 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
               Dashboard
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">
-              Welcome back! Here's your business overview.
+              Welcome back! Here&apos;s your business overview.
             </p>
           </div>
           <Link

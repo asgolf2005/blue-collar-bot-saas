@@ -11,6 +11,7 @@ export interface KeyboardShortcut {
   description: string
   action: () => void
   global?: boolean // Whether the shortcut works globally or only in specific contexts
+  group?: string // Group name for organizing shortcuts in help modal
 }
 
 interface UseKeyboardShortcutsOptions {
@@ -79,3 +80,14 @@ export const NAV_SHORTCUTS = {
   TODAY: { key: 't', description: 'Go to today' },
   DASHBOARD: { key: 'd', description: 'Go to dashboard' },
 } as const
+
+// Helper function to format shortcut for display
+export function getShortcutText(shortcut: KeyboardShortcut): string {
+  const parts: string[] = []
+  if (shortcut.meta) parts.push('⌘')
+  if (shortcut.ctrl) parts.push('Ctrl')
+  if (shortcut.alt) parts.push('Alt')
+  if (shortcut.shift) parts.push('Shift')
+  parts.push(shortcut.key.toUpperCase())
+  return parts.join(' + ')
+}

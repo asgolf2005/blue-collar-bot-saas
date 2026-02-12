@@ -1,10 +1,12 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns'
-import { Calendar, Filter, ChevronRight, ChevronLeft } from 'lucide-react'
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, isWithinInterval, startOfDay, endOfDay, parseISO, addWeeks } from 'date-fns'
+import { Calendar, Filter, ChevronRight, ChevronLeft, Clock, MapPin, Wrench } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { JobWithDetails } from '@/lib/types'
+
+type JobStatus = 'scheduled' | 'on_the_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled'
 
 interface TechnicianScheduleProps {
   jobs: JobWithDetails[]
@@ -16,19 +18,84 @@ interface TechInfo {
   name: string
   avatar?: string
   role: string
+  initials: string
 }
 
-type ViewMode = 'day' | 'week' | 'fortnight'
+type ViewMode = 'day' | 'week' | 'fortnight' | 'month'
 
 const BUSINESS_HOURS = {
   start: 7, // 7 AM
   end: 19,  // 7 PM
 }
 
+// Status color mapping for Industrial Futurism theme
+const STATUS_STYLES: Record<JobStatus, { border: string; glow: string; bg: string; text: string; label: string }> = {
+  scheduled: {
+    border: 'border-cyan-500',
+    glow: 'shadow-[0_0_20px_rgba(6,182,212,0.3)]',
+    bg: 'bg-cyan-500/10',
+    text: 'text-cyan-400',
+    label: 'Scheduled',
+  },
+  on_the_way: {
+    border: 'border-amber-500',
+    glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-400',
+    label: 'On the way',
+  },
+  arrived: {
+    border: 'border-amber-500',
+    glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-400',
+    label: 'Arrived',
+  },
+  in_progress: {
+    border: 'border-blue-500',
+    glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-400',
+    label: 'In progress',
+  },
+  completed: {
+    border: 'border-emerald-500',
+    glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-400',
+    label: 'Completed',
+  },
+  cancelled: {
+    border: 'border-gray-600',
+    glow: '',
+    bg: 'bg-gray-500/10',
+    text: 'text-gray-400',
+    label: 'Cancelled',
+  },
+}
+
+// Generate initials from full name
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(n => n.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+// Format time range
+function formatTimeRange(start: string, end?: string | null): string {
+  const startTime = format(parseISO(start), 'h:mm a')
+  if (!end) return startTime
+  const endTime = format(parseISO(end), 'h:mm a')
+  return `${startTime} - ${endTime}`
+}
+
 export default function TechnicianSchedule({ jobs, businessId }: TechnicianScheduleProps) {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('week')
-  const dayViewMaxHeight = 'min(70vh, 640px)'
+  const [hoveredJob, setHoveredJob] = useState<string | null>(null)
   const router = useRouter()
 
   // Get date range based on view mode
@@ -47,13 +114,20 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
         endDate: weekEnd,
         days: Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
       }
-    } else {
-      // fortnight
+    } else if (viewMode === 'fortnight') {
       const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
       return {
         startDate: weekStart,
         endDate: addDays(weekStart, 13),
         days: Array.from({ length: 14 }, (_, i) => addDays(weekStart, i)),
+      }
+    } else {
+      // month view
+      const monthStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
+      return {
+        startDate: monthStart,
+        endDate: addWeeks(monthStart, 4),
+        days: Array.from({ length: 28 }, (_, i) => addDays(monthStart, i)),
       }
     }
   }, [selectedDate, viewMode])
@@ -62,13 +136,15 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
   const technicians = useMemo(() => {
     const techMap = new Map<string, TechInfo>()
     jobs.forEach(job => {
-      if (job.technician && job.technician.role === 'tech') {
+      if (job.technician) {
         if (!techMap.has(job.technician.id)) {
+          const name = job.technician.full_name || 'Technician'
           techMap.set(job.technician.id, {
             id: job.technician.id,
-            name: job.technician.full_name || 'Technician',
-            avatar: job.technician.avatar_url,
-            role: job.technician.business_role || 'Technician',
+            name: name,
+            avatar: (job.technician as unknown as { avatar_url?: string }).avatar_url,
+            role: (job.technician as unknown as { business_role?: string }).business_role || 'Field Technician',
+            initials: getInitials(name),
           })
         }
       }
@@ -99,47 +175,22 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
       setSelectedDate(prev => addDays(prev, direction === 'next' ? 1 : -1))
     } else if (viewMode === 'week') {
       setSelectedDate(prev => addDays(prev, direction === 'next' ? 7 : -7))
-    } else {
+    } else if (viewMode === 'fortnight') {
       setSelectedDate(prev => addDays(prev, direction === 'next' ? 14 : -14))
+    } else {
+      setSelectedDate(prev => addWeeks(prev, direction === 'next' ? 4 : -4))
     }
+  }
+
+  const goToToday = () => {
+    setSelectedDate(new Date())
   }
 
   const handleJobClick = (jobId: string) => {
     router.push(`/admin/jobs/${jobId}`)
   }
 
-  const getJobBlockStyle = (job: JobWithDetails) => {
-    const urgency = job.urgency
-    const isCompleted = job.status === 'completed'
-
-    if (isCompleted) {
-      return {
-        bg: 'bg-[#34D399]',
-        text: 'text-white',
-        badge: 'bg-white/30',
-      }
-    } else if (urgency === 'high' || urgency === 'emergency') {
-      return {
-        bg: 'bg-[#93C5FD]',
-        text: 'text-white',
-        badge: 'bg-white/30',
-      }
-    } else if (job.description?.toLowerCase().includes('maintenance')) {
-      return {
-        bg: 'bg-[#A78BFA]',
-        text: 'text-white',
-        badge: 'bg-white/30',
-      }
-    } else {
-      return {
-        bg: 'bg-[#FBBF24]',
-        text: 'text-[#78350F]',
-        badge: 'bg-white/30',
-      }
-    }
-  }
-
-  const getJobPosition = (job: JobWithDetails, dayIndex: number) => {
+  const getJobPosition = (job: JobWithDetails) => {
     const jobStart = parseISO(job.scheduled_start!)
     const jobEnd = job.scheduled_end ? parseISO(job.scheduled_end) : addDays(jobStart, 0)
 
@@ -148,552 +199,431 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
     const endHour = jobEnd.getHours()
     const endMinute = jobEnd.getMinutes()
 
-    // Calculate position as percentage of the day
     const startPercent = ((startHour - BUSINESS_HOURS.start) + (startMinute / 60)) / (BUSINESS_HOURS.end - BUSINESS_HOURS.start) * 100
     const duration = ((endHour - startHour) + ((endMinute - startMinute) / 60))
     const heightPercent = (duration / (BUSINESS_HOURS.end - BUSINESS_HOURS.start)) * 100
 
     return {
-      top: `${Math.max(0, startPercent)}%`,
-      height: `${Math.max(5, heightPercent)}%`,
-      time: format(jobStart, 'h:mm a'),
+      top: `${Math.max(0, Math.min(startPercent, 95))}%`,
+      height: `${Math.max(8, Math.min(heightPercent, 100 - startPercent))}%`,
     }
   }
 
+  const getDateRangeLabel = () => {
+    if (viewMode === 'day') {
+      return format(selectedDate, 'MMMM d, yyyy')
+    } else if (viewMode === 'week') {
+      return `${format(days[0], 'MMM d')} - ${format(days[6], 'MMM d, yyyy')}`
+    } else if (viewMode === 'fortnight') {
+      return `${format(days[0], 'MMM d')} - ${format(days[13], 'MMM d, yyyy')}`
+    } else {
+      return `${format(days[0], 'MMM d')} - ${format(days[27], 'MMM d, yyyy')}`
+    }
+  }
+
+  const today = new Date()
+
   return (
-    <div style={{ background: 'var(--bg-card)' }} className="rounded-2xl shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 p-6 pb-0">
-        <div>
-          <h2 style={{
-            fontSize: 'var(--text-5xl)',
-            fontWeight: 'var(--font-bold)',
-            color: 'var(--gray-900)',
-            letterSpacing: 'var(--tracking-tight)',
-          }}>
-            Technician Schedule
-          </h2>
-          <p style={{
-            fontSize: 'var(--text-md)',
-            color: 'var(--gray-500)',
-            marginTop: 'var(--spacing-1)',
-          }}>
-            {viewMode === 'day' ? 'Daily schedule with hourly time slots' :
-             viewMode === 'week' ? 'Weekly schedule overview' :
-             'Two-week schedule overview'}
-          </p>
-        </div>
+    <div className="w-full p-6">
+      {/* Main Card */}
+      <div className="relative bg-[#111827] rounded-lg overflow-hidden">
+        {/* Blueprint Corner Accents */}
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-500/50" />
+        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyan-500/50" />
+        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyan-500/30" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-500/30" />
 
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle */}
-          <div style={{
-            background: 'var(--gray-100)',
-            borderRadius: 'var(--radius-md)',
-            padding: 'var(--spacing-1)',
-            display: 'flex',
-            gap: 'var(--spacing-1)',
-          }}>
-            {(['day', 'week', 'fortnight'] as ViewMode[]).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-medium)',
-                  background: viewMode === mode ? 'var(--bg-card)' : 'transparent',
-                  color: viewMode === mode ? 'var(--gray-900)' : 'var(--gray-600)',
-                  border: 'none',
-                  boxShadow: viewMode === mode ? 'var(--shadow-xs)' : 'none',
-                  transition: 'var(--transition-base)',
-                }}
-                className="cursor-pointer"
-              >
-                {mode === 'fortnight' ? '2 Weeks' : mode.charAt(0).toUpperCase() + mode.slice(1)}
-              </button>
-            ))}
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 border-b border-gray-800">
+          {/* Left: Title & Subtitle */}
+          <div>
+            <h2 className="font-['Bebas_Neue'] text-4xl tracking-wide text-white uppercase">
+              Technician Schedule
+            </h2>
+            <p className="font-mono text-sm text-gray-500 mt-1">
+              Weekly dispatch overview
+            </p>
           </div>
 
-          {/* Date Navigation */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigateDate('prev')}
-              style={{
-                width: 'var(--button-md)',
-                height: 'var(--button-md)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--gray-200)',
-                background: 'var(--bg-card)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ChevronLeft style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
-            </button>
-
-            <div style={{
-              padding: '0 var(--spacing-3)',
-              height: 'var(--button-md)',
-              display: 'flex',
-              alignItems: 'center',
-              fontSize: 'var(--text-md)',
-              fontWeight: 'var(--font-medium)',
-              color: 'var(--gray-700)',
-              minWidth: '180px',
-              justifyContent: 'center',
-            }}>
-              <Calendar style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)', marginRight: 'var(--spacing-2)' }} />
-              {viewMode === 'day' && format(selectedDate, 'MMMM d, yyyy')}
-              {viewMode === 'week' && `${format(days[0], 'MMM d')} - ${format(days[6], 'MMM d, yyyy')}`}
-              {viewMode === 'fortnight' && `${format(days[0], 'MMM d')} - ${format(days[13], 'MMM d, yyyy')}`}
-            </div>
-
-            <button
-              onClick={() => navigateDate('next')}
-              style={{
-                width: 'var(--button-md)',
-                height: 'var(--button-md)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--gray-200)',
-                background: 'var(--bg-card)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <ChevronRight style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
-            </button>
-          </div>
-
-          {/* Filter Button */}
-          <button
-            style={{
-              height: 'var(--button-md)',
-              padding: '0 var(--spacing-3)',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--gray-200)',
-              borderRadius: 'var(--radius-md)',
-              fontSize: 'var(--text-md)',
-              fontWeight: 'var(--font-medium)',
-              color: 'var(--gray-700)',
-              transition: 'var(--transition-base)',
-            }}
-            className="flex items-center gap-2 hover:border-[#3B82F6]/40"
-          >
-            <Filter style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
-            Filter
-          </button>
-        </div>
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="p-6 pt-5">
-        {viewMode === 'day' ? (
-          // DAY VIEW - Hourly time slots
-          <div
-            className="flex gap-1 custom-scrollbar"
-            style={{
-              maxHeight: dayViewMaxHeight,
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              paddingRight: 'var(--spacing-2)',
-            }}
-          >
-            {/* Time Column */}
-            <div style={{ width: '80px', paddingRight: 'var(--spacing-2)' }}>
-              <div style={{ height: '50px' }} /> {/* Header spacer */}
-              {timeSlots.map(hour => (
-                <div
-                  key={hour}
-                  style={{
-                    height: '60px',
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--gray-500)',
-                    paddingTop: 'var(--spacing-1)',
-                  }}
+          {/* Right: Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* View Mode Toggle - Pill Buttons */}
+            <div className="flex items-center bg-gray-900 rounded-full p-1 border border-gray-800">
+              {(['day', 'week', 'fortnight', 'month'] as ViewMode[]).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`
+                    px-4 py-1.5 rounded-full text-sm font-mono transition-all duration-300
+                    ${viewMode === mode 
+                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' 
+                      : 'text-gray-400 hover:text-gray-200'
+                    }
+                  `}
                 >
-                  {format(new Date().setHours(hour, 0), 'h a')}
-                </div>
+                  {mode === 'fortnight' ? '2 Weeks' : mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </button>
               ))}
             </div>
 
-            {/* Technicians Column */}
-            <div style={{ width: '200px', paddingRight: 'var(--spacing-4)', borderRight: '1px solid var(--gray-100)' }}>
-              <div style={{ height: '50px', paddingBottom: 'var(--spacing-3)', marginBottom: 'var(--spacing-3)' }}>
-                <p style={{
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-semibold)',
-                  color: 'var(--gray-400)',
-                  textTransform: 'uppercase',
-                  letterSpacing: 'var(--tracking-wide)',
-                }}>
-                  Technicians
-                </p>
+            {/* Date Navigation */}
+            <div className="flex items-center gap-2 bg-gray-900 rounded-lg border border-gray-800 px-3 py-1.5">
+              <button
+                onClick={() => navigateDate('prev')}
+                className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors duration-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              
+              <div className="flex items-center gap-2 px-2">
+                <Calendar className="w-4 h-4 text-cyan-500" />
+                <span className="font-mono text-sm text-gray-300 whitespace-nowrap">
+                  {getDateRangeLabel()}
+                </span>
               </div>
 
-              {technicians.map(tech => (
-                <div key={tech.id} style={{ height: `${timeSlots.length * 60}px`, position: 'relative', borderBottom: '1px solid var(--gray-100)' }}>
-                  <div style={{
-                    position: 'sticky',
-                    top: 0,
-                    background: 'var(--bg-card)',
-                    padding: 'var(--spacing-2) 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--spacing-2)',
-                    zIndex: 10,
-                  }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: 'var(--radius-full)',
-                      background: 'linear-gradient(135deg, #3B82F6, #60A5FA)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 'var(--text-sm)',
-                      fontWeight: 'var(--font-semibold)',
-                      color: 'white',
-                    }}>
-                      {tech.name.charAt(0)}
-                    </div>
-                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)', color: 'var(--gray-900)' }}>
-                      {tech.name}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <button
+                onClick={() => navigateDate('next')}
+                className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors duration-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Schedule Grid */}
-            <div style={{ flex: 1, position: 'relative' }}>
-              {/* Day Header */}
-              <div style={{
-                height: '50px',
-                paddingBottom: 'var(--spacing-3)',
-                marginBottom: 'var(--spacing-3)',
-                textAlign: 'center',
-              }}>
-                <div style={{
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-semibold)',
-                  color: 'var(--gray-900)',
-                }}>
-                  {format(selectedDate, 'EEEE, MMM d')}
-                </div>
-              </div>
+            {/* Today Button */}
+            <button
+              onClick={goToToday}
+              className="px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-sm font-mono text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200"
+            >
+              Today
+            </button>
 
-              {/* Grid Lines */}
-              <div style={{ position: 'absolute', top: '50px', left: 0, right: 0, bottom: 0 }}>
-                {timeSlots.map((hour, idx) => (
+            {/* Filter Button */}
+            <button className="flex items-center gap-2 px-4 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-sm font-mono text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200">
+              <Filter className="w-4 h-4" />
+              Filter
+            </button>
+          </div>
+        </div>
+
+        {/* Schedule Content */}
+        <div className="p-6">
+          {viewMode === 'day' ? (
+            // DAY VIEW
+            <div className="flex gap-4 overflow-x-auto">
+              {/* Time Column */}
+              <div className="flex-shrink-0 w-16">
+                <div className="h-16" /> {/* Header spacer */}
+                {timeSlots.map(hour => (
                   <div
                     key={hour}
-                    style={{
-                      height: '60px',
-                      borderTop: idx === 0 ? '1px solid var(--gray-100)' : 'none',
-                      borderBottom: '1px solid var(--gray-100)',
-                    }}
-                  />
+                    className="h-16 font-mono text-xs text-gray-500 pt-1"
+                  >
+                    {format(new Date().setHours(hour, 0), 'h a')}
+                  </div>
                 ))}
               </div>
 
-              {/* Technician Rows with Jobs */}
-              {technicians.map((tech, techIdx) => {
-                const techJobs = viewJobs.filter(j => j.technician?.id === tech.id)
+              {/* Technicians Sidebar */}
+              <div className="flex-shrink-0 w-64 border-r border-gray-800 pr-4">
+                <div className="h-16 flex items-end pb-3 mb-3">
+                  <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">
+                    Technicians
+                  </span>
+                </div>
 
-                return (
-                  <div
-                    key={tech.id}
-                    style={{
-                      height: `${timeSlots.length * 60}px`,
-                      position: 'relative',
-                      borderBottom: techIdx < technicians.length - 1 ? '1px solid var(--gray-100)' : 'none',
-                    }}
+                {technicians.map(tech => (
+                  <div 
+                    key={tech.id} 
+                    className="h-[720px] border-b border-gray-800/50 last:border-b-0"
                   >
-                    {techJobs.map(job => {
-                      const position = getJobPosition(job, 0)
-                      const style = getJobBlockStyle(job)
-                      const customerName = job.customer?.name || 'Customer'
-                      const jobDescription = job.description || 'Service Call'
-
-                      return (
-                        <div
-                          key={job.id}
-                          style={{
-                            position: 'absolute',
-                            top: position.top,
-                            left: '8px',
-                            right: '8px',
-                            height: position.height,
-                            minHeight: '40px',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: '8px 10px',
-                            boxShadow: 'var(--shadow-md)',
-                            transition: 'var(--transition-base)',
-                            zIndex: 5,
-                          }}
-                          className={`${style.bg} ${style.text} cursor-pointer hover:scale-[1.02]`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleJobClick(job.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault()
-                              handleJobClick(job.id)
-                            }
-                          }}
-                        >
-                          <div style={{
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 'var(--font-semibold)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {position.time}
-                          </div>
-                          <div style={{
-                            fontSize: 'var(--text-sm)',
-                            fontWeight: 'var(--font-semibold)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {customerName}
-                          </div>
-                          <div style={{
-                            fontSize: 'var(--text-xs)',
-                            opacity: 0.9,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {jobDescription}
-                          </div>
+                    <div className="sticky top-0 bg-[#111827] py-3 flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
+                        <span className="font-mono text-sm font-bold text-cyan-400">
+                          {tech.initials}
+                        </span>
+                      </div>
+                      {/* Name & Role */}
+                      <div>
+                        <div className="font-mono text-sm font-medium text-gray-200">
+                          {tech.name}
                         </div>
-                      )
-                    })}
+                        <div className="font-mono text-xs text-gray-500">
+                          {tech.role}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )
-              })}
-            </div>
-          </div>
-        ) : (
-          // WEEK/FORTNIGHT VIEW - Day columns
-          <div className="flex gap-1">
-            {/* Technicians Column */}
-            <div style={{ width: '200px', paddingRight: 'var(--spacing-4)', borderRight: '1px solid var(--gray-100)' }}>
-              <div style={{ paddingBottom: 'var(--spacing-3)', marginBottom: 'var(--spacing-3)' }}>
-                <p style={{
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-semibold)',
-                  color: 'var(--gray-400)',
-                  textTransform: 'uppercase',
-                  letterSpacing: 'var(--tracking-wide)',
-                }}>
-                  Technicians
-                </p>
+                ))}
               </div>
 
-              {technicians.map(tech => (
-                <div
-                  key={tech.id}
-                  style={{
-                    height: '60px',
-                    padding: 'var(--spacing-2) 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 'var(--spacing-3)',
-                  }}
-                >
-                  <div style={{
-                    width: 'var(--avatar-md)',
-                    height: 'var(--avatar-md)',
-                    borderRadius: 'var(--radius-full)',
-                    border: '2px solid var(--gray-100)',
-                    background: 'linear-gradient(135deg, #3B82F6, #60A5FA)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 'var(--text-lg)',
-                    fontWeight: 'var(--font-semibold)',
-                    color: 'white',
-                  }}>
-                    {tech.name.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: 'var(--text-md)',
-                      fontWeight: 'var(--font-semibold)',
-                      color: 'var(--gray-900)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {tech.name}
+              {/* Schedule Grid */}
+              <div className="flex-1 min-w-[600px] relative">
+                {/* Day Header */}
+                <div className="h-16 flex items-end pb-3 mb-3 text-center">
+                  <div className={`w-full py-2 rounded-lg border ${isSameDay(selectedDate, today) ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-gray-800'}`}>
+                    <div className="font-mono text-sm font-medium text-gray-200">
+                      {format(selectedDate, 'EEEE')}
                     </div>
-                    <div style={{
-                      fontSize: 'var(--text-sm)',
-                      color: 'var(--gray-500)',
-                    }}>
-                      {tech.role}
+                    <div className={`font-mono text-xs ${isSameDay(selectedDate, today) ? 'text-cyan-400' : 'text-gray-500'}`}>
+                      {format(selectedDate, 'MMM d')}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
 
-            {/* Days Grid */}
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              {/* Days Header */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${days.length}, minmax(80px, 1fr))`,
-                gap: 'var(--spacing-1)',
-                paddingBottom: 'var(--spacing-3)',
-                marginBottom: 'var(--spacing-3)',
-                borderBottom: '1px solid var(--gray-100)',
-              }}>
-                {days.map((day, idx) => {
-                  const isToday = isSameDay(day, new Date())
-                  const isWeekend = day.getDay() === 0 || day.getDay() === 6
+                {/* Grid Lines */}
+                <div className="absolute top-16 left-0 right-0 bottom-0">
+                  {timeSlots.map((hour, idx) => (
+                    <div
+                      key={hour}
+                      className="h-16 border-t border-gray-800/50 first:border-gray-700"
+                    />
+                  ))}
+                </div>
+
+                {/* Technician Rows with Jobs */}
+                {technicians.map((tech, techIdx) => {
+                  const techJobs = viewJobs.filter(j => j.technician?.id === tech.id)
 
                   return (
-                    <div key={idx} style={{ textAlign: 'center' }}>
-                      <div style={{
-                        fontSize: 'var(--text-xs)',
-                        fontWeight: 'var(--font-semibold)',
-                        color: isWeekend ? 'var(--gray-300)' : 'var(--gray-400)',
-                        textTransform: 'uppercase',
-                        letterSpacing: 'var(--tracking-wide)',
-                      }}>
-                        {format(day, 'EEE')}
-                      </div>
-                      <div style={{
-                        fontSize: 'var(--text-md)',
-                        fontWeight: 'var(--font-semibold)',
-                        color: isWeekend ? 'var(--gray-300)' : isToday ? 'white' : 'var(--gray-700)',
-                        marginTop: 'var(--spacing-1)',
-                        background: isToday ? 'var(--blue-500)' : 'transparent',
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: 'var(--radius-full)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        {format(day, 'd')}
-                      </div>
+                    <div
+                      key={tech.id}
+                      className="h-[720px] relative border-b border-gray-800/50 last:border-b-0"
+                    >
+                      {techJobs.map(job => {
+                        const position = getJobPosition(job)
+                        const statusStyle = STATUS_STYLES[job.status as JobStatus] || STATUS_STYLES.scheduled
+                        const isHovered = hoveredJob === job.id
+
+                        return (
+                          <div
+                            key={job.id}
+                            style={{
+                              top: position.top,
+                              height: position.height,
+                            }}
+                            className={`
+                              absolute left-2 right-2 min-h-[48px] rounded-lg p-3 cursor-pointer
+                              border ${statusStyle.border} ${statusStyle.bg}
+                              transition-all duration-300
+                              ${isHovered ? `scale-[1.02] ${statusStyle.glow} z-10` : 'hover:scale-[1.01]'}
+                            `}
+                            onMouseEnter={() => setHoveredJob(job.id)}
+                            onMouseLeave={() => setHoveredJob(null)}
+                            onClick={() => handleJobClick(job.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                handleJobClick(job.id)
+                              }
+                            }}
+                          >
+                            {/* Time */}
+                            <div className={`font-mono text-xs font-medium ${statusStyle.text} mb-1`}>
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              {formatTimeRange(job.scheduled_start!, job.scheduled_end)}
+                            </div>
+                            {/* Customer */}
+                            <div className="font-mono text-sm font-medium text-gray-200 leading-tight">
+                              {job.customer?.name || 'Unknown Customer'}
+                            </div>
+                            {/* Job Type */}
+                            <div className="font-mono text-xs text-gray-500 mt-1 flex items-center gap-1">
+                              <Wrench className="w-3 h-3" />
+                              {job.description || 'Service Call'}
+                            </div>
+                            {/* Status Badge */}
+                            <div className={`mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-mono ${statusStyle.bg} ${statusStyle.text} border ${statusStyle.border}`}>
+                              {statusStyle.label}
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 })}
               </div>
+            </div>
+          ) : (
+            // WEEK / FORTNIGHT / MONTH VIEW
+            <div className="flex gap-4 overflow-x-auto">
+              {/* Technicians Sidebar */}
+              <div className="flex-shrink-0 w-72 border-r border-gray-800 pr-4 sticky left-0 bg-[#111827] z-20">
+                <div className="h-20 flex items-end pb-3 mb-3">
+                  <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">
+                    Technicians ({technicians.length})
+                  </span>
+                </div>
 
-              {/* Job Rows */}
-              {technicians.map(tech => (
-                <div
-                  key={tech.id}
-                  style={{
-                    height: '60px',
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${days.length}, minmax(80px, 1fr))`,
-                    gap: 'var(--spacing-1)',
-                    alignItems: 'center',
+                {technicians.map(tech => (
+                  <div
+                    key={tech.id}
+                    className="h-24 py-3 flex items-center gap-4 border-b border-gray-800/50 last:border-b-0"
+                  >
+                    {/* Avatar */}
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+                      <span className="font-mono text-sm font-bold text-cyan-400">
+                        {tech.initials}
+                      </span>
+                    </div>
+                    {/* Name & Role */}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-sm font-medium text-gray-200 whitespace-nowrap">
+                        {tech.name}
+                      </div>
+                      <div className="font-mono text-xs text-gray-500 mt-0.5">
+                        {tech.role}
+                      </div>
+                      {/* Job count for this period */}
+                      <div className="font-mono text-xs text-cyan-500/70 mt-1">
+                        {viewJobs.filter(j => j.technician?.id === tech.id).length} jobs
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Days Grid */}
+              <div className="flex-1 min-w-max">
+                {/* Days Header */}
+                <div 
+                  className="grid gap-1 mb-3"
+                  style={{ 
+                    gridTemplateColumns: `repeat(${days.length}, minmax(100px, 1fr))`,
                   }}
                 >
-                  {days.map((day, dayIdx) => {
-                    const dayJobs = viewJobs.filter(j =>
-                      j.technician?.id === tech.id &&
-                      isSameDay(parseISO(j.scheduled_start!), day)
-                    )
-                    const isPast = day < startOfDay(new Date())
+                  {days.map((day, idx) => {
+                    const isToday = isSameDay(day, today)
+                    const isWeekend = day.getDay() === 0 || day.getDay() === 6
 
-                    if (dayJobs.length > 0) {
-                      const job = dayJobs[0] // Show first job
-                      const style = getJobBlockStyle(job)
-                      const customerName = job.customer?.name || 'Customer'
-                      const time = format(parseISO(job.scheduled_start!), 'h:mm a')
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`
+                          h-20 p-2 text-center rounded-lg border transition-all duration-200
+                          ${isToday 
+                            ? 'border-cyan-500/50 bg-cyan-500/5' 
+                            : isWeekend 
+                              ? 'border-gray-800/50 bg-gray-900/30' 
+                              : 'border-gray-800'
+                          }
+                        `}
+                      >
+                        <div className={`font-mono text-xs uppercase tracking-wider ${isWeekend ? 'text-gray-600' : 'text-gray-500'}`}>
+                          {format(day, 'EEE')}
+                        </div>
+                        <div className={`font-mono text-lg font-medium mt-1 ${isToday ? 'text-cyan-400' : isWeekend ? 'text-gray-600' : 'text-gray-300'}`}>
+                          {format(day, 'd')}
+                        </div>
+                        {isToday && (
+                          <div className="font-mono text-[10px] text-cyan-500/70 uppercase tracking-wider mt-0.5">
+                            Today
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Job Rows */}
+                {technicians.map(tech => (
+                  <div
+                    key={tech.id}
+                    className="grid gap-1 h-24 items-center border-b border-gray-800/50 last:border-b-0"
+                    style={{ 
+                      gridTemplateColumns: `repeat(${days.length}, minmax(100px, 1fr))`,
+                    }}
+                  >
+                    {days.map((day, dayIdx) => {
+                      const dayJobs = viewJobs.filter(j =>
+                        j.technician?.id === tech.id &&
+                        isSameDay(parseISO(j.scheduled_start!), day)
+                      )
+                      const isPast = day < startOfDay(today)
+
+                      if (dayJobs.length > 0) {
+                        return (
+                          <div key={dayIdx} className="h-20 flex flex-col gap-1 overflow-y-auto">
+                            {dayJobs.map(job => {
+                              const statusStyle = STATUS_STYLES[job.status as JobStatus] || STATUS_STYLES.scheduled
+                              const isHovered = hoveredJob === job.id
+
+                              return (
+                                <div
+                                  key={job.id}
+                                  onMouseEnter={() => setHoveredJob(job.id)}
+                                  onMouseLeave={() => setHoveredJob(null)}
+                                  onClick={() => handleJobClick(job.id)}
+                                  className={`
+                                    flex-1 min-h-[60px] rounded-lg p-2 cursor-pointer
+                                    border ${statusStyle.border} ${statusStyle.bg}
+                                    transition-all duration-300
+                                    ${isHovered ? `scale-[1.02] ${statusStyle.glow} z-10` : 'hover:scale-[1.01]'}
+                                  `}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      handleJobClick(job.id)
+                                    }
+                                  }}
+                                >
+                                  {/* Time */}
+                                  <div className={`font-mono text-[10px] font-medium ${statusStyle.text}`}>
+                                    {format(parseISO(job.scheduled_start!), 'h:mm a')}
+                                  </div>
+                                  {/* Customer */}
+                                  <div className="font-mono text-xs text-gray-200 leading-tight mt-1 whitespace-nowrap">
+                                    {job.customer?.name || 'Unknown'}
+                                  </div>
+                                  {/* Job Type */}
+                                  <div className="font-mono text-[10px] text-gray-500 mt-1 truncate">
+                                    {job.description || 'Service'}
+                                  </div>
+                                  {/* Status Indicator */}
+                                  <div className={`mt-1.5 w-2 h-2 rounded-full ${statusStyle.text.replace('text-', 'bg-')}`} />
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      }
 
                       return (
                         <div
                           key={dayIdx}
-                          style={{
-                            height: '52px',
-                            borderRadius: 'var(--radius-xl)',
-                            padding: '8px 10px',
-                            boxShadow: 'var(--shadow-md)',
-                            transition: 'var(--transition-base)',
-                            position: 'relative',
-                          }}
-                          className={`${style.bg} ${style.text} cursor-pointer hover:scale-[1.02]`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleJobClick(job.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault()
-                              handleJobClick(job.id)
-                            }
-                          }}
-                        >
-                          <div style={{
-                            fontSize: 'var(--text-xs)',
-                            fontWeight: 'var(--font-semibold)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {time}
-                          </div>
-                          <div style={{
-                            fontSize: 'var(--text-xs)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            opacity: 0.9,
-                          }}>
-                            {customerName}
-                          </div>
-                          {dayJobs.length > 1 && (
-                            <div style={{
-                              position: 'absolute',
-                              top: '4px',
-                              right: '4px',
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              background: 'rgba(0,0,0,0.2)',
-                              fontSize: '9px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 'var(--font-bold)',
-                            }}>
-                              +{dayJobs.length - 1}
-                            </div>
-                          )}
-                        </div>
+                          className={`
+                            h-20 rounded-lg border border-dashed
+                            ${isPast ? 'border-gray-800/30 bg-gray-900/20' : 'border-gray-800/50'}
+                          `}
+                        />
                       )
-                    }
-
-                    return (
-                      <div
-                        key={dayIdx}
-                        style={{
-                          height: '52px',
-                          borderRadius: 'var(--radius-md)',
-                        }}
-                        className={isPast ? 'diagonal-stripes' : ''}
-                      />
-                    )
-                  })}
-                </div>
-              ))}
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Legend */}
+        <div className="px-6 py-4 border-t border-gray-800 flex flex-wrap items-center gap-6">
+          <span className="font-mono text-xs text-gray-500 uppercase tracking-wider">Status:</span>
+          {Object.entries(STATUS_STYLES)
+            .filter(([key]) => key !== 'cancelled')
+            .map(([status, style]) => (
+              <div key={status} className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full border ${style.border} ${style.bg}`} />
+                <span className={`font-mono text-xs ${style.text}`}>
+                  {style.label}
+                </span>
+              </div>
+            ))}
+        </div>
       </div>
     </div>
   )

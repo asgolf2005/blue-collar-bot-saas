@@ -1,6 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+/**
+ * @deprecated Use useRealtimeJobsUnified instead.
+ * This hook has issues with duplicate subscriptions and stale data.
+ */
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { JobWithDetails } from '@/lib/types'
@@ -32,9 +36,11 @@ export function useRealtimeJobsWithRelations({
   const [error, setError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const isMountedRef = useRef(true)
   const lastRefreshRef = useRef<number>(0)
+  const startDateIso = startDate?.toISOString() ?? null
+  const endDateIso = endDate?.toISOString() ?? null
 
   const jobsSelect = `
     *,
@@ -68,12 +74,12 @@ export function useRealtimeJobsWithRelations({
           query = query.eq('technician_id', technicianId)
         }
 
-        if (startDate) {
-          query = query.gte('scheduled_start', startDate.toISOString())
+        if (startDateIso) {
+          query = query.gte('scheduled_start', startDateIso)
         }
 
-        if (endDate) {
-          query = query.lte('scheduled_start', endDate.toISOString())
+        if (endDateIso) {
+          query = query.lte('scheduled_start', endDateIso)
         }
 
         const { data, error } = await query
@@ -95,7 +101,7 @@ export function useRealtimeJobsWithRelations({
 
       return { data: allJobs, error: null }
     },
-    [businessId, supabase, technicianId, startDate, endDate]
+    [businessId, supabase, technicianId, startDateIso, endDateIso]
   )
 
   // Fetch all jobs with relations
@@ -137,7 +143,7 @@ export function useRealtimeJobsWithRelations({
         setIsRefreshing(false)
       }
     }
-  }, [businessId, fetchAllJobs])
+  }, [businessId, fallbackSelect, fetchAllJobs, jobsSelect])
 
   useEffect(() => {
     isMountedRef.current = true

@@ -25,10 +25,17 @@ export default async function SettingsPage() {
     .eq('role', 'tech')
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-ink">Settings</h1>
-        <p className="text-muted mt-1">Manage your business settings</p>
+    <div className="space-y-6 animate-fade-in-up">
+      {/* Header - Matching Jobs Dashboard */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-5xl sm:text-6xl text-slate-900 dark:text-white tracking-wide">
+            SETTINGS
+          </h1>
+          <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
+            Manage your account preferences
+          </p>
+        </div>
       </div>
 
       <SettingsForm business={business!} technicians={technicians || []} />

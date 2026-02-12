@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Camera, Upload, X, Image, CheckCircle, Loader2 } from 'lucide-react'
+import { Camera, Upload, X, Image as ImageIcon, CheckCircle, Loader2 } from 'lucide-react'
+import Image from 'next/image'
 import { PhotoType, Media } from '@/lib/types'
 
 interface PhotoUploadProps {
@@ -16,6 +17,12 @@ interface PhotoItem {
   type: PhotoType
   uploading?: boolean
 }
+
+const photoTypes: { value: PhotoType; label: string; description: string }[] = [
+  { value: 'before', label: 'Before', description: 'Photos before starting work' },
+  { value: 'during', label: 'During', description: 'Photos during work' },
+  { value: 'after', label: 'After', description: 'Photos after completion' },
+]
 
 export default function PhotoUpload({ jobId, existingPhotos = [] }: PhotoUploadProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>(
@@ -121,143 +128,156 @@ export default function PhotoUpload({ jobId, existingPhotos = [] }: PhotoUploadP
     }
   }
 
-  const photoTypes: { value: PhotoType; label: string }[] = [
-    { value: 'before', label: 'Before' },
-    { value: 'during', label: 'During' },
-    { value: 'after', label: 'After' },
-  ]
-
   const getPhotosByType = (type: PhotoType) => photos.filter(p => p.type === type)
+  const getPhotoCountByType = (type: PhotoType) => photos.filter(p => p.type === type && !p.uploading).length
 
   return (
-    <div className="bg-surface-50/90 backdrop-blur-xl rounded-2xl border border-surface-200 p-4">
-      <div className="flex items-center mb-4">
-        <Camera className="w-5 h-5 text-muted mr-2" />
-        <h2 className="font-semibold text-ink">Proof of Work Photos</h2>
+    <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Camera className="w-5 h-5 text-cyan-400" />
+        <h3 className="font-semibold text-white">Proof of Work</h3>
+        <span className="ml-auto text-xs text-slate-400">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Photo Type Selector */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-surface-600 mb-2">Photo Type</label>
-        <div className="grid grid-cols-3 gap-2">
-          {photoTypes.map((type) => (
-            <button
-              key={type.value}
-              onClick={() => setSelectedType(type.value)}
-              className={`py-2 px-3 rounded-xl border text-sm font-medium transition ${
-                selectedType === type.value
-                  ? 'border-warning/30 bg-warning/20 text-warning'
-                  : 'border-surface-200 bg-surface-100 text-muted hover:bg-surface-50'
-              }`}
-            >
-              {type.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Upload Buttons */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-        <button
-          onClick={() => cameraInputRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center justify-center py-3 px-4 bg-primary text-white dark:text-midnight-950 font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          {uploading ? (
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-          ) : (
-            <Camera className="w-5 h-5 mr-2" />
-          )}
-          Take Photo
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center justify-center py-3 px-4 bg-surface-100 text-surface-600 font-medium rounded-xl hover:bg-surface-50 disabled:opacity-50 disabled:cursor-not-allowed transition border border-surface-200"
-        >
-          <Upload className="w-5 h-5 mr-2" />
-          Upload
-        </button>
-      </div>
-
-      {/* Photo Gallery by Type */}
-      {photoTypes.map((type) => {
-        const typePhotos = getPhotosByType(type.value)
-        if (typePhotos.length === 0) return null
-
-        return (
-          <div key={type.value} className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-ink">{type.label} Photos</h3>
-              <span className="text-xs text-muted">{typePhotos.length} photo(s)</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {typePhotos.map((photo) => (
-                <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-surface-100">
-                  {photo.uploading ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-surface-100">
-                      <Loader2 className="w-6 h-6 text-muted animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      <img
-                        src={photo.url}
-                        alt={`${type.label} photo`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => deletePhoto(photo.id)}
-                        className="absolute top-1 right-1 p-1 bg-danger text-white dark:text-midnight-950 rounded-full hover:bg-danger/90 transition"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </>
+      <div className="space-y-4">
+        {/* Photo Type Selector */}
+        <div className="space-y-2">
+          <label className="text-xs text-slate-400 uppercase tracking-wider">Photo Type</label>
+          <div className="grid grid-cols-3 gap-2">
+            {photoTypes.map((type) => {
+              const count = getPhotoCountByType(type.value)
+              const isSelected = selectedType === type.value
+              return (
+                <button
+                  key={type.value}
+                  onClick={() => setSelectedType(type.value)}
+                  className={`relative py-3 px-2 rounded-xl border text-sm font-medium transition-all ${
+                    isSelected
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+                      : 'bg-slate-700/30 border-slate-600/30 text-slate-400 hover:bg-slate-700/50'
+                  }`}
+                >
+                  <span className="block">{type.label}</span>
+                  {count > 0 && (
+                    <span className={`absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full ${
+                      isSelected ? 'bg-cyan-500 text-slate-900' : 'bg-slate-600 text-white'
+                    }`}>
+                      {count}
+                    </span>
                   )}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-slate-500">
+            {photoTypes.find(t => t.value === selectedType)?.description}
+          </p>
+        </div>
+
+        {/* Upload Buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={uploading}
+            className="h-12 flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-[0.98] disabled:opacity-50"
+          >
+            <Camera className="w-5 h-5" />
+            Take Photo
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="h-12 flex items-center justify-center gap-2 bg-slate-700/50 hover:bg-slate-700 text-white font-medium rounded-xl border border-slate-600 transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            <Upload className="w-5 h-5" />
+            Upload
+          </button>
+        </div>
+
+        {/* Photo Gallery */}
+        {photos.length > 0 && (
+          <div className="space-y-3 pt-2">
+            {photoTypes.map((type) => {
+              const typePhotos = getPhotosByType(type.value)
+              if (typePhotos.length === 0) return null
+
+              return (
+                <div key={type.value}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-white">{type.label}</h4>
+                    <span className="text-xs text-slate-400">{typePhotos.length} photo(s)</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {typePhotos.map((photo) => (
+                      <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-slate-700 border border-slate-600">
+                        {photo.uploading ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                            <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            <Image
+                              src={photo.url}
+                              alt={`${type.label} photo`}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 33vw, 20vw"
+                            />
+                            <button
+                              onClick={() => deletePhoto(photo.id)}
+                              className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors"
+                              aria-label="Delete photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              )
+            })}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {photos.length === 0 && (
+          <div className="text-center py-8 px-4 bg-slate-700/30 border border-dashed border-slate-600/50 rounded-xl">
+            <ImageIcon className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+            <p className="text-sm text-slate-400">No photos yet</p>
+            <p className="text-xs text-slate-500 mt-1">Take photos to document your work</p>
+          </div>
+        )}
+
+        {/* Completion Indicator */}
+        {photos.length > 0 && (
+          <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
+            <span className="text-sm text-slate-400">Documentation</span>
+            <div className="flex items-center gap-1.5 text-emerald-400">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">{photos.length} saved</span>
             </div>
           </div>
-        )
-      })}
-
-      {/* Empty State */}
-      {photos.length === 0 && (
-        <div className="text-center py-6 bg-surface-100 rounded-xl border border-dashed border-surface-200">
-          <Image className="w-10 h-10 text-muted mx-auto mb-2" />
-          <p className="text-sm text-muted">No photos uploaded yet</p>
-          <p className="text-xs text-muted mt-1">Take or upload photos to document your work</p>
-        </div>
-      )}
-
-      {/* Photo Count Summary */}
-      {photos.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-surface-200">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted">Total Photos:</span>
-            <div className="flex items-center text-success">
-              <CheckCircle className="w-4 h-4 mr-1" />
-              <span className="font-medium">{photos.length}</span>
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

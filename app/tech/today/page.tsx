@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { startOfDay, endOfDay } from 'date-fns'
 import TodayViewClient from '@/components/tech/TodayViewClient'
+import { redirect } from 'next/navigation'
 
 export default async function TodayPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return null
+    redirect('/login')
   }
 
   const { data: profile } = await supabase

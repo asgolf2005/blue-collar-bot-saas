@@ -38,7 +38,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No technician assigned' }, { status: 400 })
     }
 
-    const destinationAddress = job.customer?.address
+    const customerRelation = job.customer as { address?: string } | Array<{ address?: string }> | null
+    const destinationAddress = Array.isArray(customerRelation)
+      ? customerRelation[0]?.address
+      : customerRelation?.address
     if (!destinationAddress) {
       return NextResponse.json({ error: 'Job address not available' }, { status: 400 })
     }

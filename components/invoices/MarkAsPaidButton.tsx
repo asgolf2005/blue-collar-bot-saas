@@ -2,9 +2,15 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Loader2 } from 'lucide-react'
 
-export default function MarkAsPaidButton({ invoiceId }: { invoiceId: string }) {
+export default function MarkAsPaidButton({
+  invoiceId,
+  className,
+}: {
+  invoiceId: string
+  className?: string
+}) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
@@ -32,11 +38,15 @@ export default function MarkAsPaidButton({ invoiceId }: { invoiceId: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleMarkAsPaid}
       disabled={loading}
-      className="btn btn-primary flex items-center"
+      className={
+        className ||
+        'inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-60 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20'
+      }
     >
-      <CheckCircle className="w-4 h-4 mr-2" />
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
       {loading ? 'Processing...' : 'Mark as Paid'}
     </button>
   )

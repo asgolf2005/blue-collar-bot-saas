@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { MessageSquare, Check, X, Clock, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { SMSNotification } from '@/types/sms'
@@ -14,11 +14,7 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchSMSHistory()
-  }, [jobId])
-
-  const fetchSMSHistory = async () => {
+  const fetchSMSHistory = useCallback(async () => {
     try {
       setLoading(true)
       const response = await fetch(`/api/sms/history?jobId=${jobId}`)
@@ -34,30 +30,34 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [jobId])
+
+  useEffect(() => {
+    void fetchSMSHistory()
+  }, [fetchSMSHistory])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'delivered':
-        return <Check className="w-4 h-4 text-green-600" />
+        return <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
       case 'sent':
-        return <Clock className="w-4 h-4 text-blue-600" />
+        return <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
       case 'failed':
       case 'undelivered':
-        return <X className="w-4 h-4 text-red-600" />
+        return <X className="w-4 h-4 text-rose-600 dark:text-rose-400" />
       case 'pending':
       default:
-        return <AlertCircle className="w-4 h-4 text-yellow-600" />
+        return <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
     }
   }
 
   const getStatusBadge = (status: string) => {
     const statusClasses = {
-      delivered: 'bg-green-100 text-green-800',
-      sent: 'bg-blue-100 text-blue-800',
-      failed: 'bg-red-100 text-red-800',
-      undelivered: 'bg-red-100 text-red-800',
-      pending: 'bg-yellow-100 text-yellow-800',
+      delivered: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300',
+      sent: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
+      failed: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300',
+      undelivered: 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-300',
+      pending: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300',
     }
 
     return (
@@ -83,7 +83,7 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
     return (
       <div className="animate-pulse space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-gray-100 h-20 rounded-lg"></div>
+          <div key={i} className="bg-slate-100 dark:bg-slate-800 h-20 rounded-xl"></div>
         ))}
       </div>
     )
@@ -92,8 +92,8 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
   if (error) {
     return (
       <div className="text-center py-8">
-        <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-        <p className="text-sm text-red-600">{error}</p>
+        <AlertCircle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
+        <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
       </div>
     )
   }
@@ -101,8 +101,8 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
   if (smsHistory.length === 0) {
     return (
       <div className="text-center py-8">
-        <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-sm text-gray-500">No SMS notifications sent yet</p>
+        <MessageSquare className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+        <p className="text-sm text-slate-500 dark:text-slate-400">No SMS notifications sent yet</p>
       </div>
     )
   }
@@ -112,41 +112,41 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
       {smsHistory.map((sms) => (
         <div
           key={sms.id}
-          className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition"
+          className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
         >
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <MessageSquare className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-900">
+                <MessageSquare className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                   {getTemplateLabel(sms.template_name)}
                 </span>
               </div>
-              <p className="text-xs text-gray-600">To: {sms.to_phone}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">To: {sms.to_phone}</p>
             </div>
             {getStatusBadge(sms.status)}
           </div>
 
-          <p className="text-sm text-gray-700 bg-white p-3 rounded border border-gray-200 mb-2">
+          <p className="text-sm text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 mb-2">
             {sms.message}
           </p>
 
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>
               {sms.sent_at
                 ? format(new Date(sms.sent_at), 'MMM d, h:mm a')
                 : format(new Date(sms.created_at), 'MMM d, h:mm a')}
             </span>
             {sms.delivered_at && (
-              <span className="text-green-600">
+              <span className="text-emerald-600 dark:text-emerald-400">
                 Delivered: {format(new Date(sms.delivered_at), 'h:mm a')}
               </span>
             )}
           </div>
 
           {sms.error_message && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-              <p className="text-xs text-red-700 flex items-start gap-1">
+            <div className="mt-2 p-2 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg">
+              <p className="text-xs text-rose-700 dark:text-rose-300 flex items-start gap-1">
                 <X className="w-3 h-3 mt-0.5 flex-shrink-0" />
                 {sms.error_message}
               </p>

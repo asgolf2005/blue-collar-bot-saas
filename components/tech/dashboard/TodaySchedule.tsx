@@ -45,7 +45,7 @@ export default function TodaySchedule({ jobs }: TodayScheduleProps) {
     <div className="rounded-3xl bg-white dark:bg-surface-900 p-6 shadow-elevation-premium-2 border border-surface-200 dark:border-white/10">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-ink dark:text-surface-100 mb-1">Today's Schedule</h3>
+          <h3 className="text-lg font-semibold text-ink dark:text-surface-100 mb-1">Today&apos;s Schedule</h3>
           <p className="text-sm text-muted">{jobs.length} appointment{jobs.length !== 1 ? 's' : ''} scheduled</p>
         </div>
         <Link

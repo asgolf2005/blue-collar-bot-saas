@@ -44,6 +44,16 @@ export default function LocationSharing({ jobId, autoStart = false }: LocationSh
     }
   }, [jobId])
 
+  const stopSharing = useCallback(() => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId)
+      setWatchId(null)
+      setIsSharing(false)
+      setLastUpdate(null)
+      showToast.success('Location sharing stopped')
+    }
+  }, [watchId])
+
   const startSharing = useCallback(() => {
     if (!navigator.geolocation) {
       showToast.error('Geolocation is not supported by your browser')
@@ -84,17 +94,7 @@ export default function LocationSharing({ jobId, autoStart = false }: LocationSh
         showToast.error('Failed to get your location')
       }
     )
-  }, [sendLocation])
-
-  const stopSharing = useCallback(() => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId)
-      setWatchId(null)
-      setIsSharing(false)
-      setLastUpdate(null)
-      showToast.success('Location sharing stopped')
-    }
-  }, [watchId])
+  }, [sendLocation, stopSharing])
 
   // Auto-start if requested
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function LocationSharing({ jobId, autoStart = false }: LocationSh
         navigator.geolocation.clearWatch(watchId)
       }
     }
-  }, [autoStart]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [autoStart, isSharing, startSharing, watchId])
 
   return (
     <div className="card p-4">

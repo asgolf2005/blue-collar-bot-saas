@@ -59,42 +59,55 @@ export default function Pagination({
   }
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-slate-100 dark:bg-slate-900 border-t border-surface-200 dark:border-slate-700">
-      <div className="text-sm text-muted dark:text-gray-300">
-        Showing <span className="font-medium text-ink dark:text-white">{startItem}</span> to{' '}
-        <span className="font-medium text-ink dark:text-white">{endItem}</span> of{' '}
-        <span className="font-medium text-ink dark:text-white">{totalItems}</span> results
+    <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+      {/* Results Text - High Contrast */}
+      <div className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+        Showing <span className="font-bold text-slate-900 dark:text-white">{startItem}</span> to{' '}
+        <span className="font-bold text-slate-900 dark:text-white">{endItem}</span> of{' '}
+        <span className="font-bold text-slate-900 dark:text-white">{totalItems}</span> results
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Previous Button */}
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-muted dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 
+                     bg-white dark:bg-slate-800
+                     text-slate-900 dark:text-white
+                     hover:bg-slate-100 dark:hover:bg-slate-700 
+                     disabled:opacity-50 disabled:cursor-not-allowed 
+                     transition-colors flex items-center justify-center"
           aria-label="Previous page"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
+        {/* Page Numbers */}
         <div className="flex items-center gap-1">
           {getPageNumbers().map((page, index) => {
             if (page === 'ellipsis') {
               return (
-                <span key={`ellipsis-${index}`} className="px-3 py-2 text-muted dark:text-gray-300">
+                <span 
+                  key={`ellipsis-${index}`} 
+                  className="w-10 h-10 flex items-center justify-center text-slate-500 dark:text-slate-400 font-mono text-sm"
+                >
                   ...
                 </span>
               )
             }
 
+            const isCurrentPage = currentPage === page
+
             return (
               <button
                 key={page}
                 onClick={() => onPageChange(page)}
-                className={`min-w-[40px] px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  currentPage === page
-                    ? 'bg-primary text-white'
-                    : 'text-ink dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
+                className={`w-10 h-10 rounded-lg font-mono text-sm font-medium transition-all
+                  ${isCurrentPage
+                    ? 'bg-blue-600 dark:bg-cyan-500 text-white font-bold shadow-md'
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
               >
                 {page}
               </button>
@@ -102,10 +115,16 @@ export default function Pagination({
           })}
         </div>
 
+        {/* Next Button */}
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-muted dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 
+                     bg-white dark:bg-slate-800
+                     text-slate-900 dark:text-white
+                     hover:bg-slate-100 dark:hover:bg-slate-700 
+                     disabled:opacity-50 disabled:cursor-not-allowed 
+                     transition-colors flex items-center justify-center"
           aria-label="Next page"
         >
           <ChevronRight className="w-4 h-4" />

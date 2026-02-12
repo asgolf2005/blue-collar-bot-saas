@@ -195,6 +195,17 @@ export default function GlobalSearch() {
     return () => clearTimeout(timer)
   }, [query, performSearch])
 
+  const handleSelect = useCallback((result: SearchResult) => {
+    const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5)
+    setRecentSearches(updated)
+    localStorage.setItem('recentSearches', JSON.stringify(updated))
+
+    router.push(result.url)
+    setIsOpen(false)
+    setQuery('')
+    setResults([])
+  }, [query, recentSearches, router])
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -214,20 +225,7 @@ export default function GlobalSearch() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, results, selectedIndex])
-
-  const handleSelect = (result: SearchResult) => {
-    // Save to recent searches
-    const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5)
-    setRecentSearches(updated)
-    localStorage.setItem('recentSearches', JSON.stringify(updated))
-
-    // Navigate
-    router.push(result.url)
-    setIsOpen(false)
-    setQuery('')
-    setResults([])
-  }
+  }, [handleSelect, isOpen, results, selectedIndex])
 
   const getIcon = (type: string) => {
     switch (type) {

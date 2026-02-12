@@ -1,13 +1,121 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import TechnicianSchedule from '@/components/admin/TechnicianSchedule'
-import UpcomingJobs from '@/components/admin/UpcomingJobs'
-import RecentCustomers from '@/components/admin/RecentCustomers'
-import AdminAssistant from '@/components/admin/AdminAssistant'
-import { LayoutDashboard, Users, FileText, Search, Bell, Plus } from 'lucide-react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { JobsRealtimeWrapper } from '@/components/admin/JobsRealtimeWrapper'
+import { ConnectionStatus } from '@/components/admin/ConnectionStatus'
+import { JobsMetricsPanel } from '@/components/admin/JobsMetricsPanel'
+import { JobsPipelineBoard } from '@/components/admin/JobsPipelineBoard'
+import { DispatchAutopilotCard } from '@/components/admin/DispatchAutopilotCard'
+import { LocalDateTimeText } from '@/components/ui/LocalDateTimeText'
+import { endOfDay, endOfWeek, format, startOfDay, startOfWeek } from 'date-fns'
+import { 
+  Plus, 
+} from 'lucide-react'
 
-export default async function JobsPage() {
+// Force dynamic rendering to handle searchParams changes
+export const dynamic = 'force-dynamic'
+
+// Types
+interface Job {
+  id: string
+  title: string
+  status: string
+  scheduled_start: string
+  scheduled_end: string
+  customer?: {
+    name: string
+  }
+  technician?: {
+    full_name: string
+  }
+  updated_at: string
+}
+
+type JobsView = 'day' | 'week' | 'all'
+type JobsTimingFilter = 'all' | 'upcoming' | 'past'
+
+function resolveView(viewParam?: string | string[]): JobsView {
+  const view = Array.isArray(viewParam) ? viewParam[0] : viewParam
+  if (view === 'day' || view === 'week' || view === 'all') {
+    return view
+  }
+  return 'week'
+}
+
+function resolveTimingFilter(timingParam?: string | string[]): JobsTimingFilter {
+  const timing = Array.isArray(timingParam) ? timingParam[0] : timingParam
+  if (timing === 'all' || timing === 'upcoming' || timing === 'past') {
+    return timing
+  }
+  return 'all'
+}
+
+function resolveTechnicianFilter(technicianParam?: string | string[]): string | null {
+  const technician = Array.isArray(technicianParam) ? technicianParam[0] : technicianParam
+  if (!technician) return null
+  const trimmed = technician.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+async function fetchJobsForView({
+  supabase,
+  businessId,
+  view,
+  dateFilterStart,
+  dateFilterEnd,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  businessId: string
+  view: JobsView
+  dateFilterStart: Date
+  dateFilterEnd: Date
+}) {
+  const pageSize = 1000
+  let from = 0
+  const allJobs: any[] = []
+
+  while (true) {
+    let query = supabase
+      .from('jobs')
+      .select(`
+        *,
+        customer:customers(*),
+        technician:users(*),
+        services:job_services(service:services(*))
+      `)
+      .eq('business_id', businessId)
+      .order('scheduled_start', { ascending: true })
+      .range(from, from + pageSize - 1)
+
+    if (view !== 'all') {
+      query = query
+        .gte('scheduled_start', dateFilterStart.toISOString())
+        .lte('scheduled_start', dateFilterEnd.toISOString())
+    }
+
+    const { data, error } = await query
+    if (error) {
+      throw error
+    }
+
+    const batch = data || []
+    allJobs.push(...batch)
+
+    if (batch.length < pageSize) break
+    from += pageSize
+
+    // Safety guard for extremely large datasets
+    if (from > 50000) break
+  }
+
+  return allJobs
+}
+
+export default async function JobsPage(props: {
+  searchParams?: Promise<{ view?: string | string[]; timing?: string | string[]; technician?: string | string[] }>
+}) {
+  const searchParams = (await props.searchParams) ?? {}
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -25,297 +133,302 @@ export default async function JobsPage() {
     redirect('/tech/today')
   }
 
-  // Fetch recent jobs (last 90 days) for performance
-  const threeMonthsAgo = new Date()
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+  // Resolve view from URL or default to 'week'
+  const view = resolveView(searchParams?.view)
+  const timingFilter = resolveTimingFilter(searchParams?.timing)
+  const technicianFilterId = resolveTechnicianFilter(searchParams?.technician)
 
-  const { data: jobs, error: jobsError } = await supabase
-    .from('jobs')
-    .select(`
-      *,
-      customer:customers(*),
-      technician:users(*),
-      services:job_services(service:services(*))
-    `)
-    .eq('business_id', profile.business_id)
-    .gte('scheduled_start', threeMonthsAgo.toISOString())
-    .order('scheduled_start', { ascending: false })
-    .limit(500) // Max 500 jobs
+  // Calculate date range based on view and query only that period
+  const now = new Date()
+  let dateFilterStart = startOfWeek(now, { weekStartsOn: 1 })
+  let dateFilterEnd = endOfWeek(now, { weekStartsOn: 1 })
+
+  if (view === 'day') {
+    dateFilterStart = startOfDay(now)
+    dateFilterEnd = endOfDay(now)
+  }
+
+  // Fetch jobs based on selected view
+  let jobs: any[] = []
+  let jobsError: any = null
+  try {
+    jobs = await fetchJobsForView({
+      supabase,
+      businessId: profile.business_id,
+      view,
+      dateFilterStart,
+      dateFilterEnd,
+    })
+  } catch (error) {
+    jobsError = error
+  }
 
   if (jobsError) {
     console.error('Jobs query error:', jobsError)
   }
 
-  // Fetch all technicians for the team display
-  const { data: technicians } = await supabase
-    .from('users')
-    .select('id, full_name, avatar_url')
+  const filteredByTechnician = technicianFilterId
+    ? jobs.filter((job) => job.technician_id === technicianFilterId)
+    : jobs
+
+  const nowMs = now.getTime()
+  const allViewJobs = view === 'all'
+    ? filteredByTechnician.filter((job) => {
+        if (!job.scheduled_start) return timingFilter === 'all'
+        const scheduledMs = new Date(job.scheduled_start).getTime()
+        if (timingFilter === 'past') return scheduledMs < nowMs
+        if (timingFilter === 'upcoming') return scheduledMs >= nowMs
+        return true
+      })
+    : filteredByTechnician
+
+  const technicianFilterName =
+    technicianFilterId
+      ? jobs.find((job) => job.technician_id === technicianFilterId)?.technician?.full_name || 'Selected technician'
+      : null
+  const technicianQuery = technicianFilterId ? `&technician=${encodeURIComponent(technicianFilterId)}` : ''
+
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
+
+  // Group jobs by status
+  const jobsByStatus = {
+    scheduled: allViewJobs?.filter(j => j.status === 'scheduled') || [],
+    on_the_way: allViewJobs?.filter(j => j.status === 'on_the_way') || [],
+    in_progress: allViewJobs?.filter(j => j.status === 'in_progress' || j.status === 'arrived') || [],
+    completed: allViewJobs?.filter(j => j.status === 'completed') || [],
+    cancelled: allViewJobs?.filter(j => j.status === 'cancelled') || [],
+  }
+
+  // Fetch recent activity
+  const { data: recentJobs } = await supabase
+    .from('jobs')
+    .select(`
+      *,
+      customer:customers(name),
+      technician:users(full_name)
+    `)
     .eq('business_id', profile.business_id)
-    .eq('role', 'tech')
-    .limit(5)
+    .order('updated_at', { ascending: false })
+    .limit(6)
+
+  const dateLabel = view === 'day'
+    ? `TODAY: ${format(now, 'MMM d, yyyy').toUpperCase()}`
+    : view === 'week'
+    ? `THIS WEEK: ${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`.toUpperCase()
+    : `ALL JOBS: CHRONOLOGICAL`
 
   return (
-    <div style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
-      {/* Top Navigation Bar */}
-      <nav
-        style={{
-          height: 'var(--nav-height)',
-          background: 'var(--bg-card)',
-          boxShadow: 'var(--shadow-xs)',
-          padding: '0 var(--spacing-6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          zIndex: 'var(--z-sticky)',
-        }}
-      >
-        {/* Left - Logo & Navigation */}
-        <div className="flex items-center gap-6">
-          {/* Logo */}
-          <div
-            style={{
-              width: '40px',
-              height: '40px',
-              background: 'var(--blue-100)',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end' }}>
-              <div style={{ width: '3px', height: '12px', background: 'linear-gradient(to top, #3B82F6, #60A5FA)', borderRadius: '2px' }} />
-              <div style={{ width: '5px', height: '18px', background: 'linear-gradient(to top, #3B82F6, #60A5FA)', borderRadius: '2px' }} />
-              <div style={{ width: '4px', height: '15px', background: 'linear-gradient(to top, #3B82F6, #60A5FA)', borderRadius: '2px' }} />
-            </div>
-          </div>
-
-          {/* Navigation Tabs */}
-          <div
-            style={{
-              background: 'var(--gray-100)',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--spacing-1)',
-              display: 'flex',
-              gap: 'var(--spacing-1)',
-            }}
-          >
-            <Link
-              href="/admin/jobs"
-              style={{
-                height: 'var(--button-md)',
-                padding: '0 var(--spacing-4)',
-                background: 'var(--bg-card)',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--spacing-1)',
-                fontSize: 'var(--text-md)',
-                fontWeight: 'var(--font-medium)',
-                color: 'var(--gray-900)',
-                boxShadow: 'var(--shadow-xs)',
-                textDecoration: 'none',
-              }}
-            >
-              <LayoutDashboard style={{ width: 'var(--icon-md)', height: 'var(--icon-md)' }} />
-              Dashboard
-            </Link>
-
-            <Link
-              href="/admin/team"
-              style={{
-                height: 'var(--button-md)',
-                padding: '0 var(--spacing-4)',
-                background: 'transparent',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--spacing-1)',
-                fontSize: 'var(--text-md)',
-                fontWeight: 'var(--font-medium)',
-                color: 'var(--gray-600)',
-                textDecoration: 'none',
-              }}
-              className="hover:text-[#111827]"
-            >
-              <Users style={{ width: 'var(--icon-md)', height: 'var(--icon-md)' }} />
-              Employees
-            </Link>
-
-            <Link
-              href="/admin/analytics"
-              style={{
-                height: 'var(--button-md)',
-                padding: '0 var(--spacing-4)',
-                background: 'transparent',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--spacing-1)',
-                fontSize: 'var(--text-md)',
-                fontWeight: 'var(--font-medium)',
-                color: 'var(--gray-600)',
-                textDecoration: 'none',
-              }}
-              className="hover:text-[#111827]"
-            >
-              <FileText style={{ width: 'var(--icon-md)', height: 'var(--icon-md)' }} />
-              Analytics
-            </Link>
-          </div>
-
-          {/* Search */}
-          <button
-            style={{
-              width: 'var(--button-md)',
-              height: 'var(--button-md)',
-              borderRadius: 'var(--radius-full)',
-              background: 'var(--gray-50)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Search style={{ width: 'var(--icon-md)', height: 'var(--icon-md)', color: 'var(--gray-600)' }} />
-          </button>
+    <JobsRealtimeWrapper businessId={profile.business_id} initialJobs={(jobs as any) || []}>
+      <div className="space-y-6">
+      {/* Header - Minimal */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-5xl sm:text-6xl text-slate-900 dark:text-white tracking-wide">
+            OPERATIONS
+          </h1>
+          <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
+            {dateLabel}
+          </p>
         </div>
 
-        {/* Right - Team & Profile */}
         <div className="flex items-center gap-3">
-          {/* Team Avatars */}
-          <div className="flex items-center">
-            {technicians?.slice(0, 3).map((tech, idx) => (
-              <div
-                key={tech.id}
-                style={{
-                  width: 'var(--avatar-sm)',
-                  height: 'var(--avatar-sm)',
-                  borderRadius: 'var(--radius-full)',
-                  border: '2px solid white',
-                  marginLeft: idx > 0 ? '-8px' : '0',
-                  background: 'linear-gradient(135deg, #3B82F6, #60A5FA)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-semibold)',
-                  color: 'white',
-                }}
+          <div className="flex items-center bg-white dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800 p-1">
+            {(['day', 'week', 'all'] as const).map((nextView) => (
+              <Link
+                key={nextView}
+                href={`/admin/jobs?view=${nextView}${technicianQuery}`}
+                className={`px-4 py-1.5 rounded-full text-xs font-mono uppercase tracking-wide transition-all ${
+                  view === nextView
+                    ? 'bg-blue-600 dark:bg-cyan-500 text-white'
+                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                }`}
               >
-                {tech.full_name?.charAt(0) || 'T'}
-              </div>
+                {nextView}
+              </Link>
             ))}
-            {(technicians?.length || 0) > 3 && (
-              <div
-                style={{
-                  width: 'var(--avatar-sm)',
-                  height: 'var(--avatar-sm)',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'var(--gray-100)',
-                  marginLeft: '-8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-semibold)',
-                  color: 'var(--gray-600)',
-                }}
-              >
-                +{(technicians?.length || 0) - 3}
-              </div>
-            )}
           </div>
 
-          {/* Add Employee Button */}
-          <Link
-            href="/admin/team"
-            style={{
-              height: 'var(--button-md)',
-              padding: '0 var(--spacing-4)',
-              background: 'var(--bg-card)',
-              border: '1px solid var(--gray-200)',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--spacing-1)',
-              fontSize: 'var(--text-md)',
-              fontWeight: 'var(--font-medium)',
-              color: 'var(--gray-900)',
-              transition: 'var(--transition-base)',
-              textDecoration: 'none',
-            }}
-            className="hover:border-[#3B82F6]/40"
-          >
-            <Plus style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
-            Add Employee
+          <Link href="/admin/jobs/new">
+            <Button
+              variant="glassPrimary"
+              className="font-mono text-xs px-5 py-2.5 rounded-full"
+              icon={<Plus className="w-4 h-4" />}
+            >
+              NEW JOB
+            </Button>
           </Link>
-
-          {/* Profile & Notification */}
-          <div className="flex items-center gap-3">
-            <button
-              style={{
-                width: 'var(--avatar-md)',
-                height: 'var(--avatar-md)',
-                borderRadius: 'var(--radius-full)',
-                background: 'transparent',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Bell style={{ width: 'var(--icon-lg)', height: 'var(--icon-lg)', color: 'var(--gray-600)' }} />
-            </button>
-
-            <div
-              style={{
-                width: 'var(--avatar-md)',
-                height: 'var(--avatar-md)',
-                borderRadius: 'var(--radius-full)',
-                border: '2px solid var(--gray-200)',
-                background: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 'var(--text-lg)',
-                fontWeight: 'var(--font-semibold)',
-                color: 'white',
-              }}
-            >
-              {profile.full_name?.charAt(0) || 'A'}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div style={{ padding: 'var(--spacing-6)' }}>
-        {/* Technician Schedule - Full Width */}
-        <div className="mb-8">
-          <TechnicianSchedule jobs={jobs || []} businessId={profile.business_id} />
-        </div>
-
-        {/* Bottom Section - 3 Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Upcoming Jobs */}
-          <div>
-            <UpcomingJobs jobs={jobs || []} />
-          </div>
-
-          {/* Recent Customers */}
-          <div>
-            <RecentCustomers jobs={jobs || []} />
-          </div>
-
-          {/* Admin Assistant */}
-          <div>
-            <AdminAssistant userName={profile.full_name?.split(' ')[0] || 'Admin'} />
-          </div>
         </div>
       </div>
-    </div>
+
+      {technicianFilterId && (
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-mono text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
+            Technician: {technicianFilterName}
+          </span>
+          <Link
+            href={`/admin/jobs?view=${view}${view === 'all' ? `&timing=${timingFilter}` : ''}`}
+            className="text-[11px] font-mono text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            Clear filter
+          </Link>
+        </div>
+      )}
+
+      <JobsMetricsPanel jobsByStatus={jobsByStatus as Record<'scheduled' | 'on_the_way' | 'in_progress' | 'completed', Job[]>} />
+
+      <DispatchAutopilotCard />
+
+      {view !== 'all' ? (
+        <>
+          {/* Pipeline - Clean 5-Column */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+            {/* Pipeline Columns */}
+            <div className="xl:col-span-3">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">PIPELINE</h2>
+                  <ConnectionStatus autoRefresh />
+                </div>
+                
+                <JobsPipelineBoard jobs={allViewJobs as any[]} />
+              </div>
+            </div>
+
+            {/* Activity - Compact */}
+            <div className="xl:col-span-1">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm h-full">
+                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                  <h2 className="font-display text-lg text-slate-900 dark:text-white tracking-wide">ACTIVITY</h2>
+                </div>
+                <div className="p-3 space-y-2 max-h-[500px] overflow-y-auto">
+                  {recentJobs?.map((job: any) => (
+                    <div 
+                      key={job.id} 
+                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-mono text-slate-600 dark:text-slate-400">
+                          {(job.customer?.name || 'UN').substring(0, 1).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-mono text-xs text-slate-900 dark:text-white truncate">
+                            {job.customer?.name || 'Unknown'}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <StatusBadge status={job.status} />
+                            <span className="font-mono text-[10px] text-slate-400">
+                              {new Date(job.updated_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">ALL JOBS (CHRONOLOGICAL)</h2>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-white dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-700 p-1">
+                {([
+                  { key: 'all', label: 'All' },
+                  { key: 'upcoming', label: 'Upcoming' },
+                  { key: 'past', label: 'Past' },
+                ] as const).map((option) => (
+                  <Link
+                    key={option.key}
+                    href={`/admin/jobs?view=all&timing=${option.key}${technicianQuery}`}
+                    className={`px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wide transition-all ${
+                      timingFilter === option.key
+                        ? 'bg-blue-600 dark:bg-cyan-500 text-white'
+                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                ))}
+              </div>
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{allViewJobs.length} jobs</span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800">
+                  <th className="text-left px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Date & Time</th>
+                  <th className="text-left px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Customer</th>
+                  <th className="text-left px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Technician</th>
+                  <th className="text-left px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Service</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allViewJobs.map((job: any) => (
+                  <tr
+                    key={job.id}
+                    className="border-b border-slate-50 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
+                      <Link href={`/admin/jobs/${job.id}`} className="hover:text-cyan-600 dark:hover:text-cyan-400">
+                        <LocalDateTimeText value={job.scheduled_start} fallback="No date" />
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
+                      {job.customer?.name || 'Unknown'}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">
+                      {job.technician?.full_name || 'Unassigned'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={job.status} />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">
+                      {job.services?.[0]?.service?.name || 'General Service'}
+                    </td>
+                  </tr>
+                ))}
+                {allViewJobs.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center font-mono text-xs text-slate-500 dark:text-slate-400">
+                      No jobs found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      </div>
+    </JobsRealtimeWrapper>
   )
 }
+
+// Status Badge - Minimal
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, string> = {
+    scheduled: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-400',
+    on_the_way: 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-400',
+    arrived: 'bg-orange-100 text-orange-700 dark:bg-orange-400/10 dark:text-orange-400',
+    in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-400/10 dark:text-blue-400',
+    completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400',
+    cancelled: 'bg-slate-100 text-slate-700 dark:bg-slate-700/40 dark:text-slate-300',
+  }
+  
+  const label = status === 'on_the_way' ? 'EN ROUTE' : status.replace('_', ' ').toUpperCase()
+  
+  return (
+    <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] ${colors[status] || colors.scheduled}`}>
+      {label}
+    </span>
+  )
+}
+

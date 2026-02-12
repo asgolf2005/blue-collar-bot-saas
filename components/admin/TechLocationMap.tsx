@@ -211,7 +211,7 @@ export default function TechLocationMap() {
                 ${etaInfo ? `
                   <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
                     <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600;">En route to:</p>
-                    <p style="margin: 0 0 6px 0; font-size: 13px;">${location.job.customer.name}</p>
+                    <p style="margin: 0 0 6px 0; font-size: 13px;">${location.job?.customer?.name || 'Unknown'}</p>
                     <p style="margin: 0; font-size: 13px; color: #059669;">
                       📏 ${etaInfo.distance} • ⏱️ ${etaInfo.duration} (${etaInfo.eta})
                     </p>
@@ -264,7 +264,7 @@ export default function TechLocationMap() {
     }
 
     updateMap()
-  }, [locations])
+  }, [isLoaded, locations])
 
   // Subscribe to real-time updates
   useEffect(() => {

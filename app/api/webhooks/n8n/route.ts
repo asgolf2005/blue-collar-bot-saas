@@ -44,6 +44,19 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    const data = validation.data as {
+      business_id: string
+      customer_name: string
+      customer_phone: string
+      customer_email?: string
+      customer_address?: string
+      scheduled_start: string
+      scheduled_end: string
+      description?: string
+      urgency?: 'low' | 'medium' | 'high' | 'emergency'
+      calendar_event_id?: string
+      technician_id?: string
+    }
     const {
       business_id,
       customer_name,
@@ -56,7 +69,7 @@ export async function POST(request: Request) {
       urgency,
       calendar_event_id,
       technician_id,
-    } = validation.data
+    } = data
 
     const { data: existingCustomer } = await supabaseAdmin
       .from('customers')
@@ -117,7 +130,7 @@ export async function POST(request: Request) {
 
     // Auto-create customer portal account if this is a new customer
     if (!existingCustomer) {
-      await createCustomerAccount(customerId, customer_email)
+      await createCustomerAccount(customerId, customer_email || null)
       // Account creation happens asynchronously, don't wait for it
     }
 

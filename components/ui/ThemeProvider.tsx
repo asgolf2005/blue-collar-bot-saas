@@ -1,6 +1,12 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 type Theme = 'dark' | 'light' | 'system'
 
@@ -12,64 +18,45 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+const COLOR_SCHEME_QUERY = '(prefers-color-scheme: dark)'
+
+function getStoredTheme(): Theme {
+  if (typeof window === 'undefined') return 'light'
+  const stored = localStorage.getItem('theme')
+  return stored === 'dark' || stored === 'light' || stored === 'system' ? stored : 'light'
+}
+
+function subscribeSystemTheme(callback: () => void) {
+  if (typeof window === 'undefined') return () => {}
+  const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
+  mediaQuery.addEventListener('change', callback)
+  return () => mediaQuery.removeEventListener('change', callback)
+}
+
+function getSystemThemeSnapshot() {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia(COLOR_SCHEME_QUERY).matches
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light')
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('light')
-  const [mounted, setMounted] = useState(false)
+  const [theme, setThemeState] = useState<Theme>(getStoredTheme)
+  const prefersDark = useSyncExternalStore(
+    subscribeSystemTheme,
+    getSystemThemeSnapshot,
+    () => false
+  )
+  const resolvedTheme: 'dark' | 'light' = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme
 
   useEffect(() => {
-    setMounted(true)
-    const stored = localStorage.getItem('theme') as Theme | null
-    if (stored) {
-      setThemeState(stored)
-    } else {
-      setThemeState('light')
-      setResolvedTheme('light')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-
     const root = document.documentElement
-
-    const getResolvedTheme = (): 'dark' | 'light' => {
-      if (theme === 'system') {
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      }
-      return theme
-    }
-
-    const resolved = getResolvedTheme()
-    setResolvedTheme(resolved)
-
     root.classList.remove('light', 'dark')
-    root.classList.add(resolved)
+    root.classList.add(resolvedTheme)
 
-    // Update meta theme color
     const metaTheme = document.querySelector('meta[name="theme-color"]')
     if (metaTheme) {
-      metaTheme.setAttribute('content', resolved === 'dark' ? '#0b0f16' : '#f6f7f9')
+      metaTheme.setAttribute('content', resolvedTheme === 'dark' ? '#0b0f16' : '#f6f7f9')
     }
-  }, [theme, mounted])
-
-  useEffect(() => {
-    if (!mounted) return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = () => {
-      if (theme === 'system') {
-        const resolved = mediaQuery.matches ? 'dark' : 'light'
-        setResolvedTheme(resolved)
-        document.documentElement.classList.remove('light', 'dark')
-        document.documentElement.classList.add(resolved)
-      }
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme, mounted])
+  }, [resolvedTheme])
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
@@ -77,24 +64,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   const toggleTheme = () => {
-    const next = resolvedTheme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
   }
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <div className="light">
-        {children}
-      </div>
-    )
+  const value: ThemeContextType = {
+    theme,
+    resolvedTheme,
+    setTheme,
+    toggleTheme,
   }
 
-  return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  )
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
 }
 
 export function useTheme() {
@@ -105,18 +85,11 @@ export function useTheme() {
   return context
 }
 
-// Theme Toggle Button Component
 export function ThemeToggle({ className = '' }: { className?: string }) {
   const context = useContext(ThemeContext)
-  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => setMounted(true), [])
-
-  // Return placeholder during SSR to avoid hydration issues
-  if (!mounted || !context) {
-    return (
-      <div className="w-11 h-11" aria-hidden="true" />
-    )
+  if (!context) {
+    return <div className="w-11 h-11" aria-hidden="true" />
   }
 
   const { resolvedTheme, toggleTheme } = context
@@ -137,24 +110,26 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       `}
       aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
     >
-      {/* Sun Icon */}
-      <div className={`
-        absolute inset-0 flex items-center justify-center
-        transition-all duration-500
-        ${resolvedTheme === 'dark' ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}
-      `}>
+      <div
+        className={`
+          absolute inset-0 flex items-center justify-center
+          transition-all duration-500
+          ${resolvedTheme === 'dark' ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}
+        `}
+      >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </div>
 
-      {/* Moon Icon */}
-      <div className={`
-        absolute inset-0 flex items-center justify-center
-        transition-all duration-500
-        ${resolvedTheme === 'dark' ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}
-      `}>
+      <div
+        className={`
+          absolute inset-0 flex items-center justify-center
+          transition-all duration-500
+          ${resolvedTheme === 'dark' ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}
+        `}
+      >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
           <path
             d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
@@ -166,15 +141,16 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
         </svg>
       </div>
 
-      {/* Glow effect */}
-      <div className={`
-        absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100
-        transition-opacity duration-300 pointer-events-none
-        ${resolvedTheme === 'dark'
-          ? 'shadow-[inset_0_0_20px_rgba(143,179,255,0.18)]'
-          : 'shadow-[inset_0_0_16px_rgba(31,58,95,0.12)]'
-        }
-      `} />
+      <div
+        className={`
+          absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100
+          transition-opacity duration-300 pointer-events-none
+          ${resolvedTheme === 'dark'
+            ? 'shadow-[inset_0_0_20px_rgba(143,179,255,0.18)]'
+            : 'shadow-[inset_0_0_16px_rgba(31,58,95,0.12)]'
+          }
+        `}
+      />
     </button>
   )
 }

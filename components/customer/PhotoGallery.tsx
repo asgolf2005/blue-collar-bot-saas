@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Camera, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import type { PhotoType } from '@/lib/types'
@@ -27,6 +27,15 @@ export default function PhotoGallery({
 }: PhotoGalleryProps) {
   const [selectedType, setSelectedType] = useState<PhotoType | 'all'>('all')
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (lightboxIndex === null) return
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [lightboxIndex])
 
   const typeFilters: Array<{ value: PhotoType | 'all'; label: string; color: string }> = [
     { value: 'all', label: 'All Photos', color: 'bg-surface-100 text-ink' },
@@ -59,12 +68,10 @@ export default function PhotoGallery({
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index)
-    document.body.style.overflow = 'hidden'
   }
 
   const closeLightbox = () => {
     setLightboxIndex(null)
-    document.body.style.overflow = ''
   }
 
   const goToPrev = () => {

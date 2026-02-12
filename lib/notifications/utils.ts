@@ -63,7 +63,7 @@ export async function getNotificationRecipients(params: {
     .eq('role', 'admin')
 
   if (admins) {
-    recipients.push(...admins.map((admin) => ({ userId: admin.id, role: 'admin' })))
+    recipients.push(...admins.map((admin) => ({ userId: admin.id, role: 'admin' as const })))
   }
 
   let customerUserId: string | null = null

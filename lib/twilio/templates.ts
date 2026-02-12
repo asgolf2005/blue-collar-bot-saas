@@ -12,7 +12,7 @@ export interface SMSTemplateData {
   invoiceUrl?: string
 }
 
-export type SMSTemplate = (data: SMSTemplateData) => string
+export type SMSTemplate = (data: SMSTemplateData, customMessage?: string) => string
 
 // Job Status Templates
 export const smsTemplates = {
@@ -103,5 +103,5 @@ export function getSMSTemplate(templateName: SMSTemplateName, data: SMSTemplateD
     throw new Error(`SMS template '${templateName}' not found`)
   }
 
-  return template(data)
+  return template(data, customMessage || '')
 }

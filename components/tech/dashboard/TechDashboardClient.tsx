@@ -1,33 +1,54 @@
 'use client'
 
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { Clock, Calendar, MapPin, TrendingUp, CheckCircle, ChevronRight, Target, BarChart3, Bell, Navigation, User, Phone } from 'lucide-react'
-import { TiltCard, AnimatedCounter, MeshBackground, FloatingActionButton } from '@/components/ui/effects'
+import { differenceInMinutes, format } from 'date-fns'
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  MapPin,
+  Navigation,
+  Phone,
+  Target,
+  TrendingUp,
+  User,
+  Wrench,
+} from 'lucide-react'
 
 interface Job {
   id: string
   scheduled_start: string
   scheduled_end: string
   status: string
-  customer: {
-    id: string
-    name: string
-    phone: string | null
-    address: string | null
-  } | {
-    id: string
-    name: string
-    phone: string | null
-    address: string | null
-  }[]
-  service: {
-    name: string
-    category: string | null
-  } | {
-    name: string
-    category: string | null
-  }[]
+  description: string | null
+  urgency: string | null
+  total_cost: number | null
+  customer:
+    | {
+        id: string
+        name: string
+        phone: string | null
+        address: string | null
+      }
+    | {
+        id: string
+        name: string
+        phone: string | null
+        address: string | null
+      }[]
+    | null
+  service:
+    | {
+        name: string
+        category: string | null
+      }
+    | {
+        name: string
+        category: string | null
+      }[]
+    | null
 }
 
 interface WeekJob {
@@ -35,13 +56,18 @@ interface WeekJob {
   status: string
 }
 
+interface MonthJob {
+  status: string
+  total_cost: number | null
+}
+
 interface TechDashboardClientProps {
   nextJob: Job | null
-  upcomingCount: number
   todayJobs: Job[]
+  upcomingJobs: Job[]
   weekJobs: WeekJob[]
-  completedThisMonth: number
-  totalThisMonth: number
+  monthJobs: MonthJob[]
+  attentionJobs: Job[]
   userName: string
 }
 
@@ -58,418 +84,428 @@ type NormalizedJob = Omit<Job, 'customer' | 'service'> & {
   }
 }
 
-const emptyCustomer = { id: '', name: 'Unknown', phone: null, address: null }
-const emptyService = { name: 'Service', category: null }
+const fallbackCustomer = { id: '', name: 'Unknown customer', phone: null, address: null }
+const fallbackService = { name: 'General service', category: null }
+const activeStatuses = new Set(['on_the_way', 'arrived', 'in_progress'])
+
+const statusStyles: Record<string, string> = {
+  scheduled:
+    'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/25 dark:bg-blue-400/10 dark:text-blue-300',
+  on_the_way:
+    'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300',
+  arrived:
+    'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-300',
+  in_progress:
+    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300',
+  completed:
+    'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300',
+  cancelled:
+    'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+}
+
+const formatStatusLabel = (status: string) =>
+  status
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 
 const normalizeJob = (job: Job): NormalizedJob => {
   const customer = Array.isArray(job.customer) ? job.customer[0] : job.customer
   const service = Array.isArray(job.service) ? job.service[0] : job.service
+
   return {
     ...job,
-    customer: customer || emptyCustomer,
-    service: service || emptyService,
+    customer: customer || fallbackCustomer,
+    service: service || fallbackService,
   }
 }
 
-const fabActions = [
-  {
-    icon: <Clock className="w-5 h-5" />,
-    label: "Today's Jobs",
-    href: '/tech/today',
-    color: 'primary' as const
-  },
-  {
-    icon: <Calendar className="w-5 h-5" />,
-    label: 'Schedule',
-    href: '/tech/schedule',
-    color: 'success' as const
-  },
-  {
-    icon: <MapPin className="w-5 h-5" />,
-    label: 'Map View',
-    href: '/tech/today',
-    color: 'accent' as const
-  }
-]
-
-const statusColors: Record<string, { bg: string; text: string; label: string }> = {
-  scheduled: { bg: 'bg-blue-500/10', text: 'text-blue-600 border-blue-500/20', label: 'Scheduled' },
-  in_progress: { bg: 'bg-amber-500/10', text: 'text-amber-600 border-amber-500/20', label: 'In Progress' },
-  completed: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 border-emerald-500/20', label: 'Completed' },
-  on_the_way: { bg: 'bg-cyan-500/10', text: 'text-cyan-600 border-cyan-500/20', label: 'On The Way' },
-  arrived: { bg: 'bg-purple-500/10', text: 'text-purple-600 border-purple-500/20', label: 'Arrived' },
-  cancelled: { bg: 'bg-red-500/10', text: 'text-red-600 border-red-500/20', label: 'Cancelled' },
+function KpiCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string
+  value: string | number
+  helper: string
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 font-display text-3xl text-slate-900 dark:text-white">{value}</p>
+      <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{helper}</p>
+    </div>
+  )
 }
 
 export default function TechDashboardClient({
   nextJob,
-  upcomingCount,
   todayJobs,
+  upcomingJobs,
   weekJobs,
-  completedThisMonth,
-  totalThisMonth,
-  userName
+  monthJobs,
+  attentionJobs,
+  userName,
 }: TechDashboardClientProps) {
-  const normalizedTodayJobs = todayJobs.map(normalizeJob)
-  const normalizedNextJob = nextJob ? normalizeJob(nextJob) : null
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const now = new Date()
+  const firstName = userName?.split(' ')[0] || 'Technician'
+  const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening'
 
-  const completedToday = normalizedTodayJobs.filter(j => j.status === 'completed').length
-  const inProgressToday = normalizedTodayJobs.filter(j => j.status === 'in_progress').length
-  const completionRate = totalThisMonth > 0 ? Math.round((completedThisMonth / totalThisMonth) * 100) : 0
+  const today = todayJobs.map(normalizeJob)
+  const upcoming = upcomingJobs.map(normalizeJob)
+  const attention = attentionJobs.map(normalizeJob)
+  const nextDispatch = nextJob ? normalizeJob(nextJob) : null
 
-  // Get last 7 days for chart
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const today = new Date()
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(today)
-    date.setDate(date.getDate() - (6 - i))
+  const todayActive = today.filter((job) => activeStatuses.has(job.status)).length
+  const todayCompleted = today.filter((job) => job.status === 'completed').length
+  const dueSoon = today.filter((job) => {
+    if (job.status !== 'scheduled') return false
+    const minutes = differenceInMinutes(new Date(job.scheduled_start), now)
+    return minutes >= 0 && minutes <= 120
+  }).length
+
+  const monthTotal = monthJobs.length
+  const monthCompleted = monthJobs.filter((job) => job.status === 'completed').length
+  const monthCancelled = monthJobs.filter((job) => job.status === 'cancelled').length
+  const monthRevenue = monthJobs
+    .filter((job) => job.status === 'completed')
+    .reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
+  const monthCompletionRate = monthTotal > 0 ? Math.round((monthCompleted / monthTotal) * 100) : 0
+
+  const weekDates = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(now)
+    date.setDate(now.getDate() - (6 - index))
     return date
   })
-  const jobsPerDay = last7Days.map(date => {
-    const count = weekJobs.filter(job => {
+
+  const weekSeries = weekDates.map((date) => {
+    const dayJobs = weekJobs.filter((job) => {
       const jobDate = new Date(job.scheduled_start)
       return jobDate.toDateString() === date.toDateString()
-    }).length
-    return { day: days[date.getDay()], count, date }
+    })
+
+    return {
+      label: format(date, 'EEE'),
+      total: dayJobs.length,
+      completed: dayJobs.filter((job) => job.status === 'completed').length,
+      isToday: date.toDateString() === now.toDateString(),
+    }
   })
-  const maxCount = Math.max(...jobsPerDay.map(d => d.count), 1)
+  const weekMax = Math.max(...weekSeries.map((d) => d.total), 1)
+
+  const todayDateLabel = format(now, 'EEEE, d MMM yyyy')
 
   return (
-    <>
-      <MeshBackground variant="default" />
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.14),transparent_40%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_40%)]" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Technician Command</p>
+            <h1 className="mt-2 font-display text-4xl tracking-wide text-slate-900 dark:text-white sm:text-5xl">
+              {greeting}, {firstName}
+            </h1>
+            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{todayDateLabel}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                {today.length} Jobs Today
+              </span>
+              <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300">
+                {todayActive} Active Now
+              </span>
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300">
+                {attention.length} Needs Attention
+              </span>
+            </div>
+          </div>
 
-      <div className="space-y-8 relative">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="page-enter">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] flex items-center justify-center shadow-lg shadow-blue-500/25">
-                <span className="text-3xl">👷</span>
-              </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/tech/today"
+              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+            >
+              Open Today
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Link
+              href="/tech/schedule"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Full Schedule
+            </Link>
+            <Link
+              href="/tech/stats"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              My Performance
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          label="Next Dispatch"
+          value={nextDispatch ? format(new Date(nextDispatch.scheduled_start), 'h:mm a') : '--'}
+          helper={nextDispatch ? `${nextDispatch.customer.name} - ${nextDispatch.service.name}` : 'No upcoming dispatch'}
+        />
+        <KpiCard label="Active Jobs" value={todayActive} helper={`${dueSoon} due in next 2 hours`} />
+        <KpiCard label="Completed Today" value={todayCompleted} helper={`${today.length - todayCompleted} remaining`} />
+        <KpiCard label="Upcoming (7d)" value={upcoming.length} helper="Scheduled from tomorrow onward" />
+      </section>
+
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
               <div>
-                <h1 className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
-                  {greeting}, {userName?.split(' ')[0] || 'Tech'}!
-                </h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1 text-lg">
-                  Here's what's on your plate today
+                <h2 className="font-display text-2xl tracking-wide text-slate-900 dark:text-white">Today Dispatch Queue</h2>
+                <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  Tap any job to open full field workflow
                 </p>
               </div>
+              <Link
+                href="/tech/today"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                View All
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-          </div>
-          <Link
-            href="/tech/today"
-            className="group inline-flex items-center gap-2 px-6 py-3 rounded-2xl
-                       bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-white
-                       font-semibold shadow-lg shadow-blue-500/25
-                       hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5
-                       transition-all duration-300 relative overflow-hidden"
-          >
-            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            <Clock className="w-5 h-5 relative z-10" />
-            <span className="relative z-10">View Today's Jobs</span>
-          </Link>
-        </div>
 
-        {/* Stats Grid with Tilt Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Next Job - Primary Blue Card */}
-          <TiltCard className="page-enter stagger-1">
-            <div className="relative p-6 rounded-3xl bg-gradient-to-br from-[#2563eb] to-[#1d4ed8] text-white overflow-hidden shadow-xl shadow-blue-500/20 h-full">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-xl translate-y-1/2 -translate-x-1/2" />
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-blue-100 text-sm font-medium">Next Job</span>
-                  <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                </div>
-                {normalizedNextJob ? (
-                  <>
-                    <div className="text-5xl font-bold mb-1">
-                      {format(new Date(normalizedNextJob.scheduled_start), 'HH:mm')}
-                    </div>
-                    <div className="text-sm text-blue-100 mb-3">
-                      {format(new Date(normalizedNextJob.scheduled_start), 'MMM dd, yyyy')}
-                    </div>
-                    <div className="text-sm font-semibold">{normalizedNextJob.customer.name}</div>
-                    <div className="text-xs text-blue-200">{normalizedNextJob.service.name}</div>
-                    <div className="mt-3 flex items-center gap-2 text-xs text-blue-100">
-                      <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                      <span>Starting soon</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-2xl font-semibold text-blue-100">No upcoming jobs</div>
-                )}
+            {today.length === 0 ? (
+              <div className="p-8 text-center">
+                <CalendarDays className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500" />
+                <p className="mt-3 font-mono text-sm text-slate-600 dark:text-slate-300">No jobs scheduled today.</p>
               </div>
-            </div>
-          </TiltCard>
-
-          {/* Upcoming Jobs */}
-          <TiltCard className="page-enter stagger-2">
-            <div className="relative p-6 rounded-3xl bg-white/70 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700 overflow-hidden shadow-sm shadow-slate-200/30 dark:shadow-none hover:shadow-md hover:bg-white/90 dark:hover:bg-slate-800 transition-all h-full">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Upcoming</span>
-                  <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-blue-500" />
-                  </div>
-                </div>
-                <div className="text-5xl font-bold text-slate-900 dark:text-white mb-2">
-                  <AnimatedCounter value={upcomingCount} />
-                </div>
-                <div className="flex items-center gap-2 text-blue-600">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm font-medium">Next 7 days</span>
-                </div>
-              </div>
-            </div>
-          </TiltCard>
-
-          {/* Jobs Today - Amber Card */}
-          <TiltCard className="page-enter stagger-3">
-            <div className="relative p-6 rounded-3xl bg-white/70 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700 overflow-hidden shadow-sm shadow-slate-200/30 dark:shadow-none hover:shadow-md hover:bg-white/90 dark:hover:bg-slate-800 transition-all h-full">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Jobs Today</span>
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-amber-500" />
-                  </div>
-                </div>
-                <div className="text-5xl font-bold text-slate-900 dark:text-white mb-2">
-                  <AnimatedCounter value={normalizedTodayJobs.length} />
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  {completedToday > 0 && (
-                    <div className="flex items-center gap-1 text-emerald-600">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>{completedToday} done</span>
-                    </div>
-                  )}
-                  {inProgressToday > 0 && (
-                    <div className="flex items-center gap-1 text-amber-600">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                      <span>{inProgressToday} active</span>
-                    </div>
-                  )}
-                  {completedToday === 0 && inProgressToday === 0 && (
-                    <span className="text-slate-500">No activity yet</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </TiltCard>
-
-          {/* Completion Rate - Success Card */}
-          <TiltCard className="page-enter stagger-4">
-            <div className="relative p-6 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden shadow-xl shadow-emerald-500/20 h-full">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-emerald-100 text-sm font-medium">This Month</span>
-                  <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                </div>
-                <div className="text-5xl font-bold mb-3">
-                  <AnimatedCounter value={completedThisMonth} />
-                </div>
-                <div className="text-emerald-100 text-sm font-medium mb-2">jobs completed</div>
-                <div className="w-full h-2 rounded-full bg-white/20 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-white transition-all duration-1000 ease-out"
-                    style={{ width: `${completionRate}%` }}
-                  />
-                </div>
-                <div className="text-xs text-emerald-100 mt-1">{completionRate}% completion rate</div>
-              </div>
-            </div>
-          </TiltCard>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Today's Schedule - Takes 2 columns */}
-          <div className="lg:col-span-2 page-enter stagger-5">
-            <div className="rounded-3xl bg-white/70 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700 overflow-hidden shadow-sm shadow-slate-200/30 dark:shadow-none">
-              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">Today's Schedule</h2>
-                    <p className="text-slate-500 text-sm mt-1">{normalizedTodayJobs.length} appointment{normalizedTodayJobs.length !== 1 ? 's' : ''} scheduled</p>
-                  </div>
-                  <Link
-                    href="/tech/today"
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                  >
-                    View all <ChevronRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-
-              {normalizedTodayJobs.length > 0 ? (
-                <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                  {normalizedTodayJobs.slice(0, 5).map((job) => {
-                    const status = statusColors[job.status] || statusColors.scheduled
-                    return (
-                      <Link
-                        key={job.id}
-                        href={`/tech/jobs/${job.id}`}
-                        className="flex items-center gap-4 p-4 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-transparent dark:hover:from-slate-700/50 dark:hover:to-transparent transition-all group"
-                      >
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
-                          {job.customer.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-slate-900 dark:text-white">{job.customer.name}</span>
-                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${status.bg} ${status.text}`}>
-                              {status.label}
-                            </span>
-                          </div>
-                          <div className="text-sm text-slate-500 truncate">{job.service.name}</div>
-                          <div className="flex items-center gap-4 mt-1 text-xs text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {format(new Date(job.scheduled_start), 'h:mm a')} - {format(new Date(job.scheduled_end), 'h:mm a')}
-                            </span>
-                            {job.customer.address && (
-                              <span className="flex items-center gap-1 truncate max-w-[200px]">
-                                <MapPin className="w-3 h-3" />
-                                {job.customer.address}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                      </Link>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="px-6 py-16 text-center">
-                  <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center mx-auto mb-4">
-                    <Calendar className="w-8 h-8 text-slate-400" />
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-300 font-medium text-lg">No jobs scheduled today</p>
-                  <p className="text-slate-500 text-sm mt-1">Enjoy your day off!</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column - Weekly Chart & Quick Stats */}
-          <div className="space-y-6">
-            {/* Weekly Chart */}
-            <TiltCard className="page-enter stagger-5">
-              <div className="p-6 rounded-3xl bg-white/70 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700 shadow-sm shadow-slate-200/30 dark:shadow-none">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">This Week</h3>
-                    <p className="text-sm text-slate-500">Your activity</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                    <BarChart3 className="w-5 h-5 text-blue-500" />
-                  </div>
-                </div>
-
-                <div className="flex items-end justify-between gap-2 h-32">
-                  {jobsPerDay.map((item, index) => {
-                    const isToday = item.date.toDateString() === today.toDateString()
-                    const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0
-
-                    return (
-                      <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full flex flex-col justify-end h-24">
-                          <div
-                            className={`w-full rounded-t-lg transition-all ${
-                              isToday
-                                ? 'bg-gradient-to-t from-[#1d4ed8] to-[#2563eb] shadow-lg shadow-blue-500/25'
-                                : 'bg-slate-200 dark:bg-slate-600'
-                            }`}
-                            style={{ height: `${Math.max(height, 8)}%` }}
-                          />
-                        </div>
-                        <span className={`text-xs font-medium ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                          {item.day}
-                        </span>
+            ) : (
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                {today.map((job) => (
+                  <div key={job.id} className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                    <Link href={`/tech/jobs/${job.id}`} className="flex min-w-0 flex-1 items-start gap-4">
+                      <div className="w-16 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
+                        <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {format(new Date(job.scheduled_start), 'h:mm')}
+                        </p>
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </TiltCard>
 
-            {/* Monthly Progress */}
-            <TiltCard className="page-enter stagger-5">
-              <div className="p-6 rounded-3xl bg-white/70 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700 shadow-sm shadow-slate-200/30 dark:shadow-none">
-                <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4">Monthly Progress</h3>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                    <Target className="w-8 h-8 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-4xl font-bold text-slate-900 dark:text-white">
-                      {completionRate}%
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{job.customer.name}</p>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                              statusStyles[job.status] || statusStyles.scheduled
+                            }`}
+                          >
+                            {formatStatusLabel(job.status)}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-mono text-xs text-slate-600 dark:text-slate-300">
+                          {job.description || job.service.name}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {format(new Date(job.scheduled_start), 'h:mm a')} - {format(new Date(job.scheduled_end), 'h:mm a')}
+                          </span>
+                          {job.customer.address && (
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {job.customer.address}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/tech/jobs/${job.id}`}
+                        className="rounded-lg bg-blue-600 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+                      >
+                        Open Job
+                      </Link>
+                      {job.customer.phone && (
+                        <a
+                          href={`tel:${job.customer.phone}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          Call
+                        </a>
+                      )}
+                      {job.customer.address && (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer.address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          <Navigation className="h-3.5 w-3.5" />
+                          Route
+                        </a>
+                      )}
                     </div>
-                    <div className="text-slate-500 text-sm">{completedThisMonth} of {totalThisMonth} jobs</div>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Attention Required</h3>
+            </div>
+            {attention.length === 0 ? (
+              <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-emerald-600 dark:text-emerald-400">
+                No overdue active jobs. Operations are on track.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {attention.slice(0, 5).map((job) => (
+                  <Link
+                    key={job.id}
+                    href={`/tech/jobs/${job.id}`}
+                    className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-400/25 dark:bg-amber-400/10"
+                  >
+                    <div>
+                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-300">
+                        {job.customer.name}
+                      </p>
+                      <p className="font-mono text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                        {format(new Date(job.scheduled_start), 'd MMM, h:mm a')} - {formatStatusLabel(job.status)}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Performance Snapshot</h3>
+              <Target className="h-4 w-4 text-cyan-500" />
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-end justify-between">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Completion This Month</p>
+                <p className="font-display text-3xl text-slate-900 dark:text-slate-100">{monthCompletionRate}%</p>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500"
+                  style={{ width: `${monthCompletionRate}%` }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Completed</p>
+                  <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {monthCompleted}/{monthTotal}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Cancelled</p>
+                  <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{monthCancelled}</p>
                 </div>
               </div>
-            </TiltCard>
-
-            {/* Quick Actions */}
-            <div className="p-6 rounded-3xl bg-white/70 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700 shadow-sm shadow-slate-200/30 dark:shadow-none page-enter stagger-5">
-              <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <Link href="/tech/today" className="flex items-center gap-4 p-3 rounded-2xl bg-gradient-to-br from-slate-50 to-white dark:from-slate-700/50 dark:to-slate-700/50 hover:from-blue-50 hover:to-blue-50/50 dark:hover:from-blue-900/20 dark:hover:to-blue-900/20 border border-slate-200/80 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-800 shadow-sm hover:shadow-md hover:shadow-blue-100/50 dark:hover:shadow-none transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
-                    <Clock className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Today's Jobs</div>
-                    <div className="text-xs text-slate-500">View your schedule</div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                </Link>
-
-                <Link href="/tech/schedule" className="flex items-center gap-4 p-3 rounded-2xl bg-gradient-to-br from-slate-50 to-white dark:from-slate-700/50 dark:to-slate-700/50 hover:from-cyan-50 hover:to-cyan-50/50 dark:hover:from-cyan-900/20 dark:hover:to-cyan-900/20 border border-slate-200/80 dark:border-slate-600 hover:border-cyan-200 dark:hover:border-cyan-800 shadow-sm hover:shadow-md hover:shadow-cyan-100/50 dark:hover:shadow-none transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform">
-                    <Calendar className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Full Schedule</div>
-                    <div className="text-xs text-slate-500">View all appointments</div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-cyan-500 transition-colors" />
-                </Link>
-
-                <Link href="/tech/stats" className="flex items-center gap-4 p-3 rounded-2xl bg-gradient-to-br from-slate-50 to-white dark:from-slate-700/50 dark:to-slate-700/50 hover:from-emerald-50 hover:to-emerald-50/50 dark:hover:from-emerald-900/20 dark:hover:to-emerald-900/20 border border-slate-200/80 dark:border-slate-600 hover:border-emerald-200 dark:hover:border-emerald-800 shadow-sm hover:shadow-md hover:shadow-emerald-100/50 dark:hover:shadow-none transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
-                    <TrendingUp className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white">My Stats</div>
-                    <div className="text-xs text-slate-500">View performance</div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                </Link>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-400/25 dark:bg-emerald-400/10">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">Completed Revenue</p>
+                <p className="mt-1 font-display text-2xl text-emerald-700 dark:text-emerald-300">${monthRevenue.toFixed(0)}</p>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <FloatingActionButton actions={fabActions} />
-    </>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Workload Pulse (7d)</h3>
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+            </div>
+            <div className="mt-4 flex h-36 items-end gap-2">
+              {weekSeries.map((day) => (
+                <div key={day.label} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="relative flex h-28 w-full items-end overflow-hidden rounded-md bg-slate-100 dark:bg-slate-800">
+                    <div
+                      className={`w-full rounded-md ${
+                        day.isToday
+                          ? 'bg-gradient-to-t from-blue-600 to-cyan-500'
+                          : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                      style={{ height: `${Math.max((day.total / weekMax) * 100, day.total > 0 ? 12 : 2)}%` }}
+                    />
+                  </div>
+                  <p className={`font-mono text-[10px] ${day.isToday ? 'text-blue-600 dark:text-cyan-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {day.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Upcoming Dispatches</h3>
+              <Clock3 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            </div>
+            {upcoming.length === 0 ? (
+              <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">No upcoming jobs in next 7 days.</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {upcoming.slice(0, 5).map((job) => (
+                  <Link
+                    key={job.id}
+                    href={`/tech/jobs/${job.id}`}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
+                        {job.customer.name}
+                      </p>
+                      <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                        {format(new Date(job.scheduled_start), 'EEE d MMM, h:mm a')}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-slate-400" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Action Dock</h3>
+            <div className="mt-3 space-y-2">
+              <Link
+                href="/tech/today"
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Wrench className="h-4 w-4 text-cyan-500" />
+                Open Active Jobs
+              </Link>
+              <Link
+                href="/tech/schedule"
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <CalendarDays className="h-4 w-4 text-blue-500" />
+                Open Calendar
+              </Link>
+              <Link
+                href="/tech/stats"
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <User className="h-4 w-4 text-emerald-500" />
+                View My Stats
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   )
 }

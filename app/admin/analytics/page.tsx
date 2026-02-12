@@ -1,44 +1,36 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { endOfDay, startOfDay, startOfYear, subDays } from 'date-fns'
-import {
-  DollarSign,
-  CheckCircle,
-  TrendingUp,
-  Star,
-} from 'lucide-react'
-import AnalyticsClient from '@/components/analytics/AnalyticsClient'
-import RevenueChart from '@/components/analytics/RevenueChart'
-import ServicePopularity from '@/components/analytics/ServicePopularity'
-import TechPerformance from '@/components/analytics/TechPerformance'
-import CustomerInsights from '@/components/analytics/CustomerInsights'
+import AnalyticsClient from './components/AnalyticsClient'
+import { 
+  InvoiceWithRelations, 
+  JobWithRelations
+} from '@/lib/analytics/types'
+import { getDateRange } from '@/lib/analytics/dateUtils'
+import { 
+  calculateMetrics,
+  calculateStatusData,
+  calculateTechnicianData,
+  calculateServiceData,
+  generateDailyRevenueData
+} from '@/lib/analytics/calculations'
 
-type RangeKey = '7d' | '30d' | '90d' | 'ytd'
+// Prevent caching to ensure fresh data
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-const rangeOptions: Array<{ key: RangeKey; label: string; days?: number; shortLabel: string }> = [
-  { key: '7d', label: 'Last 7 days', days: 7, shortLabel: '7D' },
-  { key: '30d', label: 'Last 30 days', days: 30, shortLabel: '30D' },
-  { key: '90d', label: 'Last 90 days', days: 90, shortLabel: '90D' },
-  { key: 'ytd', label: 'Year to date', shortLabel: 'YTD' },
-]
-
-const calcChange = (current: number, previous: number) => {
-  if (!previous) return null
-  return ((current - previous) / previous) * 100
+function isWithinRange(value: string | null | undefined, start: Date, end: Date): boolean {
+  if (!value) return false
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return false
+  return date >= start && date <= end
 }
 
-const formatChange = (value: number | null) => {
-  if (value === null) return null
-  const rounded = Number(value.toFixed(1))
-  return `${rounded > 0 ? '+' : ''}${rounded}%`
-}
-
-export default async function AdminAnalyticsPage({
+export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }> | { [key: string]: string | string[] | undefined }
 }) {
-  const params = await searchParams
+  const params = searchParams ? await Promise.resolve(searchParams) : {}
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -46,180 +38,158 @@ export default async function AdminAnalyticsPage({
     redirect('/login')
   }
 
+  // Get user profile with business_id
   const { data: profile } = await supabase
     .from('users')
     .select('business_id, role')
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'admin') {
-    redirect('/tech/today')
+  if (!profile || !profile.business_id) {
+    redirect('/login')
   }
 
-  const requestedRange = params.range
-  const selectedRange = rangeOptions.find((range) => range.key === requestedRange) || rangeOptions[1]
-  const endDate = endOfDay(new Date())
-  const startDate = selectedRange.key === 'ytd'
-    ? startOfYear(endDate)
-    : startOfDay(subDays(endDate, selectedRange.days || 30))
-  const previousEndDate = new Date(startDate.getTime() - 1)
-  const previousStartDate = new Date(previousEndDate.getTime() - (endDate.getTime() - startDate.getTime()))
-  const rangeLabel = selectedRange.label
+  const businessId = profile.business_id
+  const rawRange = Array.isArray(params?.range) ? params?.range[0] : params?.range
+  const validRanges = new Set(['7d', '30d', '90d', 'ytd'])
+  const range = validRanges.has(rawRange || '') ? (rawRange as '7d' | '30d' | '90d' | 'ytd') : '30d'
+  const dateRange = getDateRange(range as any)
 
-  const [
-    { data: invoices },
-    { data: previousInvoices },
-    { data: jobs },
-    { data: previousJobs },
-    { count: newCustomerCount },
-  ] = await Promise.all([
-    supabase
-      .from('invoices')
-      .select('*')
-      .eq('business_id', profile.business_id)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString()),
-    supabase
-      .from('invoices')
-      .select('*')
-      .eq('business_id', profile.business_id)
-      .gte('created_at', previousStartDate.toISOString())
-      .lte('created_at', previousEndDate.toISOString()),
-    supabase
-      .from('jobs')
-      .select('*')
-      .eq('business_id', profile.business_id)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString()),
-    supabase
-      .from('jobs')
-      .select('*')
-      .eq('business_id', profile.business_id)
-      .gte('created_at', previousStartDate.toISOString())
-      .lte('created_at', previousEndDate.toISOString()),
-    supabase
-      .from('customers')
-      .select('id', { count: 'exact', head: true })
-      .eq('business_id', profile.business_id)
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString()),
-  ])
+  // Fetch business data and apply range in memory for current + previous period
+  const { data: jobsData = [] } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('created_at', { ascending: false })
 
-  const totalRevenue = invoices?.reduce((sum, inv) => sum + parseFloat(inv.total.toString()), 0) || 0
-  const paidRevenue = invoices?.filter(inv => inv.status === 'paid')
-    .reduce((sum, inv) => sum + parseFloat(inv.total.toString()), 0) || 0
-  const outstandingRevenue = totalRevenue - paidRevenue
-  const previousTotalRevenue = previousInvoices?.reduce((sum, inv) => sum + parseFloat(inv.total.toString()), 0) || 0
+  const { data: invoicesData = [] } = await supabase
+    .from('invoices')
+    .select('*')
+    .eq('business_id', businessId)
+    .order('created_at', { ascending: false })
 
-  const completedJobs = jobs?.filter(job => job.status === 'completed').length || 0
-  const totalJobs = jobs?.length || 0
-  const completionRate = totalJobs > 0 ? Math.round((completedJobs / totalJobs) * 100) : 0
-  const previousCompletedJobs = previousJobs?.filter(job => job.status === 'completed').length || 0
+  // Fetch related data separately
+  const { data: customersData = [] } = await supabase
+    .from('customers')
+    .select('id, name')
+    .eq('business_id', businessId)
 
-  // Get average job value
-  const avgJobValue = completedJobs > 0 ? paidRevenue / completedJobs : 0
-  const previousPaidRevenue = previousInvoices?.filter(inv => inv.status === 'paid')
-    .reduce((sum, inv) => sum + parseFloat(inv.total.toString()), 0) || 0
-  const previousAvgJobValue = previousCompletedJobs > 0 ? previousPaidRevenue / previousCompletedJobs : 0
+  const { data: usersData = [] } = await supabase
+    .from('users')
+    .select('id, full_name')
+    .eq('business_id', businessId)
 
-  // Customer satisfaction (placeholder calculation based on completion rate)
-  const satisfactionScore = completionRate > 0 ? Math.min(98, Math.round(85 + (completionRate * 0.13))) : 0
-  const previousSatisfactionScore = 87
+  const { data: servicesData = [] } = await supabase
+    .from('services')
+    .select('id, name')
+    .eq('business_id', businessId)
 
-  const revenueChange = calcChange(totalRevenue, previousTotalRevenue)
-  const jobCompletionChange = calcChange(completedJobs, previousCompletedJobs)
-  const avgJobValueChange = calcChange(avgJobValue, previousAvgJobValue)
-  const satisfactionChange = calcChange(satisfactionScore, previousSatisfactionScore)
+  const jobIds = (jobsData || []).map(job => job.id)
+  const { data: jobServicesData = [] } = jobIds.length
+    ? await supabase
+        .from('job_services')
+        .select('job_id, service_id')
+        .in('job_id', jobIds)
+    : { data: [] as Array<{ job_id: string; service_id: string }> }
 
-  const metrics = [
-    {
-      label: 'Revenue',
-      value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-      subtext: `$${paidRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} collected`,
-      change: formatChange(revenueChange),
-      positive: revenueChange === null ? null : revenueChange >= 0,
-      icon: DollarSign,
-      gradient: 'from-blue-600/80 to-blue-800/80',
-      glowColor: 'bg-blue-500',
-    },
-    {
-      label: 'Jobs Completed',
-      value: completedJobs.toString(),
-      subtext: `${completionRate}% completion rate`,
-      change: formatChange(jobCompletionChange),
-      positive: jobCompletionChange === null ? null : jobCompletionChange >= 0,
-      icon: CheckCircle,
-      gradient: 'from-cyan-600/80 to-cyan-800/80',
-      glowColor: 'bg-cyan-500',
-    },
-    {
-      label: 'Avg Job Value',
-      value: `$${avgJobValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
-      subtext: `Per completed job`,
-      change: formatChange(avgJobValueChange),
-      positive: avgJobValueChange === null ? null : avgJobValueChange >= 0,
-      icon: TrendingUp,
-      gradient: 'from-amber-600/80 to-amber-800/80',
-      glowColor: 'bg-amber-500',
-    },
-    {
-      label: 'Customer Satisfaction',
-      value: `${satisfactionScore}%`,
-      subtext: 'Based on job completion',
-      change: formatChange(satisfactionChange),
-      positive: satisfactionChange === null ? null : satisfactionChange >= 0,
-      icon: Star,
-      gradient: 'from-purple-600/80 to-purple-800/80',
-      glowColor: 'bg-purple-500',
-    },
-  ]
+  // Build lookup maps
+  const customerMap = new Map((customersData || []).map(c => [c.id, c.name]))
+  const userMap = new Map((usersData || []).map(u => [u.id, u.full_name]))
+  const serviceMap = new Map((servicesData || []).map(s => [s.id, s.name]))
+  const jobMap = new Map((jobsData || []).map(job => [job.id, job]))
+  const jobServiceNames = new Map<string, string[]>()
+
+  ;(jobServicesData || []).forEach((row) => {
+    const serviceName = row.service_id ? serviceMap.get(row.service_id) : null
+    if (!serviceName) return
+    const existing = jobServiceNames.get(row.job_id) || []
+    existing.push(serviceName)
+    jobServiceNames.set(row.job_id, existing)
+  })
+
+  // Transform to proper types with related data
+  const allJobs: JobWithRelations[] = (jobsData || []).map((j: any) => ({
+    id: j.id,
+    status: j.status,
+    total_cost: j.total_cost,
+    created_at: j.created_at,
+    scheduled_start: j.scheduled_start,
+    scheduled_end: j.scheduled_end,
+    completed_at: null,
+    description: j.description,
+    customer: j.customer_id ? { name: customerMap.get(j.customer_id) || 'Unknown' } : null,
+    technician: j.technician_id ? { 
+      id: j.technician_id,
+      full_name: userMap.get(j.technician_id) || 'Unknown'
+    } : null,
+    service: (jobServiceNames.get(j.id) || [])[0]
+      ? { name: (jobServiceNames.get(j.id) || [])[0] }
+      : null
+  }))
+
+  const allInvoices: InvoiceWithRelations[] = (invoicesData || []).map((i: any) => {
+    const relatedJob = i.job_id ? jobMap.get(i.job_id) : null
+    const serviceName = i.job_id ? (jobServiceNames.get(i.job_id) || [])[0] : null
+
+    return {
+    id: i.id,
+    status: i.status,
+    total: i.total,
+    subtotal: i.subtotal,
+    tax: i.tax,
+    created_at: i.created_at,
+    paid_at: i.paid_at,
+    issue_date: i.issue_date,
+    due_date: i.due_date,
+    customer: i.customer_id ? { name: customerMap.get(i.customer_id) || 'Unknown' } : null,
+    job: i.job_id ? {
+      id: i.job_id,
+      status: relatedJob?.status || '',
+      technician: relatedJob?.technician_id
+        ? {
+            id: relatedJob.technician_id,
+            full_name: userMap.get(relatedJob.technician_id) || 'Unknown'
+          }
+        : null,
+      service: serviceName ? { name: serviceName } : null
+    } : null
+  }})
+
+  const currentJobs = allJobs.filter(job =>
+    isWithinRange(job.scheduled_start || job.created_at, dateRange.start, dateRange.end)
+  )
+  const prevJobs = allJobs.filter(job =>
+    isWithinRange(job.scheduled_start || job.created_at, dateRange.prevStart, dateRange.prevEnd)
+  )
+  const currentInvoices = allInvoices.filter(invoice =>
+    isWithinRange(invoice.paid_at || invoice.created_at, dateRange.start, dateRange.end)
+  )
+  const prevInvoices = allInvoices.filter(invoice =>
+    isWithinRange(invoice.paid_at || invoice.created_at, dateRange.prevStart, dateRange.prevEnd)
+  )
+
+  // Calculate all metrics
+  const metrics = calculateMetrics({
+    currentJobs,
+    currentInvoices,
+    prevJobs,
+    prevInvoices
+  })
+
+  // Generate chart data
+  const revenueData = generateDailyRevenueData(currentInvoices, currentJobs, dateRange)
+  const statusData = calculateStatusData(currentJobs)
+  const technicianData = calculateTechnicianData(currentJobs, currentInvoices)
+  const serviceData = calculateServiceData(currentJobs, currentInvoices)
 
   return (
-    <div className="bg-[#0a0e1a] min-h-screen">
-      <AnalyticsClient
-        metrics={metrics}
-        selectedRange={selectedRange}
-        rangeOptions={rangeOptions}
-        paidRevenue={paidRevenue}
-        totalRevenue={totalRevenue}
-        outstandingRevenue={outstandingRevenue}
-      />
-
-      {/* Charts Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 space-y-6">
-        {/* Charts Grid - Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <RevenueChart
-            businessId={profile.business_id}
-            rangeStart={startDate.toISOString()}
-            rangeEnd={endDate.toISOString()}
-            rangeLabel={rangeLabel}
-          />
-          <ServicePopularity
-            businessId={profile.business_id}
-            rangeStart={startDate.toISOString()}
-            rangeEnd={endDate.toISOString()}
-            rangeLabel={rangeLabel}
-          />
-        </div>
-
-        {/* Charts Grid - Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <TechPerformance
-            businessId={profile.business_id}
-            rangeStart={startDate.toISOString()}
-            rangeEnd={endDate.toISOString()}
-            rangeLabel={rangeLabel}
-          />
-          <CustomerInsights
-            businessId={profile.business_id}
-            rangeStart={startDate.toISOString()}
-            rangeEnd={endDate.toISOString()}
-            rangeLabel={rangeLabel}
-            rangeShortLabel={selectedRange.shortLabel}
-          />
-        </div>
-      </div>
-    </div>
+    <AnalyticsClient
+      initialRange={range}
+      metrics={metrics}
+      revenueData={revenueData}
+      statusData={statusData}
+      technicianData={technicianData}
+      serviceData={serviceData}
+    />
   )
 }

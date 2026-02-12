@@ -1,197 +1,290 @@
 'use client'
 
-import { useMemo, useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { format, differenceInMinutes, addDays, startOfDay, endOfDay, addMinutes } from 'date-fns'
+import { addDays, differenceInMinutes, endOfDay, format, startOfDay } from 'date-fns'
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  MapPin,
+  Navigation,
+  Phone,
+  Radio,
+  Route,
+  Wrench,
+} from 'lucide-react'
+
 import { useRealtimeJobsWithRelations } from '@/hooks/useRealtimeJobsWithRelations'
 import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
 import { useGoogleMaps } from '@/hooks/useGoogleMaps'
 import { createClient } from '@/lib/supabase/client'
 
-// Clean Circular Progress Component
-function CircularProgress({ value, size = 100, strokeWidth = 6 }: { value: number; size?: number; strokeWidth?: number }) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = radius * 2 * Math.PI
-  const offset = circumference - (value / 100) * circumference
-
-  return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg className="absolute inset-0 -rotate-90" width={size} height={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-surface-200"
-          opacity="0.2"
-        />
-      </svg>
-      <svg className="absolute inset-0 -rotate-90" width={size} height={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="text-primary transition-all duration-500 ease-out"
-        />
-      </svg>
-      <div className="relative flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-ink">{value}%</span>
-      </div>
-    </div>
-  )
+interface RawCustomer {
+  id?: string
+  name?: string
+  phone?: string | null
+  address?: string | null
 }
 
-// Route Map Component
-function RouteMap({ jobs }: { jobs: any[] }) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const googleMapRef = useRef<google.maps.Map | null>(null)
+interface RawService {
+  name?: string
+  category?: string | null
+}
+
+interface RawJob {
+  id: string
+  business_id?: string
+  technician_id?: string
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  status?: string
+  description?: string | null
+  urgency?: string | null
+  total_cost?: number | null
+  customer?: RawCustomer | RawCustomer[] | null
+  service?: RawService | RawService[] | null
+}
+
+interface NormalizedJob {
+  id: string
+  business_id?: string
+  technician_id?: string
+  scheduled_start: string
+  scheduled_end: string | null
+  status: string
+  description: string | null
+  urgency: string | null
+  total_cost: number | null
+  customer: {
+    id: string
+    name: string
+    phone: string | null
+    address: string | null
+  }
+  service: {
+    name: string
+    category: string | null
+  }
+}
+
+interface TomorrowJob {
+  id: string
+  scheduled_start: string | null
+  status: string
+  description: string | null
+  customer?: RawCustomer | RawCustomer[] | null
+  service?: RawService | RawService[] | null
+}
+
+const activeStatuses = new Set(['on_the_way', 'arrived', 'in_progress'])
+
+const statusStyles: Record<string, string> = {
+  scheduled:
+    'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/25 dark:bg-blue-400/10 dark:text-blue-300',
+  on_the_way:
+    'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300',
+  arrived:
+    'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-300',
+  in_progress:
+    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300',
+  completed:
+    'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300',
+  cancelled:
+    'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+}
+
+const relationFirst = <T,>(value: T | T[] | null | undefined): T | null => {
+  if (Array.isArray(value)) return value[0] || null
+  return value || null
+}
+
+const formatStatusLabel = (status: string) =>
+  status
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
+function normalizeJob(job: RawJob): NormalizedJob | null {
+  if (!job.scheduled_start || !job.id) return null
+
+  const customer = relationFirst(job.customer)
+  const service = relationFirst(job.service)
+
+  return {
+    id: job.id,
+    business_id: job.business_id,
+    technician_id: job.technician_id,
+    scheduled_start: job.scheduled_start,
+    scheduled_end: job.scheduled_end || null,
+    status: job.status || 'scheduled',
+    description: job.description || null,
+    urgency: job.urgency || null,
+    total_cost: typeof job.total_cost === 'number' ? job.total_cost : Number(job.total_cost) || 0,
+    customer: {
+      id: customer?.id || '',
+      name: customer?.name || 'Unknown customer',
+      phone: customer?.phone || null,
+      address: customer?.address || null,
+    },
+    service: {
+      name: service?.name || 'General service',
+      category: service?.category || null,
+    },
+  }
+}
+
+function RouteMap({ jobs }: { jobs: NormalizedJob[] }) {
+  const mapContainerRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
-  const polylineRef = useRef<google.maps.Polyline | null>(null)
-  const { isLoaded } = useGoogleMaps()
+  const routeRef = useRef<google.maps.Polyline | null>(null)
+  const { isLoaded, loadError } = useGoogleMaps()
 
   useEffect(() => {
-    if (!isLoaded || !mapRef.current || googleMapRef.current) return
+    if (!isLoaded || !mapContainerRef.current || mapRef.current) return
 
-    const map = new google.maps.Map(mapRef.current, {
+    mapRef.current = new google.maps.Map(mapContainerRef.current, {
       zoom: 12,
       center: { lat: 37.7749, lng: -122.4194 },
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-      styles: [
-        { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
-      ]
     })
-
-    googleMapRef.current = map
   }, [isLoaded])
 
   useEffect(() => {
-    if (!googleMapRef.current || !isLoaded || !jobs.length) return
+    if (!isLoaded || !mapRef.current) return
 
-    const map = googleMapRef.current
-    const geocoder = new google.maps.Geocoder()
-    const bounds = new google.maps.LatLngBounds()
-
-    // Clear existing markers and polyline
-    markersRef.current.forEach(marker => marker.setMap(null))
+    markersRef.current.forEach((marker) => marker.setMap(null))
     markersRef.current = []
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null)
+    if (routeRef.current) {
+      routeRef.current.setMap(null)
+      routeRef.current = null
     }
 
-    const geocodePromises = jobs
-      .filter(job => job.customer?.address)
-      .map(async (job, index) => {
+    const withAddress = jobs.filter((job) => job.customer.address)
+    if (withAddress.length === 0) return
+
+    const geocoder = new google.maps.Geocoder()
+    const map = mapRef.current
+    const bounds = new google.maps.LatLngBounds()
+
+    Promise.all(
+      withAddress.map(async (job, index) => {
         try {
-          const result = await geocoder.geocode({ address: job.customer.address })
-          if (result.results && result.results.length > 0) {
-            const position = result.results[0].geometry.location
-            bounds.extend(position)
+          const result = await geocoder.geocode({ address: job.customer.address! })
+          const location = result.results?.[0]?.geometry?.location
+          if (!location) return null
 
-            const marker = new google.maps.Marker({
-              map,
-              position,
-              label: {
-                text: String(index + 1),
-                color: 'white',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              },
-              icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 16,
-                fillColor: job.status === 'completed' ? '#10b981' : job.status === 'in_progress' ? '#3b82f6' : '#6b7280',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2
-              }
-            })
+          bounds.extend(location)
 
-            const infoWindow = new google.maps.InfoWindow({
-              content: `
-                <div style="padding: 8px; min-width: 180px;">
-                  <h3 style="margin: 0 0 4px 0; font-weight: 600; font-size: 14px;">${job.customer.name}</h3>
-                  <p style="margin: 0 0 4px 0; font-size: 12px; color: #666;">
-                    ${job.scheduled_start ? format(new Date(job.scheduled_start), 'h:mm a') : 'Time TBD'}
-                  </p>
-                  <p style="margin: 0; font-size: 12px; color: #666;">${job.description || 'Service call'}</p>
-                </div>
-              `
-            })
+          const marker = new google.maps.Marker({
+            map,
+            position: location,
+            label: {
+              text: String(index + 1),
+              color: '#ffffff',
+              fontSize: '11px',
+              fontWeight: '700',
+            },
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              fillColor: job.status === 'completed' ? '#10b981' : '#06b6d4',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+              scale: 14,
+            },
+          })
 
-            marker.addListener('click', () => {
-              infoWindow.open(map, marker)
-            })
+          const infoWindow = new google.maps.InfoWindow({
+            content: `
+              <div style="padding:8px 10px;min-width:180px;">
+                <p style="margin:0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">${formatStatusLabel(job.status)}</p>
+                <p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#0f172a;">${job.customer.name}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#64748b;">${format(new Date(job.scheduled_start), 'h:mm a')}</p>
+              </div>
+            `,
+          })
 
-            markersRef.current.push(marker)
-            return position
-          }
-        } catch (error) {
-          console.error('Geocoding error:', error)
+          marker.addListener('click', () => infoWindow.open(map, marker))
+          markersRef.current.push(marker)
+          return location
+        } catch {
+          return null
         }
-        return null
+      })
+    ).then((points) => {
+      const path = points.filter(Boolean) as google.maps.LatLng[]
+      if (path.length === 0) return
+
+      routeRef.current = new google.maps.Polyline({
+        map,
+        path,
+        strokeColor: '#06b6d4',
+        strokeOpacity: 0.8,
+        strokeWeight: 3,
       })
 
-    Promise.all(geocodePromises).then(positions => {
-      const validPositions = positions.filter(p => p !== null) as google.maps.LatLng[]
-
-      if (validPositions.length > 0) {
-        // Draw route line
-        const polyline = new google.maps.Polyline({
-          map,
-          path: validPositions,
-          strokeColor: '#3b82f6',
-          strokeOpacity: 0.6,
-          strokeWeight: 3,
-          geodesic: true
+      map.fitBounds(bounds)
+      if (path.length === 1) {
+        google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+          const zoom = map.getZoom()
+          if (zoom && zoom > 15) map.setZoom(15)
         })
-        polylineRef.current = polyline
-
-        // Fit bounds
-        map.fitBounds(bounds)
-        if (validPositions.length === 1) {
-          google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
-            const zoom = map.getZoom()
-            if (zoom && zoom > 15) map.setZoom(15)
-          })
-        }
       }
     })
-  }, [jobs, isLoaded])
+  }, [isLoaded, jobs])
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+          Google Maps unavailable. Add `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to enable route map.
+        </p>
+      </div>
+    )
+  }
 
   if (!isLoaded) {
     return (
-      <div className="glass-card h-[300px] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-          <p className="text-sm text-muted">Loading map...</p>
-        </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-cyan-500" />
+        <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Loading route map</p>
       </div>
     )
   }
 
   return (
-    <div className="glass-card p-0 overflow-hidden">
-      <div ref={mapRef} className="w-full h-[300px]" />
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div ref={mapContainerRef} className="h-[280px] w-full" />
       {jobs.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center bg-surface-50/90 backdrop-blur-sm">
-          <div className="text-center">
-            <svg className="w-12 h-12 text-muted mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            <p className="text-sm text-muted">No jobs to display</p>
-          </div>
+        <div className="absolute inset-0 flex items-center justify-center bg-white/85 backdrop-blur-sm dark:bg-slate-900/85">
+          <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">No route points for today</p>
         </div>
       )}
+    </div>
+  )
+}
+
+function KpiCard({
+  label,
+  value,
+  helper,
+}: {
+  label: string
+  value: string | number
+  helper: string
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 font-display text-3xl text-slate-900 dark:text-white">{value}</p>
+      <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{helper}</p>
     </div>
   )
 }
@@ -200,36 +293,38 @@ export default function TodayViewClient({
   initialJobs,
   userId,
   businessId,
-  today
+  today,
 }: {
-  initialJobs: any[],
-  userId: string,
-  businessId: string,
+  initialJobs: RawJob[]
+  userId: string
+  businessId: string
   today: Date
 }) {
-  const [tomorrowJobs, setTomorrowJobs] = useState<any[]>([])
-  const startOfTodayDate = startOfDay(today)
-  const endOfTodayDate = endOfDay(today)
+  const [tomorrowJobs, setTomorrowJobs] = useState<TomorrowJob[]>([])
+  const startOfTodayDate = useMemo(() => startOfDay(today), [today])
+  const endOfTodayDate = useMemo(() => endOfDay(today), [today])
 
-  // Real-time subscription for today's jobs
-  const { jobs: allJobs, isConnected } = useRealtimeJobsWithRelations({
+  const { jobs: allJobs, isConnected, isRefreshing } = useRealtimeJobsWithRelations({
     businessId: businessId || initialJobs[0]?.business_id || '',
-    initialJobs,
+    initialJobs: initialJobs as any[],
     technicianId: userId,
     startDate: startOfTodayDate,
     endDate: endOfTodayDate,
   })
 
-  // Filter to only today's jobs for this technician
   const jobs = useMemo(() => {
-    return allJobs.filter(job => {
+    const filtered = (allJobs as RawJob[]).filter((job) => {
       if (job.technician_id !== userId || !job.scheduled_start) return false
       const start = new Date(job.scheduled_start)
       return start >= startOfTodayDate && start <= endOfTodayDate
     })
-  }, [allJobs, userId, startOfTodayDate, endOfTodayDate])
 
-  // Fetch tomorrow's jobs
+    return filtered
+      .map(normalizeJob)
+      .filter((job): job is NormalizedJob => Boolean(job))
+      .sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
+  }, [allJobs, endOfTodayDate, startOfTodayDate, userId])
+
   useEffect(() => {
     async function fetchTomorrowJobs() {
       if (!businessId) return
@@ -241,378 +336,313 @@ export default function TodayViewClient({
 
       const { data } = await supabase
         .from('jobs')
-        .select(`
+        .select(
+          `
           id,
-          customer:customers(name, address),
           scheduled_start,
-          description
-        `)
+          status,
+          description,
+          customer:customers(name, address),
+          service:services(name)
+        `
+        )
         .eq('technician_id', userId)
         .gte('scheduled_start', startOfTomorrow.toISOString())
         .lte('scheduled_start', endOfTomorrow.toISOString())
         .order('scheduled_start', { ascending: true })
-        .limit(3)
+        .limit(5)
 
-      setTomorrowJobs(data || [])
+      setTomorrowJobs((data || []) as TomorrowJob[])
     }
 
     fetchTomorrowJobs()
-  }, [businessId, userId, today])
+  }, [businessId, today, userId])
 
-  const totalJobs = jobs?.length || 0
-  const completedCount = jobs?.filter(j => j.status === 'completed').length || 0
-  const inProgressCount = jobs?.filter(j => ['in_progress', 'arrived', 'on_the_way'].includes(j.status)).length || 0
-  const scheduledCount = jobs?.filter(j => j.status === 'scheduled').length || 0
+  const now = new Date()
+  const totalJobs = jobs.length
+  const completedCount = jobs.filter((job) => job.status === 'completed').length
+  const activeCount = jobs.filter((job) => activeStatuses.has(job.status)).length
+  const scheduledCount = jobs.filter((job) => job.status === 'scheduled').length
   const completionRate = totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 0
-  const nextJob = jobs?.find(job => job.status !== 'completed')
 
-  // Calculate total revenue
-  const totalRevenue = jobs?.reduce((sum, job) => {
-    return sum + (Number(job.total_cost) || 0)
-  }, 0) || 0
-  const earnedRevenue = jobs?.filter(j => j.status === 'completed').reduce((sum, job) => {
-    return sum + (Number(job.total_cost) || 0)
-  }, 0) || 0
-  const revenueRate = totalRevenue > 0 ? Math.round((earnedRevenue / totalRevenue) * 100) : 0
+  const nextJob = jobs.find((job) => !['completed', 'cancelled'].includes(job.status)) || null
+  const totalRevenue = jobs.reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
+  const earnedRevenue = jobs
+    .filter((job) => job.status === 'completed')
+    .reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
 
-  // Calculate estimated finish time
-  const scheduledMinutes = jobs?.reduce((sum, job) => {
-    if (!job.scheduled_start || !job.scheduled_end) return sum
-    return sum + Math.max(0, differenceInMinutes(new Date(job.scheduled_end), new Date(job.scheduled_start)))
-  }, 0) || 0
-  const remainingJobs = jobs?.filter(j => j.status !== 'completed') || []
-  const remainingMinutes = remainingJobs.reduce((sum, job) => {
-    if (!job.scheduled_start || !job.scheduled_end) return sum
-    return sum + Math.max(0, differenceInMinutes(new Date(job.scheduled_end), new Date(job.scheduled_start)))
-  }, 0)
-  const estimatedFinishTime = remainingJobs.length > 0 && remainingJobs[remainingJobs.length - 1]?.scheduled_end
-    ? new Date(remainingJobs[remainingJobs.length - 1].scheduled_end)
-    : null
-
-  const scheduledHours = Math.floor(scheduledMinutes / 60)
-  const scheduledRemainder = scheduledMinutes % 60
-  const shiftStart = jobs?.[0]?.scheduled_start
-  const shiftEnd = jobs?.[Math.max((jobs?.length || 1) - 1, 0)]?.scheduled_end
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return 'bg-success/10 text-success border border-success/20'
-      case 'in_progress': return 'bg-primary/10 text-primary border border-primary/20'
-      case 'on_the_way': return 'bg-warning/10 text-warning border border-warning/20'
-      case 'arrived': return 'bg-info/10 text-info border border-info/20'
-      case 'scheduled': return 'bg-surface-100 text-muted border border-surface-200'
-      default: return 'bg-surface-100 text-muted border border-surface-200'
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )
-      case 'in_progress':
-        return (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63" />
-          </svg>
-        )
-      case 'on_the_way':
-        return (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-          </svg>
-        )
-      default:
-        return (
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )
-    }
-  }
-
-  const formatStatus = (status: string) => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
+  const shiftStart = jobs[0]?.scheduled_start || null
+  const shiftEnd = jobs[Math.max(jobs.length - 1, 0)]?.scheduled_end || null
+  const overdueActive = jobs.filter(
+    (job) => activeStatuses.has(job.status) && job.scheduled_end && new Date(job.scheduled_end) < now
+  ).length
+  const dueSoon = jobs.filter((job) => {
+    if (job.status !== 'scheduled') return false
+    const mins = differenceInMinutes(new Date(job.scheduled_start), now)
+    return mins >= 0 && mins <= 90
+  }).length
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.14),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_42%)]" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-ink">Today's Jobs</h1>
-            <p className="text-muted mt-1">{format(today, 'EEEE, MMMM d, yyyy')}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Field Operations</p>
+            <h1 className="mt-2 font-display text-4xl tracking-wide text-slate-900 dark:text-white sm:text-5xl">Today Dispatch Board</h1>
+            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              {format(today, 'EEEE, d MMM yyyy')}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                  isConnected
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300'
+                    : 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                <Radio className={`h-3.5 w-3.5 ${isConnected ? 'animate-pulse' : ''}`} />
+                {isConnected ? 'Realtime Live' : 'Realtime Offline'}
+              </span>
+              {isRefreshing && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Syncing
+                </span>
+              )}
+            </div>
           </div>
-          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
-            isConnected
-              ? 'bg-success/10 text-success border border-success/20'
-              : 'bg-surface-200 text-muted border border-surface-300'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-success animate-pulse' : 'bg-muted'
-            }`} />
-            {isConnected ? 'LIVE' : 'OFFLINE'}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/tech/schedule"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Full Schedule
+            </Link>
+            <Link
+              href="/tech/stats"
+              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+            >
+              Performance
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Progress Card */}
-        <div className="glass-card">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-xs text-muted font-medium uppercase tracking-wide mb-2">Daily Progress</p>
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-3xl font-bold text-ink">{completedCount}</span>
-                <span className="text-lg text-muted">/</span>
-                <span className="text-xl font-semibold text-muted">{totalJobs}</span>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          label="Next Job"
+          value={nextJob ? format(new Date(nextJob.scheduled_start), 'h:mm a') : '--'}
+          helper={nextJob ? nextJob.customer.name : 'No pending dispatch'}
+        />
+        <KpiCard label="Completed" value={completedCount} helper={`${completionRate}% completion today`} />
+        <KpiCard label="Active Now" value={activeCount} helper={`${dueSoon} jobs due within 90 minutes`} />
+        <KpiCard label="Revenue Today" value={`$${earnedRevenue.toFixed(0)}`} helper={`$${totalRevenue.toFixed(0)} total booked`} />
+      </section>
+
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
+              <div>
+                <h2 className="font-display text-2xl tracking-wide text-slate-900 dark:text-white">Today Schedule</h2>
+                <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                  {totalJobs} jobs, {scheduledCount} still scheduled
+                </p>
               </div>
-              <p className="text-xs text-muted">Jobs completed</p>
+              <Link
+                href="/tech/schedule"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Open Calendar
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <div className="ml-4">
-              <CircularProgress value={completionRate} size={80} strokeWidth={5} />
-            </div>
-          </div>
-        </div>
 
-        {/* Revenue Card */}
-        <div className="glass-card">
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-xs text-muted font-medium uppercase tracking-wide mb-2">Today's Revenue</p>
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-3xl font-bold text-success">${earnedRevenue.toFixed(0)}</span>
-                <span className="text-lg text-muted">/</span>
-                <span className="text-xl font-semibold text-muted">${totalRevenue.toFixed(0)}</span>
+            {jobs.length === 0 ? (
+              <div className="p-10 text-center">
+                <CalendarDays className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500" />
+                <p className="mt-3 font-mono text-sm text-slate-600 dark:text-slate-300">No jobs assigned for today.</p>
               </div>
-              <p className="text-xs text-muted">{revenueRate}% earned</p>
-            </div>
-            <div className="ml-4">
-              <CircularProgress value={revenueRate} size={80} strokeWidth={5} />
-            </div>
-          </div>
-        </div>
+            ) : (
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                {jobs.map((job) => (
+                  <div key={job.id} className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                    <Link href={`/tech/jobs/${job.id}`} className="flex min-w-0 flex-1 items-start gap-4">
+                      <div className="w-16 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
+                        <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {format(new Date(job.scheduled_start), 'h:mm')}
+                        </p>
+                      </div>
 
-        {/* Shift Window Card */}
-        <div className="glass-card">
-          <p className="text-xs text-muted font-medium uppercase tracking-wide mb-3">Shift Window</p>
-          <div className="space-y-1 mb-3">
-            <div className="text-xl font-bold text-ink">
-              {shiftStart ? format(new Date(shiftStart), 'h:mm a') : '--:--'}
-            </div>
-            <div className="text-xs text-muted">to</div>
-            <div className="text-xl font-bold text-ink">
-              {shiftEnd ? format(new Date(shiftEnd), 'h:mm a') : '--:--'}
-            </div>
-          </div>
-          {estimatedFinishTime && (
-            <div className="pt-3 border-t border-surface-200">
-              <div className="text-xs text-muted">Est. finish time</div>
-              <div className="text-lg font-semibold text-primary mt-0.5">
-                {format(estimatedFinishTime, 'h:mm a')}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{job.customer.name}</p>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
+                              statusStyles[job.status] || statusStyles.scheduled
+                            }`}
+                          >
+                            {formatStatusLabel(job.status)}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate font-mono text-xs text-slate-600 dark:text-slate-300">
+                          {job.description || job.service.name}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {job.scheduled_end
+                              ? `${format(new Date(job.scheduled_start), 'h:mm a')} - ${format(new Date(job.scheduled_end), 'h:mm a')}`
+                              : format(new Date(job.scheduled_start), 'h:mm a')}
+                          </span>
+                          {job.customer.address && (
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {job.customer.address}
+                            </span>
+                          )}
+                          {job.total_cost ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3.5 w-3.5" />${Number(job.total_cost).toFixed(0)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </Link>
 
-      {/* Route Map */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">Today's Route</h2>
-        <RouteMap jobs={jobs || []} />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-3">
-        <Link href="/tech/schedule" className="glass-card p-4 hover:border-primary/30 transition-all group">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75" />
-            </svg>
-          </div>
-          <div className="text-xs text-muted">Schedule</div>
-          <div className="text-sm font-semibold text-ink mt-0.5">View All</div>
-        </Link>
-
-        <Link href="/tech/stats" className="glass-card p-4 hover:border-primary/30 transition-all group">
-          <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-            <svg className="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-            </svg>
-          </div>
-          <div className="text-xs text-muted">Stats</div>
-          <div className="text-sm font-semibold text-ink mt-0.5">Performance</div>
-        </Link>
-
-        {nextJob ? (
-          <Link href={`/tech/jobs/${nextJob.id}`} className="glass-card p-4 bg-primary/5 border-primary/20 hover:border-primary/30 transition-all group">
-            <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63" />
-              </svg>
-            </div>
-            <div className="text-xs text-primary">Next Job</div>
-            <div className="text-sm font-semibold text-ink mt-0.5">Open</div>
-          </Link>
-        ) : (
-          <div className="glass-card p-4 opacity-50">
-            <div className="w-10 h-10 rounded-lg bg-surface-100 flex items-center justify-center mb-3">
-              <svg className="w-5 h-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="text-xs text-muted">Next Job</div>
-            <div className="text-sm font-semibold text-muted mt-0.5">None</div>
-          </div>
-        )}
-      </div>
-
-      {/* Keyboard Shortcuts */}
-      <div>
-        <KeyboardShortcutsCard role="tech" defaultExpanded={false} />
-      </div>
-
-      {/* Jobs List */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-muted uppercase tracking-wider">Today's Schedule</h2>
-          <span className="text-xs text-muted font-medium">{totalJobs} {totalJobs === 1 ? 'job' : 'jobs'}</span>
-        </div>
-
-        <div className="space-y-3">
-          {jobs?.map((job, index) => (
-            <Link key={job.id} href={`/tech/jobs/${job.id}`} className="block glass-card hover:border-primary/30 transition-all group">
-              <div className="flex items-start gap-4">
-                {/* Time */}
-                <div className="text-center min-w-[60px] shrink-0">
-                  <div className="text-lg font-bold text-ink">
-                    {job.scheduled_start ? format(new Date(job.scheduled_start), 'h:mm') : '--:--'}
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/tech/jobs/${job.id}`}
+                        className="rounded-lg bg-blue-600 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+                      >
+                        Open Job
+                      </Link>
+                      {job.customer.phone && (
+                        <a
+                          href={`tel:${job.customer.phone}`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          Call
+                        </a>
+                      )}
+                      {job.customer.address && (
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer.address)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          <Navigation className="h-3.5 w-3.5" />
+                          Route
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted uppercase">
-                    {job.scheduled_start ? format(new Date(job.scheduled_start), 'a') : ''}
-                  </div>
-                </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                {/* Timeline Indicator */}
-                <div className="flex flex-col items-center pt-1">
-                  <div className={`w-3 h-3 rounded-full border-2 ${
-                    job.status === 'completed' ? 'bg-success border-success' :
-                    job.status === 'in_progress' || job.status === 'arrived' ? 'bg-primary border-primary animate-pulse' :
-                    job.status === 'on_the_way' ? 'bg-warning border-warning' :
-                    'bg-surface-300 border-surface-400'
-                  }`} />
-                  {index < (jobs?.length || 0) - 1 && (
-                    <div className="w-0.5 h-full min-h-[30px] bg-surface-200 mt-2" />
-                  )}
-                </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Critical Watch</h3>
+            </div>
+            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              {overdueActive > 0
+                ? `${overdueActive} active jobs are running behind scheduled end times`
+                : 'No active delays detected in today queue'}
+            </p>
+          </div>
+        </div>
 
-                {/* Job Details */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-ink group-hover:text-primary transition-colors">
-                        {job.customer?.name || 'Unknown Customer'}
-                      </h3>
-                      <p className="text-sm text-muted mt-0.5 line-clamp-1">
-                        {job.description || 'Service call'}
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Route Overview</h3>
+              <Route className="h-4 w-4 text-cyan-500" />
+            </div>
+            <RouteMap jobs={jobs} />
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Shift Window</h3>
+            <div className="mt-3 space-y-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
+                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {shiftStart ? format(new Date(shiftStart), 'h:mm a') : '--'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Finish</p>
+                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {shiftEnd ? format(new Date(shiftEnd), 'h:mm a') : '--'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Tomorrow Preview</h3>
+              <Link href="/tech/schedule" className="font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-600 dark:text-cyan-300">
+                Open
+              </Link>
+            </div>
+            {tomorrowJobs.length === 0 ? (
+              <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">No jobs scheduled tomorrow.</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {tomorrowJobs.map((job) => {
+                  const customer = relationFirst(job.customer)
+                  const service = relationFirst(job.service)
+                  return (
+                    <div key={job.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
+                        {customer?.name || 'Unknown customer'}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                        {job.scheduled_start ? format(new Date(job.scheduled_start), 'EEE d MMM, h:mm a') : 'Time TBD'}
+                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                        {job.description || service?.name || 'Service call'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {job.total_cost && (
-                        <span className="text-sm font-semibold text-success">
-                          ${Number(job.total_cost).toFixed(0)}
-                        </span>
-                      )}
-                      <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusColor(job.status)}`}>
-                        {getStatusIcon(job.status)}
-                        {formatStatus(job.status)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Address & Duration */}
-                  <div className="flex items-center gap-4 text-xs text-muted mt-2">
-                    {job.customer?.address && (
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                        </svg>
-                        <span className="truncate">{job.customer.address}</span>
-                      </div>
-                    )}
-                    {job.scheduled_start && job.scheduled_end && (
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{differenceInMinutes(new Date(job.scheduled_end), new Date(job.scheduled_start))} min</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Arrow */}
-                <svg className="w-5 h-5 text-surface-400 group-hover:text-primary transition-colors shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
+                  )
+                })}
               </div>
-            </Link>
-          ))}
-
-          {(!jobs || jobs.length === 0) && (
-            <div className="glass-card text-center py-12">
-              <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-ink mb-1">No jobs today</h3>
-              <p className="text-muted text-sm">You have no scheduled jobs for today</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tomorrow's Preview */}
-      {tomorrowJobs.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-muted uppercase tracking-wider">Tomorrow's Preview</h2>
-            <Link href="/tech/schedule" className="text-xs text-primary hover:underline">
-              View all
-            </Link>
+            )}
           </div>
-          <div className="glass-card">
-            <div className="space-y-3">
-              {tomorrowJobs.map((job, index) => (
-                <div key={job.id} className="flex items-center gap-3 py-2">
-                  <div className="w-8 h-8 rounded-lg bg-surface-100 flex items-center justify-center text-xs font-semibold text-muted shrink-0">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-medium text-ink truncate">{job.customer?.name || 'Unknown'}</p>
-                      <span className="text-xs text-muted shrink-0">
-                        {job.scheduled_start ? format(new Date(job.scheduled_start), 'h:mm a') : 'TBD'}
-                      </span>
-                    </div>
-                    {job.description && (
-                      <p className="text-xs text-muted truncate mt-0.5">{job.description}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Action Dock</h3>
+            <div className="mt-3 space-y-2">
+              <Link
+                href="/tech/schedule"
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <CalendarDays className="h-4 w-4 text-blue-500" />
+                Open Calendar
+              </Link>
+              <Link
+                href="/tech/stats"
+                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                <Wrench className="h-4 w-4 text-cyan-500" />
+                View Performance
+              </Link>
             </div>
           </div>
         </div>
-      )}
+      </section>
+
+      <KeyboardShortcutsCard role="tech" defaultExpanded={false} />
     </div>
   )
 }

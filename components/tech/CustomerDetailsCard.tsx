@@ -1,6 +1,7 @@
 'use client'
 
 import { Customer } from '@/lib/types'
+import Image from 'next/image'
 import { User, Phone, Mail, MapPin, Navigation, ExternalLink } from 'lucide-react'
 
 interface CustomerDetailsCardProps {
@@ -109,9 +110,12 @@ export default function CustomerDetailsCard({ customer, showMap = true }: Custom
       {showMap && customer.address && googleMapsApiKey && (
         <div className="mb-4">
           <div className="rounded-xl overflow-hidden border border-surface-200 relative">
-            <img
+            <Image
               src={getStaticMapUrl() || ''}
               alt="Location map"
+              width={400}
+              height={160}
+              unoptimized
               className="w-full h-40 object-cover"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none'

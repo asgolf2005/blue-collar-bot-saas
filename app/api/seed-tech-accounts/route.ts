@@ -77,12 +77,14 @@ export async function POST(request: Request) {
       let userId = authData?.user?.id
 
       if (!userId) {
-        const { data: existingUser, error: existingError } = await supabaseAdmin.auth.admin.getUserByEmail(email)
-        if (existingError) {
-          return NextResponse.json({ error: existingError.message }, { status: 500 })
+        // List users and find by email (getUserByEmail is not available in this version)
+        const { data: usersList, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+        if (listError) {
+          return NextResponse.json({ error: listError.message }, { status: 500 })
         }
 
-        userId = existingUser?.user?.id
+        const existingUser = usersList?.users?.find((u: {email?: string}) => u.email === email)
+        userId = existingUser?.id
 
         if (userId) {
           const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {

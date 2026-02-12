@@ -5,9 +5,11 @@ import { ArrowLeft, Calendar, Clock, MapPin, Wrench, Phone, FileText } from 'luc
 import Link from 'next/link'
 import LiveTrackingMap from '@/components/customer/LiveTrackingMap'
 import TechnicianInfoCard from '@/components/customer/TechnicianInfoCard'
+import TechnicianETA from '@/components/customer/TechnicianETA'
 import JobStatusTimeline from '@/components/customer/JobStatusTimeline'
 import PricingBreakdown from '@/components/customer/PricingBreakdown'
 import PhotoGallery from '@/components/customer/PhotoGallery'
+import AppointmentSelfServeActions from '@/components/customer/AppointmentSelfServeActions'
 import JobNotes from '@/components/tech/JobNotes'
 
 export default async function AppointmentDetailsPage({ params }: { params: { id: string } }) {
@@ -46,6 +48,12 @@ export default async function AppointmentDetailsPage({ params }: { params: { id:
   if (!job) {
     notFound()
   }
+
+  const { data: business } = await supabase
+    .from('businesses')
+    .select('name, phone, email')
+    .eq('id', job.business_id)
+    .single()
 
   // Get technician location if job is active
   let technicianLocation = null
@@ -197,12 +205,27 @@ export default async function AppointmentDetailsPage({ params }: { params: { id:
           {/* Job Updates/Notes */}
           <div className="card">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Activity & Updates</h3>
-            <JobNotes jobId={job.id} isCustomerView />
+            <JobNotes jobId={job.id} isCustomerView embedded />
           </div>
         </div>
 
         {/* Sidebar */}
         <div className="lg:col-span-1 space-y-6">
+          <AppointmentSelfServeActions
+            jobId={job.id}
+            jobStatus={job.status}
+            businessPhone={business?.phone || null}
+            businessEmail={business?.email || null}
+          />
+
+          {job.status === 'on_the_way' && job.customer?.address && job.technician && (
+            <TechnicianETA
+              jobId={job.id}
+              jobAddress={job.customer.address}
+              techName={job.technician.full_name || 'Your technician'}
+            />
+          )}
+
           {/* Technician Card */}
           {job.technician && !isActiveJob && (
             <TechnicianInfoCard

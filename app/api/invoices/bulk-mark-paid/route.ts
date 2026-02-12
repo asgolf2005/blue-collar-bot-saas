@@ -29,7 +29,10 @@ export async function POST(request: Request) {
     // Update invoices to 'paid' status
     const { error } = await supabase
       .from('invoices')
-      .update({ status: 'paid' })
+      .update({
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+      })
       .in('id', invoiceIds)
       .eq('business_id', profile.business_id)
       .neq('status', 'paid') // Don't update already paid invoices

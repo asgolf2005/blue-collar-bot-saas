@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 interface AnimatedCounterProps {
   value: number
@@ -23,25 +23,7 @@ export function AnimatedCounter({
   const [hasAnimated, setHasAnimated] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !hasAnimated) {
-          setHasAnimated(true)
-          animateValue()
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    if (ref.current) {
-      observer.observe(ref.current)
-    }
-
-    return () => observer.disconnect()
-  }, [value, hasAnimated])
-
-  const animateValue = () => {
+  const animateValue = useCallback(() => {
     const start = 0
     const end = value
     const startTime = performance.now()
@@ -62,7 +44,25 @@ export function AnimatedCounter({
     }
 
     requestAnimationFrame(animate)
-  }
+  }, [duration, value])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !hasAnimated) {
+          setHasAnimated(true)
+          animateValue()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (ref.current) {
+      observer.observe(ref.current)
+    }
+
+    return () => observer.disconnect()
+  }, [animateValue, hasAnimated])
 
   const formatNumber = (num: number) => {
     if (decimals > 0) {

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useState, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import KeyboardShortcutsModal from '@/components/ui/KeyboardShortcutsModal'
 
@@ -11,36 +11,33 @@ interface GlobalKeyboardShortcutsProps {
 
 export default function GlobalKeyboardShortcuts({ role = 'admin' }: GlobalKeyboardShortcutsProps) {
   const router = useRouter()
-  const pathname = usePathname()
   const [showHelp, setShowHelp] = useState(false)
   const [gPressed, setGPressed] = useState(false)
-  const [gPressTimer, setGPressTimer] = useState<NodeJS.Timeout | null>(null)
+  const gPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Clear 'g' press after 1 second
-  useEffect(() => {
-    if (gPressed && !gPressTimer) {
-      const timer = setTimeout(() => {
-        setGPressed(false)
-        setGPressTimer(null)
-      }, 1000)
-      setGPressTimer(timer)
+  const clearNavigationMode = useCallback(() => {
+    setGPressed(false)
+    if (gPressTimerRef.current) {
+      clearTimeout(gPressTimerRef.current)
+      gPressTimerRef.current = null
     }
+  }, [])
 
-    return () => {
-      if (gPressTimer) {
-        clearTimeout(gPressTimer)
-      }
+  const enterNavigationMode = useCallback(() => {
+    setGPressed(true)
+    if (gPressTimerRef.current) {
+      clearTimeout(gPressTimerRef.current)
     }
-  }, [gPressed, gPressTimer])
+    gPressTimerRef.current = setTimeout(() => {
+      setGPressed(false)
+      gPressTimerRef.current = null
+    }, 1000)
+  }, [])
 
   const handleNavigation = useCallback((path: string) => {
     router.push(path)
-    setGPressed(false)
-    if (gPressTimer) {
-      clearTimeout(gPressTimer)
-      setGPressTimer(null)
-    }
-  }, [router, gPressTimer])
+    clearNavigationMode()
+  }, [router, clearNavigationMode])
 
   const shortcuts = useCallback(() => {
     const baseShortcuts = [
@@ -63,7 +60,7 @@ export default function GlobalKeyboardShortcuts({ role = 'admin' }: GlobalKeyboa
         { key: 'l', description: 'Go to Calendar', action: () => handleNavigation('/admin/calendar') },
         { key: 's', description: 'Go to Settings', action: () => handleNavigation('/admin/settings') },
       ] : [
-        { key: 'g', description: 'Navigation mode', action: () => setGPressed(true) },
+        { key: 'g', description: 'Navigation mode', action: enterNavigationMode },
       ]
 
       return [
@@ -102,7 +99,7 @@ export default function GlobalKeyboardShortcuts({ role = 'admin' }: GlobalKeyboa
         { key: 'd', description: 'Go to Dashboard', action: () => handleNavigation('/tech/dashboard') },
         { key: 's', description: 'Go to Schedule', action: () => handleNavigation('/tech/schedule') },
       ] : [
-        { key: 'g', description: 'Navigation mode', action: () => setGPressed(true) },
+        { key: 'g', description: 'Navigation mode', action: enterNavigationMode },
       ]
 
       return [
@@ -112,7 +109,7 @@ export default function GlobalKeyboardShortcuts({ role = 'admin' }: GlobalKeyboa
     }
 
     return baseShortcuts
-  }, [role, router, gPressed, handleNavigation])
+  }, [role, router, gPressed, handleNavigation, enterNavigationMode])
 
   useKeyboardShortcuts({
     shortcuts: shortcuts(),

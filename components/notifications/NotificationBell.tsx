@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { Bell, Check, CheckCheck, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -16,19 +16,41 @@ interface NotificationBellProps {
 export default function NotificationBell({ userId, initialNotifications = [] }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
-  const [unreadCount, setUnreadCount] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.read).length,
+    [notifications]
+  )
+
+  const playNotificationSound = useCallback(() => {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYV')
+    audio.volume = 0.3
+    audio.play().catch(() => {
+      // Ignore errors if audio playback is blocked
+    })
+  }, [])
+
+  const loadNotifications = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (data && !error) {
+      setNotifications(data)
+    }
+  }, [supabase, userId])
 
   // Load notifications
   useEffect(() => {
-    loadNotifications()
-  }, [userId])
-
-  // Calculate unread count
-  useEffect(() => {
-    setUnreadCount(notifications.filter((n) => !n.read).length)
-  }, [notifications])
+    const timer = setTimeout(() => {
+      void loadNotifications()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [loadNotifications])
 
   // Real-time notification subscription
   useEffect(() => {
@@ -78,7 +100,7 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
         supabase.removeChannel(channel)
       }
     }
-  }, [userId, supabase])
+  }, [playNotificationSound, userId, supabase])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -91,19 +113,6 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  async function loadNotifications() {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    if (data && !error) {
-      setNotifications(data)
-    }
-  }
 
   async function markAsRead(notificationId: string) {
     await supabase.rpc('mark_notification_read', { p_notification_id: notificationId })
@@ -119,15 +128,6 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
 
     // Update local state
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-  }
-
-  function playNotificationSound() {
-    // Play a subtle notification sound
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYV')
-    audio.volume = 0.3
-    audio.play().catch(() => {
-      // Ignore errors if audio playback is blocked
-    })
   }
 
   function getNotificationIcon(type: string) {
