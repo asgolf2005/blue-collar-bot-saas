@@ -145,7 +145,7 @@ const config: Config = {
          ======================================== */
       fontFamily: {
         display: ['var(--font-display)', 'Bebas Neue', 'sans-serif'],
-        mono: ['var(--font-mono)', 'JetBrains Mono', 'monospace'],
+        mono: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
         sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
       },
       

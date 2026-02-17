@@ -2,8 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { PenTool, X, Check, RotateCcw, CheckCircle, FileSignature } from 'lucide-react'
-import Image from 'next/image'
 
 interface SignatureCaptureProps {
   jobId: string
@@ -178,36 +176,32 @@ export default function SignatureCapture({ jobId, existingSignature }: Signature
   // Completed state
   if (hasSignature && signatureUrl) {
     return (
-      <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <CheckCircle className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-semibold text-white">Customer Signature</h3>
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="pointer-events-none absolute inset-0 opacity-55 [background:radial-gradient(circle_at_30%_0%,rgba(52,211,153,0.10),transparent_55%)] dark:opacity-70 dark:[background:radial-gradient(circle_at_30%_0%,rgba(52,211,153,0.12),transparent_55%)]" />
+        <div className="relative mb-4">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Customer Signature</h3>
         </div>
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle className="w-5 h-5 text-emerald-400" />
-            <span className="font-bold text-white">Signature Captured</span>
-          </div>
+        <div className="relative rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-400/25 dark:bg-emerald-400/10">
+          <div className="mb-3 font-semibold text-slate-900 dark:text-slate-100">Signature captured</div>
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-2 overflow-hidden">
-            <Image
+            <img
               src={signatureUrl}
               alt="Customer signature"
-              width={600}
-              height={200}
-              className="w-full h-auto"
-              sizes="100vw"
+              className="h-auto w-full"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
             />
           </div>
         </div>
-        <button
+        <button type="button"
           onClick={() => {
             setHasSignature(false)
             setSignatureUrl(null)
             setShowCanvas(true)
           }}
-          className="w-full mt-4 h-11 flex items-center justify-center gap-2 bg-slate-700/50 hover:bg-slate-700 text-white font-medium rounded-xl border border-slate-600 transition-all"
+          className="relative mt-4 h-11 w-full rounded-2xl border border-slate-200 bg-white/70 font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
         >
-          <RotateCcw className="w-4 h-4" />
           Recapture Signature
         </button>
       </div>
@@ -217,22 +211,20 @@ export default function SignatureCapture({ jobId, existingSignature }: Signature
   // Empty state
   if (!showCanvas) {
     return (
-      <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <PenTool className="w-5 h-5 text-cyan-400" />
-          <h3 className="font-semibold text-white">Customer Signature</h3>
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_30%_0%,rgba(34,211,238,0.12),transparent_55%)] dark:opacity-80 dark:[background:radial-gradient(circle_at_30%_0%,rgba(34,211,238,0.16),transparent_55%)]" />
+        <div className="relative mb-4">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Customer Signature</h3>
         </div>
-        <div className="text-center py-6">
-          <div className="w-16 h-16 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-600">
-            <FileSignature className="w-8 h-8 text-slate-400" />
-          </div>
-          <p className="text-slate-400 mb-4">No signature captured yet</p>
-          <button
+        <div className="relative text-center py-6">
+          <p className="mb-4 text-slate-600 dark:text-slate-300">No signature captured yet</p>
+          <button type="button"
             onClick={() => setShowCanvas(true)}
-            className="w-full h-12 flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-[0.98]"
+            className="group relative h-12 w-full overflow-hidden rounded-2xl font-semibold text-white transition-opacity active:scale-[0.98]"
           >
-            <PenTool className="w-5 h-5" />
-            Capture Signature
+            <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 opacity-90 transition-opacity group-hover:opacity-100 dark:from-cyan-500 dark:to-blue-500" />
+            <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
+            <span className="relative inline-flex items-center justify-center gap-2">Capture Signature</span>
           </button>
         </div>
       </div>
@@ -241,20 +233,13 @@ export default function SignatureCapture({ jobId, existingSignature }: Signature
 
   // Canvas state
   return (
-    <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <PenTool className="w-5 h-5 text-cyan-400" />
-        <h3 className="font-semibold text-white">Capture Signature</h3>
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_30%_0%,rgba(34,211,238,0.12),transparent_55%)] dark:opacity-80 dark:[background:radial-gradient(circle_at_30%_0%,rgba(34,211,238,0.16),transparent_55%)]" />
+      <div className="relative mb-4">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100">Signature</h3>
       </div>
 
-      <div className="space-y-4">
-        {/* Instructions */}
-        <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-xl">
-          <p className="text-sm text-cyan-400">
-            Please ask the customer to sign below to confirm job completion
-          </p>
-        </div>
-
+      <div className="relative space-y-4">
         {/* Signature Canvas */}
         <div className="border-2 border-dashed border-slate-600 rounded-xl overflow-hidden bg-slate-900">
           <canvas
@@ -272,43 +257,40 @@ export default function SignatureCapture({ jobId, existingSignature }: Signature
             style={{ touchAction: 'none' }}
           />
         </div>
-        <p className="text-xs text-slate-500 text-center">
-          Sign with finger or stylus
-        </p>
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-3">
-          <button
+          <button type="button"
             onClick={() => {
               clearSignature()
               setShowCanvas(false)
             }}
-            className="h-11 flex items-center justify-center gap-2 bg-slate-700/50 hover:bg-slate-700 text-white font-medium rounded-xl border border-slate-600 transition-all"
+            className="h-11 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
           >
-            <X className="w-4 h-4" />
             Cancel
           </button>
 
-          <button
+          <button type="button"
             onClick={clearSignature}
-            className="h-11 flex items-center justify-center gap-2 bg-slate-700/50 hover:bg-slate-700 text-white font-medium rounded-xl border border-slate-600 transition-all"
+            className="h-11 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
           >
-            <RotateCcw className="w-4 h-4" />
             Clear
           </button>
         </div>
 
-        <button
+        <button type="button"
           onClick={handleSave}
           disabled={saving}
-          className="w-full h-12 flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-[0.98] disabled:opacity-50"
+          className="group relative h-12 w-full overflow-hidden rounded-2xl font-semibold text-white transition-opacity active:scale-[0.98] disabled:opacity-50"
         >
+          <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 opacity-90 transition-opacity group-hover:opacity-100 dark:from-cyan-500 dark:to-blue-500" />
+          <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
           {saving ? (
-            <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+            <div className="relative h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
           ) : (
-            <Check className="w-5 h-5" />
+            null
           )}
-          Save Signature
+          <span className="relative">Save Signature</span>
         </button>
       </div>
     </div>

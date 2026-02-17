@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import CustomerDetailClient from '@/components/admin/CustomerDetailClient'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from '@/components/ui/lucide'
 import Link from 'next/link'
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -151,21 +151,21 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Total Jobs</div>
-          <div className="mt-1 font-display text-3xl text-slate-900 dark:text-white">{allJobs.length}</div>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <div className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Jobs</div>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{allJobs.length}</div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Completed</div>
-          <div className="mt-1 font-display text-3xl text-emerald-600 dark:text-emerald-400">{completedJobs.length}</div>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <div className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Completed</div>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{completedJobs.length}</div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Total Revenue</div>
-          <div className="mt-1 font-display text-3xl text-slate-900 dark:text-white">${totalRevenue.toFixed(0)}</div>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <div className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Revenue</div>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">${totalRevenue.toFixed(0)}</div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Outstanding</div>
-          <div className={`mt-1 font-display text-3xl ${outstandingAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+          <div className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Outstanding</div>
+          <div className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
             ${outstandingAmount.toFixed(0)}
           </div>
         </div>
@@ -181,3 +181,5 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     </div>
   )
 }
+
+

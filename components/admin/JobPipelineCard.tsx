@@ -39,7 +39,7 @@ export default function JobPipelineCard({ jobs }: { jobs: JobWithDetails[] }) {
         </div>
         <div className="flex rounded-full border-2 border-surface-200 bg-surface-50 p-1">
           {ranges.map((item) => (
-            <button
+            <button type="button"
               key={item.key}
               onClick={() => setRangeKey(item.key)}
               className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${

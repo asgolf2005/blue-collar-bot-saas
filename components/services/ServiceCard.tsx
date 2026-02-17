@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { Service } from '@/lib/types'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Edit2, Archive, ArchiveRestore, DollarSign, Clock, CheckCircle, Calendar } from 'lucide-react'
+import { Edit2, Archive, ArchiveRestore, DollarSign, Clock, CheckCircle, Calendar } from '@/components/ui/icons'
 import { useRouter } from 'next/navigation'
 
 interface ServiceWithStats extends Service {
@@ -68,14 +68,14 @@ export default function ServiceCard({
           )}
         </div>
         <div className="flex gap-2 ml-3">
-          <button
+          <button type="button"
             onClick={() => onEdit(service)}
             className="text-muted hover:text-primary transition-colors"
             title="Edit service"
           >
             <Edit2 className="w-4 h-4" />
           </button>
-          <button
+          <button type="button"
             onClick={handleToggleActive}
             disabled={loading}
             className="text-muted hover:text-warning transition-colors"
@@ -143,3 +143,4 @@ export default function ServiceCard({
     </div>
   )
 }
+

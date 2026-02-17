@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 
 interface PaginationProps {
   currentPage: number
@@ -69,7 +69,7 @@ export default function Pagination({
 
       <div className="flex items-center gap-2">
         {/* Previous Button */}
-        <button
+        <button type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 
@@ -100,7 +100,7 @@ export default function Pagination({
             const isCurrentPage = currentPage === page
 
             return (
-              <button
+              <button type="button"
                 key={page}
                 onClick={() => onPageChange(page)}
                 className={`w-10 h-10 rounded-lg font-mono text-sm font-medium transition-all
@@ -116,7 +116,7 @@ export default function Pagination({
         </div>
 
         {/* Next Button */}
-        <button
+        <button type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 
@@ -133,3 +133,4 @@ export default function Pagination({
     </div>
   )
 }
+

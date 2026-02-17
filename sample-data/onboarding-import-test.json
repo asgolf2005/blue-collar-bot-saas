@@ -1,0 +1,34 @@
+{
+  "customers": [
+    {
+      "name": "Acme Property Group",
+      "phone": "+1 555 0101",
+      "email": "accounts@acme.example",
+      "address": "123 Main Street, Springfield"
+    },
+    {
+      "name": "Northside Bakery",
+      "phone": "+1 555 0102",
+      "email": "owner@northside.example",
+      "address": "45 River Road, Springfield"
+    }
+  ],
+  "jobs": [
+    {
+      "customer_email": "accounts@acme.example",
+      "scheduled_start": "2025-12-01T09:00:00Z",
+      "scheduled_end": "2025-12-01T11:00:00Z",
+      "status": "completed",
+      "description": "Replaced leaking shutoff valve",
+      "urgency": "medium",
+      "total_cost": 325
+    },
+    {
+      "customer_email": "owner@northside.example",
+      "scheduled_start": "2026-02-15T14:30:00Z",
+      "status": "scheduled",
+      "description": "Inspect hot water unit and provide quote",
+      "urgency": "low"
+    }
+  ]
+}

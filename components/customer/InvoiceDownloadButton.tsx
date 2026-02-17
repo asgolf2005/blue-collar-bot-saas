@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, Loader2, FileText } from 'lucide-react'
 import { jsPDF } from 'jspdf'
 import type { Invoice, InvoiceLineItem, Customer, Business } from '@/lib/types'
 
@@ -230,37 +229,27 @@ export default function InvoiceDownloadButton({
 
   if (variant === 'icon') {
     return (
-      <button
+      <button type="button"
         onClick={generatePDF}
         disabled={isGenerating}
         className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
         title="Download PDF"
       >
-        {isGenerating ? (
-          <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
-        ) : (
-          <Download className="w-5 h-5 text-gray-600" />
-        )}
+        {isGenerating ? <span className="text-xs text-gray-500">...</span> : <span className="text-xs text-gray-600">PDF</span>}
       </button>
     )
   }
 
   return (
-    <button
+    <button type="button"
       onClick={generatePDF}
       disabled={isGenerating}
-      className="btn btn-secondary flex items-center"
+      className="btn btn-secondary"
     >
       {isGenerating ? (
-        <>
-          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          Generating...
-        </>
+        <>Generating...</>
       ) : (
-        <>
-          <FileText className="w-4 h-4 mr-2" />
-          Download PDF
-        </>
+        <>Download PDF</>
       )}
     </button>
   )

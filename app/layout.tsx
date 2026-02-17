@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Bebas_Neue, JetBrains_Mono, Inter } from 'next/font/google'
+import { Bebas_Neue, Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/ui/ThemeProvider'
 import ToastProvider from '@/components/providers/ToastProvider'
@@ -13,19 +13,6 @@ const display = Bebas_Neue({
   weight: '400',
   subsets: ['latin'],
   variable: '--font-display',
-  display: 'swap',
-  preload: true,
-})
-
-/**
- * Monospace Font - JetBrains Mono
- * Used for: Data labels, technical text, code, metrics
- * Characteristics: Clear, technical, excellent for numbers
- */
-const mono = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
-  weight: ['400', '500', '600', '700'],
   display: 'swap',
   preload: true,
 })
@@ -71,7 +58,6 @@ export default function RootLayout({
       <body 
         className={`
           ${display.variable} 
-          ${mono.variable} 
           ${sans.variable} 
           font-sans
           bg-bg-primary

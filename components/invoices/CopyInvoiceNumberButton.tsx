@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy } from '@/components/ui/icons'
 
 export default function CopyInvoiceNumberButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
@@ -28,3 +28,4 @@ export default function CopyInvoiceNumberButton({ value }: { value: string }) {
     </button>
   )
 }
+

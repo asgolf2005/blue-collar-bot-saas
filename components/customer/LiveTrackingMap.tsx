@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { GoogleMap, useLoadScript, Marker, InfoWindow } from '@react-google-maps/api'
-import { Navigation, Phone, Clock, MapPin, Loader2 } from 'lucide-react'
 import type { TechnicianLocation, User } from '@/lib/types'
 
 interface LiveTrackingMapProps {
@@ -122,7 +121,6 @@ export default function LiveTrackingMap({
     return (
       <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center">
         <div className="text-center text-gray-500">
-          <MapPin className="w-8 h-8 mx-auto mb-2" />
           <p>Unable to load map</p>
         </div>
       </div>
@@ -132,7 +130,7 @@ export default function LiveTrackingMap({
   if (!isLoaded) {
     return (
       <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+        <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-primary-600 animate-spin" />
       </div>
     )
   }
@@ -179,9 +177,8 @@ export default function LiveTrackingMap({
               {technician.phone && (
                 <a
                   href={`tel:${technician.phone}`}
-                  className="text-primary-600 text-sm flex items-center mt-1"
+                  className="text-primary-600 text-sm mt-1"
                 >
-                  <Phone className="w-3 h-3 mr-1" />
                   {technician.phone}
                 </a>
               )}
@@ -214,10 +211,7 @@ export default function LiveTrackingMap({
           <span className="font-medium text-gray-900">{getStatusText(jobStatus)}</span>
         </div>
         {eta && jobStatus === 'on_the_way' && (
-          <div className="flex items-center mt-2 text-sm text-gray-600">
-            <Clock className="w-4 h-4 mr-1" />
-            <span>ETA: {formatETA(eta)}</span>
-          </div>
+          <div className="mt-2 text-sm text-gray-600">ETA: {formatETA(eta)}</div>
         )}
       </div>
 
@@ -226,8 +220,8 @@ export default function LiveTrackingMap({
         <div className="absolute bottom-4 left-4 right-4 bg-white rounded-lg shadow-lg p-4 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-3">
-                <Navigation className="w-5 h-5 text-primary-600" />
+              <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-3 text-primary-700 font-semibold">
+                {(technician.full_name || 'T').slice(0, 1).toUpperCase()}
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{technician.full_name}</p>
@@ -237,9 +231,8 @@ export default function LiveTrackingMap({
             {technician.phone && (
               <a
                 href={`tel:${technician.phone}`}
-                className="btn btn-primary flex items-center"
+                className="btn btn-primary"
               >
-                <Phone className="w-4 h-4 mr-2" />
                 Call
               </a>
             )}
@@ -256,7 +249,7 @@ export default function LiveTrackingMap({
 
       {/* Refresh Button */}
       {onRefresh && (
-        <button
+        <button type="button"
           onClick={onRefresh}
           className="absolute top-4 right-4 bg-white rounded-full p-2 shadow-lg hover:bg-gray-50 z-10"
           title="Refresh location"
@@ -271,7 +264,7 @@ export default function LiveTrackingMap({
       {!technicianLocation && jobStatus === 'on_the_way' && (
         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center z-20">
           <div className="bg-white rounded-lg p-4 text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary-600 mx-auto mb-2" />
+            <div className="w-8 h-8 rounded-full border-2 border-gray-300 border-t-primary-600 animate-spin mx-auto mb-2" />
             <p className="text-gray-900 font-medium">Waiting for location...</p>
             <p className="text-sm text-gray-500">Technician is on their way</p>
           </div>

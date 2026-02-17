@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ChevronRight, Trash2, Edit, Eye, Copy } from 'lucide-react'
+import { ChevronRight, Trash2, Edit, Eye, Copy } from '@/components/ui/icons'
 import { useBulkSelection } from '@/hooks/useBulkSelection'
 import BulkActionBar, { BulkActionButton } from '@/components/ui/BulkActionBar'
 import { showToast } from '@/lib/utils/toast'
@@ -328,3 +328,4 @@ export default function PremiumJobsTable({ jobs }: PremiumJobsTableProps) {
     </>
   )
 }
+

@@ -1,6 +1,6 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { format } from 'date-fns'
-import { Clock, Calendar, MapPin } from 'lucide-react'
+import { Clock, Calendar, MapPin } from '@/components/ui/lucide'
 import InfoPill from './InfoPill'
 import CountdownBadge from './CountdownBadge'
 
@@ -116,3 +116,5 @@ export default function JobCard({ job, isPriority = false }: JobCardProps) {
     </Link>
   )
 }
+
+

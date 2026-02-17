@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Keyboard } from 'lucide-react'
+import { X, Keyboard } from '@/components/ui/icons'
 import { KeyboardShortcut, getShortcutText } from '@/hooks/useKeyboardShortcuts'
 
 interface KeyboardShortcutsHelpProps {
@@ -75,7 +75,7 @@ export function KeyboardShortcutsHelp({ shortcuts }: KeyboardShortcutsHelpProps)
                 </p>
               </div>
             </div>
-            <button
+            <button type="button"
               onClick={() => setIsOpen(false)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
@@ -119,7 +119,7 @@ export function KeyboardShortcutsHelp({ shortcuts }: KeyboardShortcutsHelpProps)
                     Open search
                   </span>
                   <kbd className="px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-mono text-gray-900 dark:text-gray-100 shadow-sm">
-                    ⌘K
+                    âŒ˜K
                   </kbd>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
@@ -145,3 +145,4 @@ export function KeyboardShortcutsHelp({ shortcuts }: KeyboardShortcutsHelpProps)
     </>
   )
 }
+

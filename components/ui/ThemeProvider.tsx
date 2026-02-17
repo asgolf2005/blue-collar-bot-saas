@@ -95,7 +95,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
   const { resolvedTheme, toggleTheme } = context
 
   return (
-    <button
+    <button type="button"
       onClick={toggleTheme}
       className={`
         relative w-11 h-11 rounded-2xl

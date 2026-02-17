@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
-import { Users, TrendingUp, DollarSign, Repeat, UserPlus, Activity } from 'lucide-react'
+﻿import { createClient } from '@/lib/supabase/server'
+import { Users, TrendingUp, DollarSign, Repeat, UserPlus, Activity } from '@/components/ui/lucide'
 
 interface CustomerInsightsProps {
   businessId: string
@@ -306,3 +306,5 @@ export default async function CustomerInsights({
     </div>
   )
 }
+
+

@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import JobHistoryList from '@/components/customer/JobHistoryList'
-import { Clock } from 'lucide-react'
+import { Clock } from '@/components/ui/lucide'
 
 export default async function CustomerHistoryPage() {
   const supabase = await createClient()
@@ -53,3 +53,5 @@ export default async function CustomerHistoryPage() {
     </div>
   )
 }
+
+

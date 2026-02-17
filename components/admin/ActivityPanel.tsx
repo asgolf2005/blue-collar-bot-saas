@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useCallback } from 'react'
 import { 
@@ -11,7 +11,7 @@ import {
   Inbox,
   MoreHorizontal,
   Loader2
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import StatusBadge from '@/components/ui/StatusBadge'
 
@@ -43,10 +43,10 @@ const generateMockActivities = (): ActivityItem[] => [
     id: '1',
     type: 'job',
     title: 'Job #1234 completed',
-    subtitle: 'Mike Johnson finished job at 4:30 PM',
+    subtitle: 'Alex Rivera finished job at 4:30 PM',
     timestamp: new Date(Date.now() - 2 * 60 * 1000),
     status: 'completed',
-    avatar: 'M',
+    avatar: 'A',
   },
   {
     id: '2',
@@ -315,7 +315,7 @@ export default function ActivityPanel({
         }}
       >
         {filterTabs.map((tab) => (
-          <button
+          <button type="button"
             key={tab.value}
             onClick={() => setFilter(tab.value)}
             className={cn(
@@ -365,7 +365,7 @@ export default function ActivityPanel({
           className="px-4 py-3 flex justify-center"
           style={{ borderTop: '1px solid rgba(34, 211, 238, 0.1)' }}
         >
-          <button
+          <button type="button"
             onClick={handleLoadMore}
             disabled={isLoadingMore}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-xs text-gray-400 hover:text-cyan-400 hover:bg-cyan-400/10 transition-all duration-200 disabled:opacity-50"
@@ -405,3 +405,4 @@ export default function ActivityPanel({
     </div>
   )
 }
+

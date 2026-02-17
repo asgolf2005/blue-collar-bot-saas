@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { ArrowLeft, Calendar, Clock, MapPin, Wrench, Phone, FileText } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, MapPin, Wrench, Phone, Receipt } from '@/components/ui/lucide'
 import Link from 'next/link'
 import LiveTrackingMap from '@/components/customer/LiveTrackingMap'
 import TechnicianInfoCard from '@/components/customer/TechnicianInfoCard'
@@ -267,7 +267,7 @@ export default async function AppointmentDetailsPage({ params }: { params: { id:
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="bg-blue-100 p-2.5 rounded-lg mr-3 group-hover:bg-blue-200 transition-colors">
-                    <FileText className="w-5 h-5 text-blue-600" />
+                    <Receipt className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
@@ -316,3 +316,5 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+
+

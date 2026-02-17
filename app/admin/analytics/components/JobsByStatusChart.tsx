@@ -139,7 +139,7 @@ export default function JobsByStatusChart({ data, onSegmentClick }: JobsByStatus
               const isActive = selectedStatus === item.status
 
               return (
-                <button
+                <button type="button"
                   key={item.status}
                   onClick={() => handleClick(item)}
                   onMouseEnter={() => setActiveIndex(index)}

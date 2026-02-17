@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -20,7 +20,7 @@ import {
   HardHat,
   Sun,
   Moon,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
   { href: '/admin/jobs', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
   { href: '/admin/customers', label: 'Clients', icon: Users },
+  { href: '/admin/technicians', label: 'Technicians', icon: HardHat },
   { href: '/admin/services', label: 'Services', icon: Wrench },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/admin/invoices', label: 'Billing', icon: Receipt },
@@ -111,7 +112,7 @@ export default function AdminNav({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <button type="button"
                 onClick={toggleTheme}
                 className={cn(
                   "w-10 h-10 flex items-center justify-center rounded-lg transition-colors",
@@ -122,7 +123,7 @@ export default function AdminNav({
               >
                 {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
-              <button
+              <button type="button"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 className={cn(
                   "w-10 h-10 flex items-center justify-center rounded-lg transition-colors",
@@ -280,7 +281,7 @@ export default function AdminNav({
           style={{ borderTop: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.1)' : 'rgba(0,0,0,0.1)'}` }}
         >
           {/* Theme Toggle */}
-          <button
+          <button type="button"
             onClick={toggleTheme}
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-sm transition-all duration-200",
@@ -349,7 +350,7 @@ export default function AdminNav({
           </div>
           
           {/* Logout Button */}
-          <button
+          <button type="button"
             onClick={handleLogout}
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-sm transition-all duration-200",
@@ -463,7 +464,7 @@ export default function AdminNav({
           })}
           
           {/* Theme Toggle in Mobile Menu */}
-          <button
+          <button type="button"
             onClick={toggleTheme}
             className={cn(
               "w-full flex items-center gap-4 px-4 py-3 rounded-lg font-mono text-sm tracking-wide transition-all duration-200",
@@ -523,7 +524,7 @@ export default function AdminNav({
             </div>
           </div>
           
-          <button
+          <button type="button"
             onClick={handleLogout}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-mono text-sm transition-all duration-200",
@@ -540,3 +541,4 @@ export default function AdminNav({
     </>
   )
 }
+

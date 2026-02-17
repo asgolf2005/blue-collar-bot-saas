@@ -3,15 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons'
 import Pagination from '@/components/ui/Pagination'
-import { 
-  Plus, 
-  Users, 
-  TrendingUp, 
-  UserCheck,
-  Search,
-  X
-} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 // Types
@@ -210,7 +203,6 @@ export default function CustomersPage() {
         <div className="flex gap-2">
           <Link href="/admin/customers/new">
             <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all whitespace-nowrap flex-nowrap">
-              <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="whitespace-nowrap">NEW CLIENT</span>
             </Button>
           </Link>
@@ -222,20 +214,20 @@ export default function CustomersPage() {
         <MetricCard
           label="TOTAL CLIENTS"
           value={customers.length}
-          icon={Users}
           color="blue"
+          mark="clients"
         />
         <MetricCard
           label="NEW THIS MONTH"
           value={newThisMonth}
-          icon={TrendingUp}
           color="emerald"
+          mark="new"
         />
         <MetricCard
           label="PORTAL ACCESS"
           value={withPortalAccess}
-          icon={UserCheck}
           color="cyan"
+          mark="portal"
         />
       </div>
 
@@ -243,20 +235,19 @@ export default function CustomersPage() {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="p-5">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search clients by name, phone, or email..."
-              className="w-full pl-12 pr-12 py-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-all"
+              className="w-full px-4 pr-12 py-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-all"
             />
             {searchQuery && (
-              <button
+              <button type="button"
                 onClick={() => handleSearchChange('')}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
-                <X className="w-4 h-4 text-slate-400" />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-300">x</span>
               </button>
             )}
           </div>
@@ -278,7 +269,7 @@ export default function CustomersPage() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-slate-400" />
+              <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-300">NEW</span>
             </div>
             <p className="font-mono text-sm text-slate-900 dark:text-white mb-2">
               No clients yet
@@ -288,7 +279,6 @@ export default function CustomersPage() {
             </p>
             <Link href="/admin/customers/new">
               <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all whitespace-nowrap flex-nowrap">
-                <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
                 <span className="whitespace-nowrap">ADD FIRST CLIENT</span>
               </Button>
             </Link>
@@ -298,12 +288,12 @@ export default function CustomersPage() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-slate-400" />
+              <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-300">0</span>
             </div>
             <p className="font-mono text-sm text-slate-500 dark:text-slate-400">
               No clients found matching &apos;{searchQuery}&apos;
             </p>
-            <button
+            <button type="button"
               onClick={() => handleSearchChange('')}
               className="mt-4 font-mono text-xs text-blue-600 dark:text-cyan-400 hover:underline"
             >
@@ -338,32 +328,51 @@ export default function CustomersPage() {
 function MetricCard({ 
   label, 
   value, 
-  icon: Icon,
-  color
+  color,
+  mark,
 }: { 
   label: string
   value: number
-  icon: React.ElementType
   color: string
+  mark: 'clients' | 'new' | 'portal'
 }) {
-  const colors: Record<string, { light: string; dark: string }> = {
-    cyan: { light: 'text-cyan-600', dark: 'dark:text-cyan-400' },
-    blue: { light: 'text-blue-600', dark: 'dark:text-blue-400' },
-    emerald: { light: 'text-emerald-600', dark: 'dark:text-emerald-400' },
+  const colors: Record<
+    string,
+    { text: string; markBg: string; markBar: string }
+  > = {
+    cyan: {
+      text: 'text-cyan-600 dark:text-cyan-400',
+      markBg: 'bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200/60 dark:border-cyan-400/20',
+      markBar: 'bg-cyan-600/70 dark:bg-cyan-300/75',
+    },
+    blue: {
+      text: 'text-blue-600 dark:text-blue-400',
+      markBg: 'bg-blue-50 dark:bg-blue-500/10 border border-blue-200/60 dark:border-blue-400/20',
+      markBar: 'bg-blue-600/70 dark:bg-blue-300/75',
+    },
+    emerald: {
+      text: 'text-emerald-600 dark:text-emerald-400',
+      markBg: 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-400/20',
+      markBar: 'bg-emerald-600/70 dark:bg-emerald-300/75',
+    },
   }
-  const c = colors[color]
+  const c = colors[color] ?? colors.blue
+
+  const iconName =
+    mark === 'clients' ? 'users' : mark === 'new' ? 'userAdd' : 'lock'
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <Icon className={`w-5 h-5 ${c.light} ${c.dark}`} />
-        </div>
-        <div>
-          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">{label}</div>
-          <div className={`font-display text-3xl ${c.light} ${c.dark}`}>{value}</div>
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow hover:shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+        <div
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-xl ${c.markBg} ${c.text}`}
+          aria-hidden="true"
+        >
+          <Icon name={iconName} size={18} className="opacity-80" />
         </div>
       </div>
+      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </div>
   )
 }
@@ -435,20 +444,23 @@ function CustomerCard({ customer }: { customer: Customer }) {
       <div className="relative grid grid-cols-3 gap-2 border-t border-slate-200/70 px-5 py-3 dark:border-slate-800">
         <Link
           href={`/admin/customers/${customer.id}`}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
+          <Icon name="profile" size="sm" className="opacity-80" />
           Details
         </Link>
         <Link
           href={`/admin/jobs/new?customer=${customer.id}`}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-blue-700 transition-colors hover:bg-blue-100 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300 dark:hover:bg-cyan-400/20"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-blue-700 transition-colors hover:bg-blue-100 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300 dark:hover:bg-cyan-400/20"
         >
+          <Icon name="job" size="sm" className="opacity-80" />
           New Job
         </Link>
         <Link
           href={`/admin/customers/${customer.id}?edit=true`}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-center font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
+          <Icon name="edit" size="sm" className="opacity-80" />
           Edit
         </Link>
       </div>

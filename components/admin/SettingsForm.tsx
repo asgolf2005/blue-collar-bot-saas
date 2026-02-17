@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { Business, User as UserType } from '@/lib/types'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { 
   Users as UsersIcon, 
@@ -16,8 +16,13 @@ import {
   User as UserIcon,
   Globe,
   MapPin,
-  Check
-} from 'lucide-react'
+  Database,
+  Download,
+  Upload,
+  KeyRound,
+  Lock,
+  Unlock,
+} from '@/components/ui/icons'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
 import { useRouter } from 'next/navigation'
 
@@ -28,6 +33,14 @@ export default function SettingsForm({
   business: Business
   technicians: UserType[]
 }) {
+  interface ImportSummary {
+    customersImported: number
+    customersSkipped: number
+    jobsImported: number
+    jobsSkipped: number
+    errors: string[]
+  }
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -68,6 +81,29 @@ export default function SettingsForm({
   const [newTechName, setNewTechName] = useState('')
   const [newTechPhone, setNewTechPhone] = useState('')
   const [addingTech, setAddingTech] = useState(false)
+  const [vaultUnlocked, setVaultUnlocked] = useState(false)
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminUnlockPassword, setAdminUnlockPassword] = useState('')
+  const [vaultAuthPassword, setVaultAuthPassword] = useState('')
+  const [unlockingVault, setUnlockingVault] = useState(false)
+  const [techDraftPasswords, setTechDraftPasswords] = useState<Record<string, string>>({})
+  const [updatingTechPasswordId, setUpdatingTechPasswordId] = useState<string | null>(null)
+  const [techPasswordMap, setTechPasswordMap] = useState<Record<string, string>>({})
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return
+      setAdminEmail(data.user?.email || '')
+    })
+    return () => {
+      mounted = false
+    }
+  }, [supabase])
 
   const handleSaveBusiness = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -96,6 +132,30 @@ export default function SettingsForm({
       alert('Failed to save settings: ' + error.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSetAdminTestPassword = async () => {
+    if (!confirm('DEV ONLY: Set ALL admin passwords (for this business) to the shared test password?')) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/admin/testing/set-admin-password', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to set admin test password')
+      }
+
+      alert(
+        `Admin test password set.\n\nPassword: ${result.password}\nUpdated: ${result.updatedCount}/${result.totalCount}`
+      )
+    } catch (error: any) {
+      alert('Failed to set admin test password: ' + error.message)
     }
   }
 
@@ -182,6 +242,155 @@ export default function SettingsForm({
     }
   }
 
+  const downloadImportTemplate = () => {
+    const template = {
+      customers: [
+        {
+          name: 'Acme Property Group',
+          phone: '+1 555 0101',
+          email: 'accounts@acme.example',
+          address: '123 Main Street, Springfield',
+        },
+      ],
+      jobs: [
+        {
+          customer_email: 'accounts@acme.example',
+          scheduled_start: '2025-12-01T09:00:00Z',
+          scheduled_end: '2025-12-01T11:00:00Z',
+          status: 'completed',
+          description: 'Replaced leaking shutoff valve',
+          urgency: 'medium',
+          total_cost: 325,
+        },
+      ],
+    }
+
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'blue-collar-import-template.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportData = async () => {
+    if (!importFile) {
+      setImportError('Please choose a file to import.')
+      return
+    }
+
+    setImportLoading(true)
+    setImportError(null)
+    setImportSummary(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', importFile)
+
+      const response = await fetch('/api/onboarding/import', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to import data')
+      }
+
+      setImportSummary(result.summary)
+    } catch (error: any) {
+      setImportError(error.message || 'Failed to import data')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  const handleUnlockPasswordVault = async () => {
+    if (!adminEmail) {
+      alert('Unable to resolve admin account email for unlock')
+      return
+    }
+
+    if (!adminUnlockPassword.trim()) {
+      alert('Enter your admin password to unlock')
+      return
+    }
+
+    setUnlockingVault(true)
+    try {
+      const response = await fetch('/api/admin/technicians/password-vault/unlock', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: adminEmail,
+          password: adminUnlockPassword,
+          businessId: business.id,
+        }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result.error || 'Invalid admin password')
+      }
+
+      setVaultUnlocked(true)
+      setVaultAuthPassword(adminUnlockPassword)
+      setTechPasswordMap(result.passwords || {})
+      setAdminUnlockPassword('')
+    } catch (error: any) {
+      alert('Unable to unlock: ' + error.message)
+    } finally {
+      setUnlockingVault(false)
+    }
+  }
+
+  const handleSetTechnicianPassword = async (techId: string, techName: string) => {
+    if (!vaultUnlocked || !vaultAuthPassword || !adminEmail) {
+      alert('Unlock with admin password first')
+      return
+    }
+
+    const password = (techDraftPasswords[techId] || '').trim()
+    if (password.length < 8) {
+      alert('Password must be at least 8 characters')
+      return
+    }
+
+    setUpdatingTechPasswordId(techId)
+    try {
+      const response = await fetch(`/api/admin/technicians/${techId}/password`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password,
+          adminEmail,
+          adminPassword: vaultAuthPassword,
+          businessId: business.id,
+        }),
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update technician password')
+      }
+
+      setTechPasswordMap((prev) => ({ ...prev, [techId]: password }))
+      setTechDraftPasswords((prev) => ({ ...prev, [techId]: '' }))
+      alert(`Password updated for ${techName}`)
+    } catch (error: any) {
+      alert('Failed to update technician password: ' + error.message)
+    } finally {
+      setUpdatingTechPasswordId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Settings Grid */}
@@ -239,13 +448,24 @@ export default function SettingsForm({
               </div>
             </div>
             <div className="pt-2">
-              <button
-                type="button"
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                SAVE PROFILE
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  SAVE PROFILE
+                </button>
+                {process.env.NODE_ENV !== 'production' && (
+                  <button
+                    type="button"
+                    onClick={handleSetAdminTestPassword}
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all"
+                  >
+                    DEV: SET ADMIN TEST PASSWORD
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -455,6 +675,9 @@ export default function SettingsForm({
               <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">
                 Manage team members ({technicians.length})
               </p>
+              <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                One admin unlock controls viewing all technician passwords
+              </p>
             </div>
           </div>
           <button
@@ -468,6 +691,46 @@ export default function SettingsForm({
         </div>
 
         <div className="p-5">
+          <div className="mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[220px]">
+                <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={adminUnlockPassword}
+                  onChange={(e) => setAdminUnlockPassword(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-colors"
+                  placeholder="Admin password to unlock view"
+                />
+              </div>
+              {vaultUnlocked ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVaultUnlocked(false)
+                    setVaultAuthPassword('')
+                    setTechPasswordMap({})
+                  }}
+                  className="bg-slate-600 hover:bg-slate-700 text-white font-mono text-[10px] px-3 py-2 rounded-lg transition-all flex items-center gap-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  LOCK
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleUnlockPasswordVault}
+                  disabled={unlockingVault}
+                  className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-[10px] px-3 py-2 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                  {unlockingVault ? 'UNLOCKING...' : 'UNLOCK'}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Add Technician Form */}
           {showAddTech && (
             <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
@@ -537,33 +800,154 @@ export default function SettingsForm({
               {technicians.map((tech) => (
                 <div 
                   key={tech.id} 
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 transition-colors"
+                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 transition-colors space-y-3"
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-400/10 flex items-center justify-center flex-shrink-0">
-                      <span className="font-mono text-xs font-medium text-purple-700 dark:text-purple-300">
-                        {tech.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'T'}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-mono text-sm text-slate-900 dark:text-white truncate">
-                        {tech.full_name || 'Unnamed'}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-400/10 flex items-center justify-center flex-shrink-0">
+                        <span className="font-mono text-xs font-medium text-purple-700 dark:text-purple-300">
+                          {tech.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'T'}
+                        </span>
                       </div>
-                      <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                        {tech.email}
+                      <div className="min-w-0">
+                        <div className="font-mono text-sm text-slate-900 dark:text-white truncate">
+                          {tech.full_name || 'Unnamed'}
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          {tech.email}
+                        </div>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTech(tech.id, tech.full_name || tech.email)}
+                      className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-400/10 rounded-lg transition-colors flex-shrink-0"
+                      title="Remove technician"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTech(tech.id, tech.full_name || tech.email)}
-                    className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-400/10 rounded-lg transition-colors flex-shrink-0"
-                    title="Remove technician"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+
+                  <div className="rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 px-3 py-2 flex items-center justify-between gap-2">
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Password
+                    </span>
+                    <span className="font-mono text-xs text-slate-900 dark:text-slate-100 truncate">
+                      {vaultUnlocked
+                        ? techPasswordMap[tech.id] || '********'
+                        : '********'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 min-w-0">
+                      <KeyRound className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="password"
+                        autoComplete="new-password"
+                        value={techDraftPasswords[tech.id] || ''}
+                        onChange={(e) =>
+                          setTechDraftPasswords((prev) => ({ ...prev, [tech.id]: e.target.value }))
+                        }
+                        disabled={!vaultUnlocked}
+                        className="w-full pl-8 pr-3 py-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-colors disabled:opacity-60"
+                        placeholder={vaultUnlocked ? 'Set new password (min 8 chars)' : 'Unlock to set password'}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSetTechnicianPassword(tech.id, tech.full_name || tech.email)}
+                      disabled={!vaultUnlocked || updatingTechPasswordId === tech.id}
+                      className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white font-mono text-[10px] px-3 py-2 rounded-lg transition-all disabled:opacity-50"
+                    >
+                      {updatingTechPasswordId === tech.id ? 'SAVING...' : 'SET'}
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Data Import Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-cyan-100 dark:bg-cyan-400/10 flex items-center justify-center">
+              <Database className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">
+                DATA IMPORT
+              </h2>
+              <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">
+                Import customers and jobs from JSON, CSV, XLSX, or XLS
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="font-mono text-xs text-slate-600 dark:text-slate-300">
+            For Excel, use sheet names <span className="font-semibold">customers</span> and <span className="font-semibold">jobs</span>.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={downloadImportTemplate}
+              className="bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-mono text-xs px-4 py-2.5 rounded-full transition-all flex items-center justify-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              DOWNLOAD TEMPLATE
+            </button>
+
+            <label className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer">
+              <Upload className="w-4 h-4 text-slate-500" />
+              <span className="font-mono text-xs text-slate-600 dark:text-slate-300 truncate">
+                {importFile ? importFile.name : 'Choose file'}
+              </span>
+              <input
+                type="file"
+                accept=".json,.csv,.xlsx,.xls,application/json,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="hidden"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+              />
+            </label>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleImportData}
+            disabled={importLoading || !importFile}
+            className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {importLoading ? 'IMPORTING...' : 'IMPORT CUSTOMERS & JOBS'}
+          </button>
+
+          {importError && (
+            <div className="bg-rose-50 dark:bg-rose-400/10 border border-rose-200 dark:border-rose-400/30 rounded-lg p-3">
+              <p className="font-mono text-xs text-rose-700 dark:text-rose-300">{importError}</p>
+            </div>
+          )}
+
+          {importSummary && (
+            <div className="bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 dark:border-emerald-400/30 rounded-lg p-3">
+              <p className="font-mono text-xs text-emerald-700 dark:text-emerald-300 mb-1">
+                Imported: {importSummary.customersImported} customers, {importSummary.jobsImported} jobs
+              </p>
+              <p className="font-mono text-xs text-emerald-700 dark:text-emerald-300 mb-2">
+                Skipped: {importSummary.customersSkipped} customers, {importSummary.jobsSkipped} jobs
+              </p>
+              {importSummary.errors.length > 0 && (
+                <ul className="list-disc pl-5 space-y-1 max-h-28 overflow-auto">
+                  {importSummary.errors.slice(0, 5).map((item, idx) => (
+                    <li key={`${item}-${idx}`} className="font-mono text-[10px] text-amber-700 dark:text-amber-300">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
         </div>
@@ -629,3 +1013,4 @@ function Toggle({
     </label>
   )
 }
+

@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import InvoiceCard from '@/components/customer/InvoiceCard'
-import { FileText } from 'lucide-react'
+import { Receipt } from '@/components/ui/lucide'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 export default async function InvoicesPage() {
@@ -59,7 +59,7 @@ export default async function InvoicesPage() {
                   ${totalOutstanding.toFixed(2)}
                 </p>
               </div>
-              <FileText className="w-12 h-12 text-warning opacity-50" />
+              <Receipt className="w-12 h-12 text-warning opacity-50" />
             </div>
           </div>
           <div className="card">
@@ -70,7 +70,7 @@ export default async function InvoicesPage() {
                   {unpaidInvoices.length}
                 </p>
               </div>
-              <FileText className="w-12 h-12 text-muted opacity-50" />
+              <Receipt className="w-12 h-12 text-muted opacity-50" />
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ export default async function InvoicesPage() {
         ) : (
           <div className="card p-6">
             <EmptyState
-              icon={<FileText className="w-full h-full" />}
+              icon={<Receipt className="w-full h-full" />}
               title="No paid invoices"
               description="Your payment history will appear here once invoices are paid."
               variant="default"
@@ -113,7 +113,7 @@ export default async function InvoicesPage() {
       {allInvoices?.length === 0 && (
         <div className="card p-6">
           <EmptyState
-            icon={<FileText className="w-full h-full" />}
+            icon={<Receipt className="w-full h-full" />}
             title="No invoices yet"
             description="Your service invoices will appear here once work has been completed."
             variant="default"
@@ -124,3 +124,5 @@ export default async function InvoicesPage() {
     </div>
   )
 }
+
+

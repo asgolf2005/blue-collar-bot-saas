@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { differenceInCalendarDays, format } from 'date-fns'
 import {
@@ -9,13 +9,13 @@ import {
   Clock,
   DollarSign,
   Download,
-  FileText,
+  Receipt,
   Mail,
   MapPin,
   Phone,
   Send,
   User,
-} from 'lucide-react'
+} from '@/components/ui/lucide'
 import Link from 'next/link'
 import MarkAsPaidButton from '@/components/invoices/MarkAsPaidButton'
 import CopyInvoiceNumberButton from '@/components/invoices/CopyInvoiceNumberButton'
@@ -275,7 +275,7 @@ export default async function AdminInvoiceDetailsPage({
 
             {(invoice.line_items || []).length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center dark:border-slate-700 dark:bg-slate-800/40">
-                <FileText className="mx-auto mb-2 h-8 w-8 text-slate-400 dark:text-slate-500" />
+                <Receipt className="mx-auto mb-2 h-8 w-8 text-slate-400 dark:text-slate-500" />
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">No line items</p>
               </div>
             ) : (
@@ -418,3 +418,5 @@ export default async function AdminInvoiceDetailsPage({
     </div>
   )
 }
+
+

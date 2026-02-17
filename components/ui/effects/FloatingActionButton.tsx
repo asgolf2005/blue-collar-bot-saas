@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState, ReactNode, createElement, isValidElement } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X } from '@/components/ui/icons'
 import Link from 'next/link'
 
 interface Action {
@@ -87,7 +87,7 @@ export function FloatingActionButton({ actions, position = 'bottom-right' }: Flo
           }
 
           return (
-            <button
+            <button type="button"
               key={i}
               onClick={() => {
                 action.onClick?.()
@@ -103,7 +103,7 @@ export function FloatingActionButton({ actions, position = 'bottom-right' }: Flo
       </div>
 
       {/* Main FAB */}
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`w-14 h-14 rounded-2xl bg-gradient-to-br from-[#2563eb] to-[#1d4ed8]
                    flex items-center justify-center text-white
@@ -125,3 +125,4 @@ export function FloatingActionButton({ actions, position = 'bottom-right' }: Flo
     </div>
   )
 }
+

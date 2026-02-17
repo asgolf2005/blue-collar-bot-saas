@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { MessageSquare, Check, X, Clock, AlertCircle } from 'lucide-react'
+import { MessageSquare, Check, X, Clock, AlertCircle } from '@/components/ui/icons'
 import { format } from 'date-fns'
 import { SMSNotification } from '@/types/sms'
 
@@ -157,3 +157,4 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
     </div>
   )
 }
+

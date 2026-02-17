@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { X, Command } from 'lucide-react'
+import { X, Command } from '@/components/ui/icons'
 import { useEffect } from 'react'
 
 interface Shortcut {
@@ -39,7 +39,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, role = 'admin'
       return {
         'General': [
           ...common,
-          { keys: ['⌘', 'K'], description: 'Open search' },
+          { keys: ['âŒ˜', 'K'], description: 'Open search' },
         ],
         'Navigation': [
           { keys: ['G', 'then', 'J'], description: 'Go to Jobs' },
@@ -50,9 +50,9 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, role = 'admin'
           { keys: ['G', 'then', 'S'], description: 'Go to Settings' },
         ],
         'Actions': [
-          { keys: ['⌘', 'Shift', 'N'], description: 'New Job' },
-          { keys: ['⌘', 'Shift', 'C'], description: 'New Customer' },
-          { keys: ['⌘', 'Shift', 'I'], description: 'New Invoice' },
+          { keys: ['âŒ˜', 'Shift', 'N'], description: 'New Job' },
+          { keys: ['âŒ˜', 'Shift', 'C'], description: 'New Customer' },
+          { keys: ['âŒ˜', 'Shift', 'I'], description: 'New Invoice' },
         ],
       }
     }
@@ -61,7 +61,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, role = 'admin'
       return {
         'General': [
           ...common,
-          { keys: ['⌘', 'K'], description: 'Open search' },
+          { keys: ['âŒ˜', 'K'], description: 'Open search' },
         ],
         'Navigation': [
           { keys: ['G', 'then', 'T'], description: 'Go to Today' },
@@ -110,7 +110,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, role = 'admin'
                 <p className="text-sm text-slate-600 dark:text-slate-400">Work faster with hotkeys</p>
               </div>
             </div>
-            <button
+            <button type="button"
               onClick={onClose}
               className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all hover:scale-105 active:scale-95 group"
               aria-label="Close"
@@ -173,7 +173,7 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, role = 'admin'
               <kbd className="px-2 py-1 text-xs font-bold bg-gradient-to-b from-white to-slate-100 dark:from-slate-700 dark:to-slate-800 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm">
                 ?
               </kbd>
-              <span>anytime to open this menu</span>
+              <span>Anytime to open this menu</span>
             </div>
           </div>
         </div>
@@ -181,3 +181,4 @@ export default function KeyboardShortcutsModal({ isOpen, onClose, role = 'admin'
     </>
   )
 }
+

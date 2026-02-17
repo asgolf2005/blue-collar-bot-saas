@@ -1,6 +1,5 @@
 'use client'
 
-import { Clock, MapPin, User, Phone } from 'lucide-react'
 import { format } from 'date-fns'
 import Link from 'next/link'
 
@@ -32,12 +31,12 @@ const statusColors = {
 }
 
 const serviceIcons = {
-  plumbing: '🔧',
-  electrical: '⚡',
-  hvac: '❄️',
-  carpentry: '🔨',
-  painting: '🎨',
-  default: '🛠️'
+  plumbing: 'P',
+  electrical: 'E',
+  hvac: 'H',
+  carpentry: 'C',
+  painting: 'Paint',
+  default: 'Svc'
 }
 
 export default function TodaySchedule({ jobs }: TodayScheduleProps) {
@@ -77,10 +76,7 @@ export default function TodaySchedule({ jobs }: TodayScheduleProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-ink dark:text-surface-100 mb-1 flex items-center gap-2">
-                        <User className="w-4 h-4 text-muted flex-shrink-0" />
-                        {job.customer.name}
-                      </h4>
+                      <h4 className="font-semibold text-ink dark:text-surface-100 mb-1">{job.customer.name}</h4>
                       <p className="text-sm text-muted truncate">{job.service.name}</p>
                     </div>
                     <span className={`px-3 py-1 text-xs font-semibold rounded-full ${status.bg} ${status.text} whitespace-nowrap`}>
@@ -89,23 +85,12 @@ export default function TodaySchedule({ jobs }: TodayScheduleProps) {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-muted">
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4" />
-                      <span>
-                        {format(new Date(job.scheduled_start), 'HH:mm')} - {format(new Date(job.scheduled_end), 'HH:mm')}
-                      </span>
-                    </div>
+                    <div>{format(new Date(job.scheduled_start), 'HH:mm')} - {format(new Date(job.scheduled_end), 'HH:mm')}</div>
                     {job.customer.address && (
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4" />
-                        <span className="truncate max-w-[200px]">{job.customer.address}</span>
-                      </div>
+                      <div className="truncate max-w-[200px]">{job.customer.address}</div>
                     )}
                     {job.customer.phone && (
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-4 h-4" />
-                        <span>{job.customer.phone}</span>
-                      </div>
+                      <div>{job.customer.phone}</div>
                     )}
                   </div>
                 </div>

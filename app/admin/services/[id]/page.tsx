@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
@@ -22,7 +22,7 @@ import {
   PlayCircle,
   Truck,
   AlertCircle
-} from 'lucide-react'
+} from '@/components/ui/lucide'
 
 // Types
 interface Service {
@@ -531,3 +531,5 @@ function JobRow({ job }: { job: Job }) {
     </Link>
   )
 }
+
+

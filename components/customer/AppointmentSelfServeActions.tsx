@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { CalendarClock, CheckCircle2, Loader2, Mail, Phone, Sparkles } from 'lucide-react'
 import { showToast } from '@/lib/utils/toast'
 
 interface AppointmentSelfServeActionsProps {
@@ -87,10 +86,7 @@ export default function AppointmentSelfServeActions({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center gap-2">
-        <Sparkles className="h-4.5 w-4.5 text-cyan-600 dark:text-cyan-300" />
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">Self-Serve Actions</h3>
-      </div>
+      <div className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">Self-Serve Actions</div>
 
       <div className="space-y-2">
         <button
@@ -99,7 +95,9 @@ export default function AppointmentSelfServeActions({
           disabled={!canApprove || loadingAction !== null}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {loadingAction === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+          {loadingAction === 'approve' ? (
+            <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+          ) : null}
           Approve Scope & Pricing
         </button>
 
@@ -109,7 +107,6 @@ export default function AppointmentSelfServeActions({
           disabled={!canRequestReschedule || loadingAction !== null}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
-          <CalendarClock className="h-4 w-4" />
           Request Reschedule
         </button>
       </div>
@@ -165,31 +162,31 @@ export default function AppointmentSelfServeActions({
           <button
             type="button"
             onClick={handleRescheduleRequest}
-            disabled={loadingAction !== null}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loadingAction === 'reschedule' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Send Request
-          </button>
-        </div>
+          disabled={loadingAction !== null}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loadingAction === 'reschedule' ? (
+            <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+          ) : null}
+          Send Request
+        </button>
+      </div>
       )}
 
       <div className="mt-4 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
         {businessPhone && (
           <a
             href={`tel:${businessPhone}`}
-            className="flex items-center gap-2 text-sm text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
+            className="text-sm text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
           >
-            <Phone className="h-4 w-4" />
             Call office
           </a>
         )}
         {businessEmail && (
           <a
             href={`mailto:${businessEmail}`}
-            className="flex items-center gap-2 text-sm text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
+            className="text-sm text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
           >
-            <Mail className="h-4 w-4" />
             Email office
           </a>
         )}

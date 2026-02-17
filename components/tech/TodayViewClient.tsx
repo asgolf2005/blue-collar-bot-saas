@@ -3,25 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { addDays, differenceInMinutes, endOfDay, format, startOfDay } from 'date-fns'
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Loader2,
-  MapPin,
-  Navigation,
-  Phone,
-  Radio,
-  Route,
-  Wrench,
-} from 'lucide-react'
+import { CalendarDays, ChevronDown, Keyboard, ListChecks, Route as RouteIcon, Wrench } from '@/components/ui/icons'
 
 import { useRealtimeJobsWithRelations } from '@/hooks/useRealtimeJobsWithRelations'
 import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
 import { useGoogleMaps } from '@/hooks/useGoogleMaps'
 import { createClient } from '@/lib/supabase/client'
+import DispatchJobCard from '@/components/tech/DispatchJobCard'
 
 interface RawCustomer {
   id?: string
@@ -82,21 +70,6 @@ interface TomorrowJob {
 
 const activeStatuses = new Set(['on_the_way', 'arrived', 'in_progress'])
 
-const statusStyles: Record<string, string> = {
-  scheduled:
-    'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/25 dark:bg-blue-400/10 dark:text-blue-300',
-  on_the_way:
-    'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300',
-  arrived:
-    'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-300',
-  in_progress:
-    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300',
-  completed:
-    'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300',
-  cancelled:
-    'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
-}
-
 const relationFirst = <T,>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) return value[0] || null
   return value || null
@@ -107,6 +80,8 @@ const formatStatusLabel = (status: string) =>
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+
+const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 function normalizeJob(job: RawJob): NormalizedJob | null {
   if (!job.scheduled_start || !job.id) return null
@@ -253,7 +228,7 @@ function RouteMap({ jobs }: { jobs: NormalizedJob[] }) {
   if (!isLoaded) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <Loader2 className="mx-auto h-6 w-6 animate-spin text-cyan-500" />
+        <div className="mx-auto h-6 w-6 rounded-full border-2 border-slate-300 border-t-cyan-500 animate-spin dark:border-white/10 dark:border-t-cyan-400" />
         <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Loading route map</p>
       </div>
     )
@@ -286,6 +261,84 @@ function KpiCard({
       <p className="mt-1 font-display text-3xl text-slate-900 dark:text-white">{value}</p>
       <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{helper}</p>
     </div>
+  )
+}
+
+function CollapsiblePanel({
+  title,
+  subtitle,
+  icon: Icon,
+  open,
+  onToggle,
+  right,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  icon: React.ElementType
+  open: boolean
+  onToggle: () => void
+  right?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      className={cx(
+        'group overflow-hidden rounded-3xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm transition-all dark:border-slate-800 dark:bg-slate-900/70',
+        open && 'shadow-[0_18px_50px_-35px_rgba(2,132,199,0.35)] dark:shadow-[0_24px_60px_-40px_rgba(34,211,238,0.25)]'
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/80"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200">
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="font-display text-lg tracking-wide text-slate-900 dark:text-white">{title}</p>
+            {subtitle ? (
+              <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {right}
+          <span
+            className={cx(
+              'inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 text-slate-600 shadow-sm transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300',
+              open && 'rotate-180'
+            )}
+            aria-hidden="true"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </span>
+        </div>
+      </button>
+
+      <div
+        className={cx(
+          'grid transition-[grid-template-rows] duration-300 ease-out',
+          open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+        )}
+      >
+        <div className="overflow-hidden">
+          <div
+            className={cx(
+              'px-5 pb-5 transition-all duration-300',
+              open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
+            )}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -382,6 +435,18 @@ export default function TodayViewClient({
     return mins >= 0 && mins <= 90
   }).length
 
+  const [panels, setPanels] = useState(() => ({
+    queue: true,
+    route: false,
+    tomorrow: false,
+    tools: false,
+    shortcuts: false,
+  }))
+
+  const togglePanel = (key: keyof typeof panels) => {
+    setPanels((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
@@ -401,12 +466,12 @@ export default function TodayViewClient({
                     : 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                 }`}
               >
-                <Radio className={`h-3.5 w-3.5 ${isConnected ? 'animate-pulse' : ''}`} />
+                <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400 dark:bg-slate-600'}`} aria-hidden="true" />
                 {isConnected ? 'Realtime Live' : 'Realtime Offline'}
               </span>
               {isRefreshing && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="h-3.5 w-3.5 rounded-full border-2 border-cyan-300 border-t-transparent animate-spin dark:border-cyan-300/40" aria-hidden="true" />
                   Syncing
                 </span>
               )}
@@ -417,7 +482,6 @@ export default function TodayViewClient({
               href="/tech/schedule"
               className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              <CalendarDays className="h-3.5 w-3.5" />
               Full Schedule
             </Link>
             <Link
@@ -425,7 +489,6 @@ export default function TodayViewClient({
               className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
             >
               Performance
-              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
@@ -442,169 +505,93 @@ export default function TodayViewClient({
         <KpiCard label="Revenue Today" value={`$${earnedRevenue.toFixed(0)}`} helper={`$${totalRevenue.toFixed(0)} total booked`} />
       </section>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
-              <div>
-                <h2 className="font-display text-2xl tracking-wide text-slate-900 dark:text-white">Today Schedule</h2>
-                <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                  {totalJobs} jobs, {scheduledCount} still scheduled
-                </p>
-              </div>
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-4">
+          <CollapsiblePanel
+            title="Queue"
+            subtitle={`${totalJobs} jobs · ${scheduledCount} scheduled · ${activeCount} active`}
+            icon={ListChecks}
+            open={panels.queue}
+            onToggle={() => togglePanel('queue')}
+            right={
               <Link
                 href="/tech/schedule"
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                onClick={(e) => e.stopPropagation()}
               >
-                Open Calendar
-                <ArrowRight className="h-3.5 w-3.5" />
+                Calendar
               </Link>
-            </div>
-
+            }
+          >
             {jobs.length === 0 ? (
-              <div className="p-10 text-center">
-                <CalendarDays className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500" />
-                <p className="mt-3 font-mono text-sm text-slate-600 dark:text-slate-300">No jobs assigned for today.</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <p className="font-mono text-sm text-slate-600 dark:text-slate-300">No jobs assigned for today.</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                {jobs.map((job) => (
-                  <div key={job.id} className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-                    <Link href={`/tech/jobs/${job.id}`} className="flex min-w-0 flex-1 items-start gap-4">
-                      <div className="w-16 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
-                        <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {format(new Date(job.scheduled_start), 'h:mm')}
-                        </p>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{job.customer.name}</p>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                              statusStyles[job.status] || statusStyles.scheduled
-                            }`}
-                          >
-                            {formatStatusLabel(job.status)}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate font-mono text-xs text-slate-600 dark:text-slate-300">
-                          {job.description || job.service.name}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            {job.scheduled_end
-                              ? `${format(new Date(job.scheduled_start), 'h:mm a')} - ${format(new Date(job.scheduled_end), 'h:mm a')}`
-                              : format(new Date(job.scheduled_start), 'h:mm a')}
-                          </span>
-                          {job.customer.address && (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {job.customer.address}
-                            </span>
-                          )}
-                          {job.total_cost ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="h-3.5 w-3.5" />${Number(job.total_cost).toFixed(0)}
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </Link>
-
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/tech/jobs/${job.id}`}
-                        className="rounded-lg bg-blue-600 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
-                      >
-                        Open Job
-                      </Link>
-                      {job.customer.phone && (
-                        <a
-                          href={`tel:${job.customer.phone}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                          Call
-                        </a>
-                      )}
-                      {job.customer.address && (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer.address)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          <Navigation className="h-3.5 w-3.5" />
-                          Route
-                        </a>
-                      )}
-                    </div>
+              <div className="space-y-3">
+                {jobs.map((job, idx) => (
+                  <div key={job.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(idx * 35, 240)}ms` }}>
+                    <DispatchJobCard job={job} />
                   </div>
                 ))}
               </div>
             )}
-          </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Critical Watch</h3>
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                Critical Watch
+              </p>
+              <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
+                {overdueActive > 0
+                  ? `${overdueActive} active jobs are running behind scheduled end times`
+                  : 'No active delays detected in today queue'}
+              </p>
             </div>
-            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-              {overdueActive > 0
-                ? `${overdueActive} active jobs are running behind scheduled end times`
-                : 'No active delays detected in today queue'}
-            </p>
-          </div>
+          </CollapsiblePanel>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Route Overview</h3>
-              <Route className="h-4 w-4 text-cyan-500" />
-            </div>
-            <RouteMap jobs={jobs} />
-          </div>
+        <div className="space-y-4">
+          <CollapsiblePanel
+            title="Route"
+            subtitle={jobs.length ? 'Map your stops for today' : 'No route points yet'}
+            icon={RouteIcon}
+            open={panels.route}
+            onToggle={() => togglePanel('route')}
+          >
+            {panels.route ? <RouteMap jobs={jobs} /> : null}
+          </CollapsiblePanel>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Shift Window</h3>
-            <div className="mt-3 space-y-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
-                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {shiftStart ? format(new Date(shiftStart), 'h:mm a') : '--'}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Finish</p>
-                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {shiftEnd ? format(new Date(shiftEnd), 'h:mm a') : '--'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Tomorrow Preview</h3>
-              <Link href="/tech/schedule" className="font-mono text-[11px] uppercase tracking-[0.12em] text-cyan-600 dark:text-cyan-300">
+          <CollapsiblePanel
+            title="Tomorrow"
+            subtitle={tomorrowJobs.length ? `${tomorrowJobs.length} jobs queued` : 'No jobs scheduled'}
+            icon={CalendarDays}
+            open={panels.tomorrow}
+            onToggle={() => togglePanel('tomorrow')}
+            right={
+              <Link
+                href="/tech/schedule"
+                className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Open
               </Link>
-            </div>
+            }
+          >
             {tomorrowJobs.length === 0 ? (
-              <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">No jobs scheduled tomorrow.</p>
+              <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                No jobs scheduled tomorrow.
+              </p>
             ) : (
-              <div className="mt-3 space-y-2">
+              <div className="space-y-2">
                 {tomorrowJobs.map((job) => {
                   const customer = relationFirst(job.customer)
                   const service = relationFirst(job.service)
                   return (
-                    <div key={job.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
-                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 dark:text-slate-200">
+                    <div
+                      key={job.id}
+                      className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20"
+                    >
+                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-slate-800 dark:text-slate-100">
                         {customer?.name || 'Unknown customer'}
                       </p>
                       <p className="mt-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
@@ -618,31 +605,57 @@ export default function TodayViewClient({
                 })}
               </div>
             )}
-          </div>
+          </CollapsiblePanel>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Action Dock</h3>
-            <div className="mt-3 space-y-2">
+          <CollapsiblePanel
+            title="Tools"
+            subtitle="Shift window and quick actions"
+            icon={Wrench}
+            open={panels.tools}
+            onToggle={() => togglePanel('tools')}
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
+                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {shiftStart ? format(new Date(shiftStart), 'h:mm a') : '--'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
+                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Finish</p>
+                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {shiftEnd ? format(new Date(shiftEnd), 'h:mm a') : '--'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <Link
                 href="/tech/schedule"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-all hover:-translate-y-[1px] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                <CalendarDays className="h-4 w-4 text-blue-500" />
-                Open Calendar
+                Calendar
               </Link>
               <Link
                 href="/tech/stats"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-all hover:-translate-y-[1px] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                <Wrench className="h-4 w-4 text-cyan-500" />
-                View Performance
+                Performance
               </Link>
             </div>
-          </div>
+          </CollapsiblePanel>
+
+          <CollapsiblePanel
+            title="Shortcuts"
+            subtitle="Keyboard navigation"
+            icon={Keyboard}
+            open={panels.shortcuts}
+            onToggle={() => togglePanel('shortcuts')}
+          >
+            <KeyboardShortcutsCard role="tech" defaultExpanded={false} />
+          </CollapsiblePanel>
         </div>
       </section>
-
-      <KeyboardShortcutsCard role="tech" defaultExpanded={false} />
     </div>
   )
 }

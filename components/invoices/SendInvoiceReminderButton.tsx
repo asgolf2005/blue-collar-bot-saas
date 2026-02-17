@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2, Send } from '@/components/ui/icons'
 
 export default function SendInvoiceReminderButton({
   invoiceId,
@@ -51,3 +51,4 @@ export default function SendInvoiceReminderButton({
     </button>
   )
 }
+

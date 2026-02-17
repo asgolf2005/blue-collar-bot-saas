@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
-import { CreditCard, CheckCircle, AlertCircle, TrendingUp, TrendingDown, X } from 'lucide-react'
+import { CreditCard, CheckCircle, AlertCircle, TrendingUp, TrendingDown, X } from '@/components/ui/icons'
 import { showToast } from '@/lib/utils/toast'
 
 interface SubscriptionData {
@@ -36,7 +36,7 @@ const TIER_INFO = {
     price: 299,
     features: [
       'Everything in Starter',
-      '✨ AI Phone Receptionist',
+      'âœ¨ AI Phone Receptionist',
       'Unlimited AI calls (200/mo)',
       'Priority support',
       'Call recordings & transcripts',
@@ -179,7 +179,7 @@ export default function SubscriptionManager({ subscription, businessId }: Subscr
             </div>
           </div>
 
-          <button
+          <button type="button"
             onClick={handleManageBilling}
             disabled={isLoading}
             className="w-full md:w-auto px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -238,7 +238,7 @@ export default function SubscriptionManager({ subscription, businessId }: Subscr
                 </ul>
 
                 {!isCurrentTier && (
-                  <button
+                  <button type="button"
                     onClick={() => handleUpgrade(tier as keyof typeof TIER_INFO)}
                     className={`w-full px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 ${
                       tier === 'professional'
@@ -271,14 +271,14 @@ export default function SubscriptionManager({ subscription, businessId }: Subscr
             </p>
 
             <div className="flex gap-3">
-              <button
+              <button type="button"
                 onClick={() => setIsChangingTier(false)}
                 disabled={isLoading}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
-              <button
+              <button type="button"
                 onClick={confirmTierChange}
                 disabled={isLoading}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -292,3 +292,4 @@ export default function SubscriptionManager({ subscription, businessId }: Subscr
     </div>
   )
 }
+

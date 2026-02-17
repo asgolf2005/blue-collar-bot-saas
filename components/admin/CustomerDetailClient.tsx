@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { Calendar, FileText, Edit, CheckCircle, Clock } from 'lucide-react'
+import { Calendar, Receipt, Edit, CheckCircle, Clock } from '@/components/ui/icons'
 import EditCustomerForm from './EditCustomerForm'
 import Link from 'next/link'
 import { Customer as BaseCustomer } from '@/lib/types'
@@ -108,7 +108,7 @@ export default function CustomerDetailClient({
         <div className="flex gap-2 overflow-x-auto">
         {tabs.map(tab => {
           return (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`rounded-xl px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] whitespace-nowrap transition-colors ${
@@ -288,7 +288,7 @@ export default function CustomerDetailClient({
 
           {invoices.length === 0 ? (
             <div className="py-12 text-center">
-              <FileText className="mx-auto mb-3 h-12 w-12 text-slate-400 dark:text-slate-500" />
+              <Receipt className="mx-auto mb-3 h-12 w-12 text-slate-400 dark:text-slate-500" />
               <p className="font-mono text-sm text-slate-500 dark:text-slate-400">No invoices yet</p>
             </div>
           ) : (
@@ -353,3 +353,4 @@ export default function CustomerDetailClient({
     </div>
   )
 }
+

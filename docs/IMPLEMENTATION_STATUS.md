@@ -100,14 +100,14 @@ await emailService.sendJobUpdate(
   'John Smith',
   'Blue Collar Bot',
   'on_the_way',
-  'Mike Johnson',
+  'Alex Rivera',
   '2:30 PM'
 )
 
 // Tech assignment
 await emailService.sendTechAssignment(
   'tech@example.com',
-  'Mike Johnson',
+  'Alex Rivera',
   'John Smith',
   '123 Main St',
   'December 25, 2025 at 2:00 PM',

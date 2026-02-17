@@ -1,6 +1,5 @@
 'use client'
 
-import { X } from 'lucide-react'
 import { ReactNode } from 'react'
 
 interface BulkActionBarProps {
@@ -34,12 +33,12 @@ export default function BulkActionBar({ selectedCount, onClear, children }: Bulk
         </div>
 
         {/* Clear Button */}
-        <button
+        <button type="button"
           onClick={onClear}
           className="ml-2 p-2 hover:bg-white/10 rounded-lg transition-colors"
           aria-label="Clear selection"
         >
-          <X className="w-4 h-4" />
+          <span className="text-xs font-semibold">Clear</span>
         </button>
       </div>
     </div>
@@ -47,7 +46,7 @@ export default function BulkActionBar({ selectedCount, onClear, children }: Bulk
 }
 
 interface BulkActionButtonProps {
-  icon: ReactNode
+  icon?: ReactNode
   label: string
   onClick: () => void
   variant?: 'default' | 'danger'
@@ -60,11 +59,11 @@ export function BulkActionButton({ icon, label, onClick, variant = 'default' }: 
     : "bg-white/20 hover:bg-white/30 backdrop-blur"
 
   return (
-    <button
+    <button type="button"
       onClick={onClick}
       className={`${baseClasses} ${variantClasses}`}
     >
-      {icon}
+      {icon ? icon : null}
       {label}
     </button>
   )

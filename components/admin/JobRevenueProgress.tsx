@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo } from 'react'
-import { Target, DollarSign, TrendingUp, Calendar } from 'lucide-react'
+import { Target, DollarSign, TrendingUp, Calendar } from '@/components/ui/icons'
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from 'date-fns'
 
 interface Invoice {
@@ -95,7 +95,7 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
             <h3 className="text-lg font-semibold text-ink">Revenue Collection Progress</h3>
             <p className="text-xs text-muted mt-0.5 flex items-center gap-1.5">
               <Calendar className="w-3 h-3" />
-              {getPeriodLabel()} • {collectionPercentage}% collected
+              {getPeriodLabel()} â€¢ {collectionPercentage}% collected
             </p>
           </div>
         </div>
@@ -103,7 +103,7 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
         {/* Time Period Selector */}
         <div className="flex flex-wrap gap-2">
           {periods.map((period) => (
-            <button
+            <button type="button"
               key={period.value}
               onClick={() => setSelectedPeriod(period.value)}
               className={`
@@ -128,7 +128,7 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
             <span className="font-mono font-semibold text-success">
               ${paidRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <span className="text-muted">collected</span>
+            <span className="text-muted">Collected</span>
           </div>
           <div className="text-right">
             <span className="text-muted">of</span>
@@ -203,9 +203,10 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
           <div className="text-xl font-bold font-mono text-primary">
             ${totalJobs > 0 ? (totalRevenue / totalJobs).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '0'}
           </div>
-          <div className="text-xs text-primary/70 mt-1">per job</div>
+          <div className="text-xs text-primary/70 mt-1">Per Job</div>
         </div>
       </div>
     </div>
   )
 }
+

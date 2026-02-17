@@ -1,7 +1,5 @@
 'use client'
 
-import { DollarSign, Clock, Package, Receipt } from 'lucide-react'
-
 interface PricingBreakdownProps {
   laborHours?: number | null
   laborRate?: number | null
@@ -46,7 +44,6 @@ export default function PricingBreakdown({
   if (!hasAnyPricing) {
     return (
       <div className="card p-6 text-center">
-        <Receipt className="w-10 h-10 text-gray-300 mx-auto mb-3" />
         <p className="text-gray-500">Pricing will be available after job completion</p>
       </div>
     )
@@ -76,20 +73,14 @@ export default function PricingBreakdown({
     return (
       <div className="card overflow-hidden">
         <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center">
-            <Receipt className="w-5 h-5 text-gray-600 mr-2" />
-            <h3 className="font-semibold text-gray-900">Price Breakdown</h3>
-          </div>
+          <h3 className="font-semibold text-gray-900">Price Breakdown</h3>
         </div>
 
         <div className="p-6 space-y-4">
           {/* Services */}
           {services.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                <Package className="w-4 h-4 mr-1" />
-                Services
-              </h4>
+              <h4 className="text-sm font-medium text-gray-500 mb-2">Services</h4>
               <div className="space-y-2">
                 {services.map((service, index) => (
                   <div key={index} className="flex justify-between text-sm">
@@ -109,10 +100,7 @@ export default function PricingBreakdown({
           {/* Labor */}
           {laborHours && laborRate && (
             <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                <Clock className="w-4 h-4 mr-1" />
-                Labor
-              </h4>
+              <h4 className="text-sm font-medium text-gray-500 mb-2">Labor</h4>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-700">
                   {laborHours} hour{laborHours !== 1 ? 's' : ''} @ {formatCurrency(laborRate)}/hr
@@ -125,10 +113,7 @@ export default function PricingBreakdown({
           {/* Parts */}
           {partsCost && partsCost > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-500 mb-2 flex items-center">
-                <Package className="w-4 h-4 mr-1" />
-                Parts & Materials
-              </h4>
+              <h4 className="text-sm font-medium text-gray-500 mb-2">Parts & Materials</h4>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-700">Parts and materials</span>
                 <span className="font-medium text-gray-900">{formatCurrency(partsCost)}</span>
@@ -175,10 +160,7 @@ export default function PricingBreakdown({
   // Default variant
   return (
     <div className="card p-6">
-      <div className="flex items-center mb-4">
-        <DollarSign className="w-5 h-5 text-gray-600 mr-2" />
-        <h3 className="font-semibold text-gray-900">Pricing</h3>
-      </div>
+      <h3 className="font-semibold text-gray-900 mb-4">Pricing</h3>
 
       <div className="space-y-3">
         {/* Labor */}

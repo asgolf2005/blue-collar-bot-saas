@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { format, eachDayOfInterval } from 'date-fns'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp } from '@/components/ui/lucide'
 
 interface RevenueChartProps {
   businessId: string
@@ -202,3 +202,5 @@ export default async function RevenueChart({ businessId, rangeStart, rangeEnd, r
     </div>
   )
 }
+
+

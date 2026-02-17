@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Customer, Service } from '@/lib/types'
 import { useEffect, useMemo, useState } from 'react'
@@ -16,7 +16,7 @@ import {
   Sparkles,
   User,
   Wrench,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { FormAlert } from '@/components/shared'
 import { Button } from '@/components/ui/Button'
 
@@ -886,3 +886,4 @@ export default function NewJobForm({
     </form>
   )
 }
+

@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
-import { Users, Star, Trophy } from 'lucide-react'
+﻿import { createClient } from '@/lib/supabase/server'
+import { Users, Star, Trophy } from '@/components/ui/lucide'
 
 interface TechPerformanceProps {
   businessId: string
@@ -267,7 +267,7 @@ export default async function TechPerformance({ businessId, rangeStart, rangeEnd
               </span>
             </div>
             <p className="text-xs text-white/40 mt-1 ml-6 font-mono">
-              {techStats[0].completedJobs}/{techStats[0].totalJobs} JOBS • {techStats[0].completionRate}% COMPLETION RATE
+              {techStats[0].completedJobs}/{techStats[0].totalJobs} JOBS â€¢ {techStats[0].completionRate}% COMPLETION RATE
             </p>
           </div>
         )}
@@ -275,3 +275,5 @@ export default async function TechPerformance({ businessId, rangeStart, rangeEnd
     </div>
   )
 }
+
+

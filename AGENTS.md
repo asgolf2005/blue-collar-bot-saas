@@ -37,7 +37,14 @@ Visual language
 - Prefer existing utility classes and component patterns in `app/` and `components/`.
 
 Typography
-- Do not introduce new fonts without explicit approval; use the current preset.
+- MAXIMUM 3 FONTS ONLY - No exceptions without explicit user approval
+- Approved fonts (defined in app/layout.tsx):
+  1. Bebas Neue (--font-display) - Headers, titles, brand text
+  2. Inter (--font-sans) - Body text, UI elements, descriptions  
+  3. JetBrains Mono (--font-mono) - Data labels, technical text, metrics
+- Tailwind classes: font-display, font-sans, font-mono
+- Do not import additional Google Fonts or add font-family declarations
+- Scan existing code for any hardcoded fonts and remove them
 
 Layout and spacing
 - Use Tailwind spacing scale; avoid one-off pixel values unless matching an existing component.
@@ -61,3 +68,28 @@ Components
 - Form controls should match the pill radius and use consistent focus rings.
 - Tables and lists should use muted dividers, readable density, and clear hover states.
 - Charts should use `chart-*` colors from the theme.
+
+Icons
+- Primary source: `components/ui/icons.tsx` - Unified Lucide + Phosphor system
+- Two icon libraries approved:
+  1. Lucide React (`lucide-react`) - Primary, minimal outline style
+  2. Phosphor Icons (`@phosphor-icons/react`) - Extended variety with 6 weights including duotone
+- Total combined icons: 10,000+
+- Preferred usage:
+  ```tsx
+  // Use the unified Icon component
+  import { Icon, IconButton } from '@/components/ui/icons'
+  <Icon name="settings" size="md" />
+  <IconButton name="delete" variant="ghost" onClick={handleDelete} />
+  
+  // Or import specific icons directly
+  import { Settings, PhGear } from '@/components/ui/icons'
+  <Settings className="w-5 h-5" />  // Lucide
+  <PhGear weight="duotone" />       // Phosphor with duotone
+  ```
+- Icon sizes (standardized): xs(12), sm(16), md(20), lg(24), xl(32)
+- When to use Lucide: Standard UI elements, clean outline style preferred
+- When to use Phosphor: Need fill variants, duotone effects, or different weights
+- Always use the Icon wrapper for consistent sizing and styling
+- Do NOT add additional icon libraries without explicit approval
+- Do NOT use Font Awesome, Material Icons, or other icon sets

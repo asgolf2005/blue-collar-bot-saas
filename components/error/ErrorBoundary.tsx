@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import React from 'react'
-import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, RefreshCw } from '@/components/ui/icons'
 import { Button } from '@/components/ui/Button'
 
 interface ErrorBoundaryProps {
@@ -62,3 +62,4 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return this.props.children
   }
 }
+

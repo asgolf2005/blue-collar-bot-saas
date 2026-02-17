@@ -149,7 +149,7 @@ export async function POST(request: Request) {
           .upsert({
             id: techUserId,
             email: techEmail,
-            full_name: 'Mike the Plumber',
+            full_name: 'Alex Rivera',
             role: 'tech',
             business_id: businessId,
           }, { onConflict: 'id' })

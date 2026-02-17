@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -20,7 +20,7 @@ import {
   Plus,
   Trash2,
   ChevronRight
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { format } from 'date-fns'
 
 // Types
@@ -263,7 +263,7 @@ export default function BillingPage() {
                 </p>
               </div>
             </div>
-            <button
+            <button type="button"
               onClick={() => setShowAddCard(!showAddCard)}
               className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors"
             >
@@ -300,7 +300,7 @@ export default function BillingPage() {
                     <button className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-4 py-2 rounded-full transition-colors">
                       Add Card
                     </button>
-                    <button 
+                    <button type="button" 
                       onClick={() => setShowAddCard(false)}
                       className="px-4 py-2 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                     >
@@ -339,7 +339,7 @@ export default function BillingPage() {
                         {method.brand}
                       </span>
                       <span className="font-mono text-sm text-slate-500 dark:text-slate-400">
-                        •••• {method.last4}
+                        â€¢â€¢â€¢â€¢ {method.last4}
                       </span>
                     </div>
                     <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
@@ -353,14 +353,14 @@ export default function BillingPage() {
                       Default
                     </span>
                   ) : (
-                    <button
+                    <button type="button"
                       onClick={() => setDefaultPaymentMethod(method.id)}
                       className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
                     >
                       <Check className="w-4 h-4" />
                     </button>
                   )}
-                  <button
+                  <button type="button"
                     onClick={() => removePaymentMethod(method.id)}
                     className="p-2 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-400/20 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                   >
@@ -584,3 +584,4 @@ function Toggle({
     </label>
   )
 }
+

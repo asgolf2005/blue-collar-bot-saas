@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NewJobForm from '@/components/admin/NewJobForm'
-import { ArrowLeft, Sparkles, Users, Wrench } from 'lucide-react'
+import { ArrowLeft, Sparkles, Users, Wrench } from '@/components/ui/lucide'
 import Link from 'next/link'
 
 export default async function NewJobPage({
@@ -140,3 +140,5 @@ export default async function NewJobPage({
     </div>
   )
 }
+
+

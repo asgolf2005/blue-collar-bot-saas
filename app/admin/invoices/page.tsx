@@ -1,28 +1,19 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
+import { Icon } from '@/components/ui/icons'
 import { 
-  Plus, 
-  FileText, 
-  DollarSign, 
-  AlertCircle,
-  CheckCircle2,
-  Clock,
   Download,
   Eye,
-  Search,
-  X,
-  Filter,
   ArrowUpDown,
-  CheckSquare,
   Check,
   Send,
   Trash2,
   Loader2
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { format, isPast, isToday, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { Invoice, InvoiceStatus, Customer } from '@/lib/types'
@@ -491,7 +482,6 @@ export default function InvoicesPage() {
         <div className="flex gap-2">
           <Link href="/admin/invoices/new">
             <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all whitespace-nowrap flex-nowrap">
-              <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
               <span className="whitespace-nowrap">NEW INVOICE</span>
             </Button>
           </Link>
@@ -503,8 +493,8 @@ export default function InvoicesPage() {
         <MetricCard
           label="TOTAL INVOICES"
           value={invoices.length}
-          icon={FileText}
           color="blue"
+          mark="total"
           active={statusFilter === 'all' && dateRangeFilter === 'all' && amountFilter === 'all'}
           onClick={() => {
             clearAllFilters()
@@ -514,24 +504,24 @@ export default function InvoicesPage() {
         <MetricCard
           label="OUTSTANDING"
           value={`$${totalOutstanding.toFixed(0)}`}
-          icon={AlertCircle}
           color="amber"
+          mark="outstanding"
           active={statusFilter === 'outstanding'}
           onClick={() => applyPreset('attention')}
         />
         <MetricCard
           label="PAID"
           value={`$${totalPaid.toFixed(0)}`}
-          icon={DollarSign}
           color="emerald"
+          mark="paid"
           active={statusFilter === 'paid'}
           onClick={() => applyPreset('paid')}
         />
         <MetricCard
           label="OVERDUE"
           value={overdueCount}
-          icon={Clock}
           color="rose"
+          mark="overdue"
           active={statusFilter === 'overdue'}
           onClick={() => {
             setStatusFilter('overdue')
@@ -547,7 +537,6 @@ export default function InvoicesPage() {
         <div className="p-5 space-y-4">
           {/* Search Bar */}
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               ref={searchInputRef}
               type="text"
@@ -557,14 +546,14 @@ export default function InvoicesPage() {
                 setActivePreset('custom')
               }}
               placeholder="Search by invoice # or customer name..."
-              className="w-full pl-12 pr-12 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-all"
+              className="w-full px-4 pr-12 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-all"
             />
             {searchQuery && (
-              <button
+              <button type="button"
                 onClick={() => setSearchQuery('')}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
-                <X className="w-4 h-4 text-slate-400" />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-300">x</span>
               </button>
             )}
           </div>
@@ -572,7 +561,6 @@ export default function InvoicesPage() {
           {/* Filter Bar */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 rounded-full border border-cyan-200/80 bg-cyan-50/70 px-3 py-1.5 shadow-[0_0_0_1px_rgba(34,211,238,0.09),0_0_16px_rgba(34,211,238,0.14)] dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_18px_rgba(34,211,238,0.2)]">
-              <Filter className="w-4 h-4 text-cyan-700 dark:text-cyan-300" />
               <span className="font-mono text-xs uppercase tracking-wide text-cyan-700 dark:text-cyan-200">Filter</span>
               <select
                 ref={statusFilterRef}
@@ -644,7 +632,7 @@ export default function InvoicesPage() {
               </select>
             </div>
 
-            <button
+            <button type="button"
               onClick={clearAllFilters}
               className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 font-mono text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
@@ -690,41 +678,44 @@ export default function InvoicesPage() {
       {selectedInvoices.size > 0 && (
         <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50 dark:bg-blue-400/10 border border-blue-200 dark:border-blue-400/20 animate-fade-in">
           <div className="flex items-center gap-3">
-            <CheckSquare className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <span
+              className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400"
+              aria-hidden="true"
+            />
             <span className="font-mono text-sm text-slate-700 dark:text-slate-300">
               {selectedInvoices.size} selected
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button type="button"
               onClick={() => handleBulkAction('mark-paid')}
               disabled={bulkActionLoading !== null}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-400/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs hover:bg-emerald-200 dark:hover:bg-emerald-400/30 transition-colors disabled:opacity-60"
             >
-              {bulkActionLoading === 'mark-paid' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              {bulkActionLoading === 'mark-paid' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {bulkActionLoading === 'mark-paid' ? 'Marking...' : 'Mark Paid'}
             </button>
-            <button
+            <button type="button"
               onClick={() => handleBulkAction('send-reminder')}
               disabled={bulkActionLoading !== null}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-100 dark:bg-blue-400/20 text-blue-700 dark:text-blue-300 font-mono text-xs hover:bg-blue-200 dark:hover:bg-blue-400/30 transition-colors disabled:opacity-60"
             >
-              {bulkActionLoading === 'send-reminder' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {bulkActionLoading === 'send-reminder' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {bulkActionLoading === 'send-reminder' ? 'Sending...' : 'Send Reminder'}
             </button>
-            <button
+            <button type="button"
               onClick={() => handleBulkAction('delete')}
               disabled={bulkActionLoading !== null}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-100 dark:bg-rose-400/20 text-rose-700 dark:text-rose-300 font-mono text-xs hover:bg-rose-200 dark:hover:bg-rose-400/30 transition-colors disabled:opacity-60"
             >
-              {bulkActionLoading === 'delete' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {bulkActionLoading === 'delete' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
               {bulkActionLoading === 'delete' ? 'Deleting...' : 'Delete'}
             </button>
-            <button
+            <button type="button"
               onClick={() => setSelectedInvoices(new Set())}
               className="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
             >
-              <X className="w-4 h-4" />
+              <span className="text-xs font-semibold">Clear</span>
             </button>
           </div>
         </div>
@@ -739,11 +730,10 @@ export default function InvoicesPage() {
           </p>
         </div>
         {!loading && filteredInvoices.length > 0 && (
-          <button
+          <button type="button"
             onClick={toggleSelectAll}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-mono text-xs text-slate-700 dark:text-slate-300 transition-colors"
           >
-            <CheckSquare className={`w-4 h-4 ${selectedInvoices.size === filteredInvoices.length ? 'text-blue-600 dark:text-cyan-400' : ''}`} />
             {selectedInvoices.size === filteredInvoices.length ? 'Deselect All' : 'Select All'}
           </button>
         )}
@@ -766,12 +756,12 @@ export default function InvoicesPage() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-400/10 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-8 h-8 text-rose-600 dark:text-rose-400" />
+              <span className="font-mono text-xs font-semibold text-rose-700 dark:text-rose-300">ERR</span>
             </div>
             <p className="font-mono text-sm text-slate-500 dark:text-slate-400">
               {error}
             </p>
-            <button
+            <button type="button"
               onClick={() => window.location.reload()}
               className="mt-4 font-mono text-xs text-blue-600 dark:text-cyan-400 hover:underline"
             >
@@ -788,13 +778,13 @@ export default function InvoicesPage() {
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-8 h-8 text-slate-400" />
+                  <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-300">0</span>
                 </div>
                 <p className="font-mono text-sm text-slate-500 dark:text-slate-400">
                   No invoices found
                 </p>
                 {(searchQuery || statusFilter !== 'all' || dateRangeFilter !== 'all' || amountFilter !== 'all') && (
-                  <button
+                  <button type="button"
                     onClick={clearAllFilters}
                     className="mt-4 font-mono text-xs text-blue-600 dark:text-cyan-400 hover:underline"
                   >
@@ -850,7 +840,7 @@ function InvoiceRow({
       >
         <div className="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors rounded-xl">
           {/* Checkbox - stops propagation to prevent navigation when clicking checkbox */}
-          <button
+          <button type="button"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -904,7 +894,7 @@ function InvoiceRow({
             onClick={(e) => e.stopPropagation()}
           >
             {invoice.status === 'draft' && (
-              <button
+              <button type="button"
                 className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-400/20 text-blue-600 dark:text-blue-300 transition-colors disabled:opacity-60"
                 onClick={(e) => {
                   e.preventDefault()
@@ -918,7 +908,7 @@ function InvoiceRow({
               </button>
             )}
             {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-              <button
+              <button type="button"
                 className="p-2 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-400/20 text-emerald-600 dark:text-emerald-300 transition-colors disabled:opacity-60"
                 onClick={(e) => {
                   e.preventDefault()
@@ -928,10 +918,14 @@ function InvoiceRow({
                 disabled={actionLoading}
                 title="Mark as paid"
               >
-                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {actionLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <span className="font-mono text-[11px] leading-none">Paid</span>
+                )}
               </button>
             )}
-            <button 
+            <button type="button" 
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
@@ -941,7 +935,7 @@ function InvoiceRow({
             >
               <Eye className="w-4 h-4" />
             </button>
-            <button 
+            <button type="button" 
               className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
               onClick={(e) => {
                 e.preventDefault()
@@ -960,44 +954,73 @@ function InvoiceRow({
 }
 
 // Metric Card
-function MetricCard({ 
-  label, 
-  value, 
-  icon: Icon,
+function MetricCard({
+  label,
+  value,
   color,
+  mark,
   onClick,
   active = false,
 }: { 
   label: string
   value: string | number
-  icon: React.ElementType
   color: string
+  mark: 'total' | 'outstanding' | 'paid' | 'overdue'
   onClick?: () => void
   active?: boolean
 }) {
-  const colors: Record<string, { light: string; dark: string }> = {
-    blue: { light: 'text-blue-600', dark: 'dark:text-blue-400' },
-    amber: { light: 'text-amber-600', dark: 'dark:text-amber-400' },
-    emerald: { light: 'text-emerald-600', dark: 'dark:text-emerald-400' },
-    rose: { light: 'text-rose-600', dark: 'dark:text-rose-400' },
+  const colors: Record<
+    string,
+    { text: string; markBg: string; markBar: string }
+  > = {
+    blue: {
+      text: 'text-blue-600 dark:text-blue-400',
+      markBg: 'bg-blue-50 dark:bg-blue-500/10 border border-blue-200/60 dark:border-blue-400/20',
+      markBar: 'bg-blue-600/70 dark:bg-blue-300/75',
+    },
+    amber: {
+      text: 'text-amber-600 dark:text-amber-400',
+      markBg: 'bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-400/20',
+      markBar: 'bg-amber-600/70 dark:bg-amber-300/75',
+    },
+    emerald: {
+      text: 'text-emerald-600 dark:text-emerald-400',
+      markBg: 'bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200/60 dark:border-emerald-400/20',
+      markBar: 'bg-emerald-600/70 dark:bg-emerald-300/75',
+    },
+    rose: {
+      text: 'text-rose-600 dark:text-rose-400',
+      markBg: 'bg-rose-50 dark:bg-rose-500/10 border border-rose-200/60 dark:border-rose-400/20',
+      markBar: 'bg-rose-600/70 dark:bg-rose-300/75',
+    },
   }
-  const c = colors[color]
+  const c = colors[color] ?? colors.blue
+
+  const iconName =
+    mark === 'total'
+      ? 'invoice'
+      : mark === 'outstanding'
+        ? 'dollar'
+        : mark === 'paid'
+          ? 'checkCircle2'
+          : 'alert'
 
   const card = (
-    <div className={`bg-white dark:bg-slate-900 rounded-xl border p-4 transition-all ${
+    <div className={`rounded-2xl border bg-white dark:bg-slate-900 p-5 transition-all ${
       active
-        ? 'border-cyan-400/80 dark:border-cyan-400 shadow-[0_0_0_1px_rgba(34,211,238,0.16),0_0_18px_rgba(34,211,238,0.2)]'
-        : 'border-slate-200 dark:border-slate-800 hover:border-cyan-300/60 dark:hover:border-cyan-400/45 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_12px_30px_-20px_rgba(34,211,238,0.5)]'
+        ? 'border-cyan-400/80 dark:border-cyan-400 shadow-[0_0_0_1px_rgba(34,211,238,0.16),0_10px_24px_-18px_rgba(34,211,238,0.4)]'
+        : 'border-slate-200 dark:border-slate-800 hover:border-cyan-300/60 dark:hover:border-cyan-400/45 hover:shadow-sm'
     }`}>
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full border border-cyan-300/70 bg-cyan-50/70 shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_0_14px_rgba(34,211,238,0.12)] dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_16px_rgba(34,211,238,0.18)] flex items-center justify-center">
-          <Icon className={`w-5 h-5 ${c.light} ${c.dark}`} />
-        </div>
-        <div>
-          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">{label}</div>
-          <div className={`font-display text-2xl ${c.light} ${c.dark}`}>{value}</div>
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+        <div
+          className={`inline-flex h-7 w-7 items-center justify-center rounded-xl ${c.markBg} ${c.text}`}
+          aria-hidden="true"
+        >
+          <Icon name={iconName} size={18} className="opacity-80" />
         </div>
       </div>
+      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </div>
   )
 
@@ -1033,3 +1056,4 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+

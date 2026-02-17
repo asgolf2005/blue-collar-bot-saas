@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus } from '@/components/ui/icons'
 import { showToast } from '@/lib/utils/toast'
 
 export default function SeedButton() {
@@ -38,7 +38,7 @@ export default function SeedButton() {
   }
 
   return (
-    <button
+    <button type="button"
       onClick={handleSeed}
       disabled={isLoading}
       className="glass-btn-primary"
@@ -48,3 +48,4 @@ export default function SeedButton() {
     </button>
   )
 }
+

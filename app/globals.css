@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -337,6 +337,39 @@
   .input-field::placeholder {
     color: rgb(var(--text-disabled));
   }
+
+  .ai-action-btn {
+    @apply relative overflow-hidden font-mono text-sm;
+    background: linear-gradient(
+      135deg,
+      rgba(var(--neon-cyan), 0.18) 0%,
+      rgba(var(--neon-cyan), 0.06) 100%
+    );
+    border: 1px solid rgba(var(--neon-cyan), 0.34);
+    color: rgb(var(--neon-cyan));
+    box-shadow: 0 0 0 rgba(var(--neon-cyan), 0);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .ai-action-btn:hover {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--neon-cyan), 0.24) 0%,
+      rgba(var(--neon-cyan), 0.1) 100%
+    );
+    border-color: rgba(var(--neon-cyan), 0.5);
+    box-shadow: 0 0 24px rgba(var(--neon-cyan), 0.24);
+  }
+
+  .ai-assistant-panel {
+    @apply rounded-2xl border;
+    background: linear-gradient(
+      180deg,
+      rgba(var(--bg-card), 0.62) 0%,
+      rgba(var(--bg-secondary), 0.5) 100%
+    );
+    border-color: rgba(var(--neon-cyan), 0.3);
+  }
 }
 
 @layer utilities {
@@ -347,9 +380,16 @@
   .font-display {
     font-family: 'Bebas Neue', sans-serif;
   }
+
+  .font-display-soft {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.02em;
+    line-height: 1.05;
+    text-transform: none;
+  }
   
   .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Inter', system-ui, sans-serif;
   }
   
   .text-gradient-cyan {

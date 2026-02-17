@@ -1,7 +1,6 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
-import { Search, Filter, X, Users, MapPin, DollarSign, Activity, Briefcase } from 'lucide-react'
 
 interface CustomerFiltersProps {
   onFilterChange: (filters: CustomerFilterState) => void
@@ -105,9 +104,6 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Filter className="w-4 h-4 text-primary" />
-          </div>
           <div>
             <h3 className="text-lg font-semibold text-ink">Filter & Search</h3>
             <p className="text-xs text-muted">
@@ -116,11 +112,10 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
           </div>
         </div>
         {hasActiveFilters && (
-          <button
+          <button type="button"
             onClick={clearFilters}
             className="glass-btn-ghost glass-btn-sm"
           >
-            <X className="w-4 h-4" />
             Clear All
           </button>
         )}
@@ -133,7 +128,7 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
         </label>
         <div className="flex flex-wrap gap-2">
           {activityStatusOptions.map((option) => (
-            <button
+            <button type="button"
               key={option.value}
               onClick={() => updateFilter('activityStatus', option.value)}
               className={`
@@ -147,7 +142,7 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
               {option.label}
               {filters.activityStatus === option.value && option.value !== 'all' && (
                 <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-current bg-opacity-20 text-xs">
-                  ✓
+                  âœ“
                 </span>
               )}
             </button>
@@ -162,7 +157,7 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
         </label>
         <div className="flex flex-wrap gap-2">
           {portalAccessOptions.map((option) => (
-            <button
+            <button type="button"
               key={option.value}
               onClick={() => updateFilter('portalAccess', option.value)}
               className={`
@@ -176,7 +171,7 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
               {option.label}
               {filters.portalAccess === option.value && option.value !== 'all' && (
                 <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-current bg-opacity-20 text-xs">
-                  ✓
+                  âœ“
                 </span>
               )}
             </button>
@@ -192,20 +187,19 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
             Search
           </label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
               type="text"
               value={filters.search}
               onChange={(e) => updateFilter('search', e.target.value)}
               placeholder="Search by name, phone, email, or address..."
-              className="glass-input pl-11 w-full"
+              className="glass-input px-4 w-full"
             />
             {filters.search && (
-              <button
+              <button type="button"
                 onClick={() => updateFilter('search', '')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-surface-100 transition-colors"
               >
-                <X className="w-4 h-4 text-muted" />
+                <span className="text-xs font-semibold text-muted">x</span>
               </button>
             )}
           </div>
@@ -216,20 +210,17 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
           <label className="text-xs text-muted uppercase tracking-wider font-medium mb-2 block">
             Sort By
           </label>
-          <div className="relative">
-            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted pointer-events-none z-10" />
-            <select
-              value={filters.sortBy}
-              onChange={(e) => updateFilter('sortBy', e.target.value)}
-              className="select pl-11 w-full appearance-none"
-            >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filters.sortBy}
+            onChange={(e) => updateFilter('sortBy', e.target.value)}
+            className="select px-4 w-full appearance-none"
+          >
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -240,20 +231,17 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
           <label className="text-xs text-muted uppercase tracking-wider font-medium mb-2 block">
             Job Status
           </label>
-          <div className="relative">
-            <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted pointer-events-none z-10" />
-            <select
-              value={filters.jobStatus}
-              onChange={(e) => updateFilter('jobStatus', e.target.value)}
-              className="select pl-11 w-full appearance-none"
-            >
-              {jobStatusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filters.jobStatus}
+            onChange={(e) => updateFilter('jobStatus', e.target.value)}
+            className="select px-4 w-full appearance-none"
+          >
+            {jobStatusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Technician Filter */}
@@ -261,21 +249,18 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
           <label className="text-xs text-muted uppercase tracking-wider font-medium mb-2 block">
             Technician
           </label>
-          <div className="relative">
-            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted pointer-events-none z-10" />
-            <select
-              value={filters.technician}
-              onChange={(e) => updateFilter('technician', e.target.value)}
-              className="select pl-11 w-full appearance-none"
-            >
-              <option value="all">All Technicians</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filters.technician}
+            onChange={(e) => updateFilter('technician', e.target.value)}
+            className="select px-4 w-full appearance-none"
+          >
+            <option value="all">All Technicians</option>
+            {technicians.map((tech) => (
+              <option key={tech.id} value={tech.id}>
+                {tech.full_name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Invoice Status Filter */}
@@ -283,20 +268,17 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
           <label className="text-xs text-muted uppercase tracking-wider font-medium mb-2 block">
             Invoice Status
           </label>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted pointer-events-none z-10" />
-            <select
-              value={filters.invoiceStatus}
-              onChange={(e) => updateFilter('invoiceStatus', e.target.value)}
-              className="select pl-11 w-full appearance-none"
-            >
-              {invoiceStatusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filters.invoiceStatus}
+            onChange={(e) => updateFilter('invoiceStatus', e.target.value)}
+            className="select px-4 w-full appearance-none"
+          >
+            {invoiceStatusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Location Filter */}
@@ -304,21 +286,18 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
           <label className="text-xs text-muted uppercase tracking-wider font-medium mb-2 block">
             Location
           </label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted pointer-events-none z-10" />
-            <select
-              value={filters.location}
-              onChange={(e) => updateFilter('location', e.target.value)}
-              className="select pl-11 w-full appearance-none"
-            >
-              <option value="all">All Locations</option>
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filters.location}
+            onChange={(e) => updateFilter('location', e.target.value)}
+            className="select px-4 w-full appearance-none"
+          >
+            <option value="all">All Locations</option>
+            {locations.map((location) => (
+              <option key={location} value={location}>
+                {location}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -330,16 +309,16 @@ export default function CustomerFilters({ onFilterChange, totalCount, filteredCo
             {filters.portalAccess !== 'all' && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
                 Portal: {portalAccessOptions.find(s => s.value === filters.portalAccess)?.label}
-                <button onClick={() => updateFilter('portalAccess', 'all')} className="hover:bg-primary/20 rounded-full p-0.5">
-                  <X className="w-3 h-3" />
+                <button type="button" onClick={() => updateFilter('portalAccess', 'all')} className="hover:bg-primary/20 rounded-full p-0.5">
+                  <span className="text-[10px] font-semibold">x</span>
                 </button>
               </span>
             )}
             {filters.sortBy !== 'newest' && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-info/10 text-info text-xs font-medium">
                 Sort: {sortOptions.find(s => s.value === filters.sortBy)?.label}
-                <button onClick={() => updateFilter('sortBy', 'newest')} className="hover:bg-info/20 rounded-full p-0.5">
-                  <X className="w-3 h-3" />
+                <button type="button" onClick={() => updateFilter('sortBy', 'newest')} className="hover:bg-info/20 rounded-full p-0.5">
+                  <span className="text-[10px] font-semibold">x</span>
                 </button>
               </span>
             )}

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
@@ -14,7 +14,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { createClient } from '@/lib/supabase/client'
 
 // Service categories
@@ -255,7 +255,7 @@ export default function NewServicePage() {
                              transition-all"
                   required
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">hrs</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">Hours</span>
               </div>
             </div>
           </div>
@@ -320,3 +320,4 @@ export default function NewServicePage() {
     </div>
   )
 }
+

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Filter, Calendar, User, X } from 'lucide-react'
 
 interface JobFiltersProps {
   onFilterChange: (filters: FilterState) => void
@@ -63,7 +62,7 @@ export default function JobFilters({ onFilterChange, technicians = [], totalCoun
           </p>
         </div>
         {hasActiveFilters && (
-          <button
+          <button type="button"
             onClick={clearFilters}
             className="text-sm font-medium text-muted dark:text-gray-400 hover:text-danger dark:hover:text-danger transition-colors"
           >
@@ -74,20 +73,19 @@ export default function JobFilters({ onFilterChange, technicians = [], totalCoun
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted dark:text-gray-400" />
         <input
           type="text"
           value={filters.search}
           onChange={(e) => updateFilter('search', e.target.value)}
           placeholder="Search jobs..."
-          className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-white dark:bg-white border border-surface-200 dark:border-slate-300 text-ink dark:text-ink placeholder-muted dark:placeholder-slate-500 focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-sm"
+          className="w-full px-4 pr-10 py-2.5 rounded-lg bg-white dark:bg-white border border-surface-200 dark:border-slate-300 text-ink dark:text-ink placeholder-muted dark:placeholder-slate-500 focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all text-sm"
         />
         {filters.search && (
-          <button
+          <button type="button"
             onClick={() => updateFilter('search', '')}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted dark:text-gray-400 hover:text-ink dark:hover:text-white"
           >
-            <X className="w-4 h-4" />
+            <span className="text-xs font-semibold">x</span>
           </button>
         )}
       </div>
@@ -156,24 +154,24 @@ export default function JobFilters({ onFilterChange, technicians = [], totalCoun
           {filters.status !== 'all' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 dark:bg-white text-primary text-xs font-medium">
               {statusOptions.find(s => s.value === filters.status)?.label}
-              <button onClick={() => updateFilter('status', 'all')} className="hover:bg-primary/20 dark:hover:bg-slate-200 rounded p-0.5">
-                <X className="w-3 h-3" />
+              <button type="button" onClick={() => updateFilter('status', 'all')} className="hover:bg-primary/20 dark:hover:bg-slate-200 rounded p-0.5">
+                <span className="text-[10px] font-semibold">x</span>
               </button>
             </span>
           )}
           {filters.technician !== 'all' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-info/10 dark:bg-white text-info text-xs font-medium">
               {technicians.find(t => t.id === filters.technician)?.full_name || 'Unknown'}
-              <button onClick={() => updateFilter('technician', 'all')} className="hover:bg-info/20 dark:hover:bg-slate-200 rounded p-0.5">
-                <X className="w-3 h-3" />
+              <button type="button" onClick={() => updateFilter('technician', 'all')} className="hover:bg-info/20 dark:hover:bg-slate-200 rounded p-0.5">
+                <span className="text-[10px] font-semibold">x</span>
               </button>
             </span>
           )}
           {filters.dateRange !== 'all' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-success/10 dark:bg-white text-success text-xs font-medium">
               {filters.dateRange}
-              <button onClick={() => updateFilter('dateRange', 'all')} className="hover:bg-success/20 dark:hover:bg-slate-200 rounded p-0.5">
-                <X className="w-3 h-3" />
+              <button type="button" onClick={() => updateFilter('dateRange', 'all')} className="hover:bg-success/20 dark:hover:bg-slate-200 rounded p-0.5">
+                <span className="text-[10px] font-semibold">x</span>
               </button>
             </span>
           )}

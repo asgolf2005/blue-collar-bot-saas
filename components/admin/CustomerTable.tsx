@@ -2,7 +2,6 @@
 
 import { Customer } from '@/lib/types'
 import { format } from 'date-fns'
-import { Phone, Mail, MapPin, Trash2, Download, Lock, LockOpen, Edit, Eye } from 'lucide-react'
 import { useBulkSelection } from '@/hooks/useBulkSelection'
 import BulkActionBar, { BulkActionButton } from '@/components/ui/BulkActionBar'
 import { showToast } from '@/lib/utils/toast'
@@ -181,30 +180,21 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
-                      <div className="flex items-center text-sm text-muted">
-                        <Phone className="w-4 h-4 mr-2 text-muted" />
-                        {customer.phone}
-                      </div>
+                      <div className="text-sm text-muted">{customer.phone}</div>
                       {customer.email && (
-                        <div className="flex items-center text-sm text-muted">
-                          <Mail className="w-4 h-4 mr-2 text-muted" />
-                          {customer.email}
-                        </div>
+                        <div className="text-sm text-muted">{customer.email}</div>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     {customer.address ? (
-                      <div className="flex items-center text-sm text-muted">
-                        <MapPin className="w-4 h-4 mr-2 text-muted shrink-0" />
-                        <span className="line-clamp-2">{customer.address}</span>
-                      </div>
+                      <div className="text-sm text-muted line-clamp-2">{customer.address}</div>
                     ) : (
                       <span className="text-sm text-muted">No address</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <button
+                    <button type="button"
                       onClick={() => handlePortalToggle(customer.id, customer.portal_access, customer.email)}
                       disabled={togglingPortal === customer.id}
                       className={`
@@ -219,12 +209,12 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
                     >
                       {customer.portal_access ? (
                         <>
-                          <LockOpen className="w-3.5 h-3.5" />
+                          <span className="h-2 w-2 rounded-full bg-current bg-opacity-50" aria-hidden="true" />
                           Enabled
                         </>
                       ) : (
                         <>
-                          <Lock className="w-3.5 h-3.5" />
+                          <span className="h-2 w-2 rounded-full bg-current bg-opacity-30" aria-hidden="true" />
                           Disabled
                         </>
                       )}
@@ -240,23 +230,19 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
                       items={[
                         {
                           label: 'View Details',
-                          icon: <Eye className="w-4 h-4" />,
                           onClick: () => router.push(`/admin/customers/${customer.id}`),
                         },
                         {
                           label: 'Edit Customer',
-                          icon: <Edit className="w-4 h-4" />,
                           onClick: () => router.push(`/admin/customers/${customer.id}`),
                         },
                         {
                           label: customer.portal_access ? 'Disable Portal' : 'Enable Portal',
-                          icon: customer.portal_access ? <Lock className="w-4 h-4" /> : <LockOpen className="w-4 h-4" />,
                           onClick: () => handlePortalToggle(customer.id, customer.portal_access, customer.email),
                           divider: true,
                         },
                         {
                           label: 'Delete',
-                          icon: <Trash2 className="w-4 h-4" />,
                           onClick: async () => {
                             if (!confirm('Are you sure you want to delete this customer?')) return
 
@@ -284,12 +270,10 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
 
       <BulkActionBar selectedCount={selectedCount} onClear={clearSelection}>
         <BulkActionButton
-          icon={<Download className="w-4 h-4" />}
           label="Export"
           onClick={handleBulkExport}
         />
         <BulkActionButton
-          icon={<Trash2 className="w-4 h-4" />}
           label={isDeleting ? 'Deleting...' : 'Delete'}
           onClick={handleBulkDelete}
           variant="danger"

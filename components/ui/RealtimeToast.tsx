@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useCallback, useState } from 'react'
 import { 
@@ -9,7 +9,7 @@ import {
   AlertCircle,
   X,
   Briefcase
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import type { JobStatus } from '@/lib/types'
 
 interface Toast {
@@ -148,7 +148,7 @@ function ToastItem({
       </div>
 
       {/* Dismiss Button */}
-      <button
+      <button type="button"
         onClick={() => onDismiss(toast.id)}
         className="
           flex-shrink-0 p-1 rounded-md
@@ -294,3 +294,4 @@ export function useRealtimeToasts() {
 
 export type { Toast }
 export { statusConfig }
+

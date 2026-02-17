@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
@@ -9,10 +9,10 @@ import {
   TrendingUp,
   Activity,
   Briefcase,
-  FileText,
+  Download,
   Filter,
   RefreshCw,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 
 import { AnalyticsMetrics, RevenueDataPoint, StatusData, TechnicianData, ServiceData } from '@/lib/analytics/types'
 import LiveMetricCard from './LiveMetricCard'
@@ -165,7 +165,7 @@ export default function AnalyticsClient({
           {/* Range Selector */}
           <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-1">
             {rangeOptions.map((range) => (
-              <button
+              <button type="button"
                 key={range.key}
                 onClick={() => handleRangeChange(range.key)}
                 className={`
@@ -182,16 +182,16 @@ export default function AnalyticsClient({
           </div>
 
           {/* Export Button */}
-          <button
+          <button type="button"
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-mono text-xs text-slate-700 dark:text-slate-300 transition-colors"
           >
-            <FileText className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5" />
             Export
           </button>
 
           {/* Refresh Button */}
-          <button
+          <button type="button"
             onClick={handleRefresh}
             disabled={isLoading}
             className="w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors disabled:opacity-50"
@@ -298,7 +298,7 @@ export default function AnalyticsClient({
         <div className="fixed bottom-4 right-4 bg-cyan-100 dark:bg-cyan-400/20 text-cyan-800 dark:text-cyan-200 px-4 py-2 rounded-lg font-mono text-sm flex items-center gap-2 animate-fade-in-up">
           <Filter className="w-4 h-4" />
           Filtered by: {formatStatusLabel(statusFilter)}
-          <button 
+          <button type="button" 
             onClick={() => handleStatusClick(null)}
             className="ml-2 hover:text-cyan-600"
           >
@@ -370,7 +370,7 @@ export default function AnalyticsClient({
               >
                 View Jobs
               </Link>
-              <button
+              <button type="button"
                 onClick={() => setSelectedTechnician(null)}
                 className="px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-mono text-sm transition-colors"
               >
@@ -383,4 +383,5 @@ export default function AnalyticsClient({
     </div>
   )
 }
+
 

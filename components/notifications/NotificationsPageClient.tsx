@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Bell, Check, CheckCheck } from 'lucide-react'
+import { Bell, Check, CheckCheck } from '@/components/ui/icons'
 import { createClient } from '@/lib/supabase/client'
 import type { Notification } from '@/lib/notifications/types'
 import { formatNotificationTime } from '@/lib/notifications/types'
@@ -100,7 +100,7 @@ export default function NotificationsPageClient({
           </div>
         </div>
         {unreadCount > 0 && (
-          <button
+          <button type="button"
             onClick={markAllAsRead}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-50/80 border border-surface-200 text-sm font-semibold text-ink hover:bg-surface-100 hover:border-surface-300 transition-all"
           >
@@ -134,7 +134,7 @@ export default function NotificationsPageClient({
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-primary" />
                   )}
                   {!notification.read && (
-                    <button
+                    <button type="button"
                       onClick={(event) => {
                         event.preventDefault()
                         event.stopPropagation()
@@ -216,3 +216,4 @@ function getNotificationIcon(type: string) {
       )
   }
 }
+

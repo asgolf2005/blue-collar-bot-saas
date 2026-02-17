@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -10,10 +10,10 @@ import {
   AlertCircle,
   Play,
   User,
-  FileText,
   XCircle,
   Clock,
-} from 'lucide-react'
+  Truck,
+} from '@/components/ui/lucide'
 import { getDateRange, formatDisplayDate } from '@/lib/analytics/dateUtils'
 
 interface JobWithDetails {
@@ -51,7 +51,7 @@ const statusConfig: Record<string, { label: string; icon: any; color: string; bg
   },
   on_the_way: { 
     label: 'En Route', 
-    icon: MapPin, 
+    icon: Truck, 
     color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 dark:bg-amber-400/10'
   },
@@ -238,7 +238,7 @@ export default async function JobsDetailPage({
           </h1>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1">
             {formatDisplayDate(dateRange.start)} - {formatDisplayDate(dateRange.end)}
-            {selectedStatus ? ` • ${statusConfig[selectedStatus]?.label || selectedStatus}` : ''}
+            {selectedStatus ? ` â€¢ ${statusConfig[selectedStatus]?.label || selectedStatus}` : ''}
           </p>
           {selectedStatus && (
             <Link
@@ -364,7 +364,7 @@ export default async function JobsDetailPage({
               href="/admin/jobs"
               className="font-mono text-xs text-cyan-600 hover:text-cyan-700 dark:text-cyan-400"
             >
-              View All →
+              View All â†’
             </Link>
           </div>
 
@@ -424,3 +424,5 @@ export default async function JobsDetailPage({
     </div>
   )
 }
+
+

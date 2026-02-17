@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { 
@@ -10,7 +10,7 @@ import {
   User,
   DollarSign,
   MapPin
-} from 'lucide-react'
+} from '@/components/ui/icons'
 
 interface JobDetail {
   id: string
@@ -91,7 +91,7 @@ export default function DailyBreakdown({
             </p>
           </div>
         </div>
-        <button
+        <button type="button"
           onClick={onClose}
           className="w-8 h-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition-colors"
         >
@@ -119,14 +119,14 @@ export default function DailyBreakdown({
           <p className="font-display text-2xl text-amber-600 dark:text-amber-400 mt-1">
             {hours}
           </p>
-          <p className="font-mono text-[10px] text-slate-400">total time</p>
+          <p className="font-mono text-[10px] text-slate-400">Total Time</p>
         </div>
       </div>
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-1 p-3 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
         {(['all', 'done', 'active', 'soon'] as const).map((f) => (
-          <button
+          <button type="button"
             key={f}
             onClick={() => setFilter(f)}
             className={`
@@ -240,3 +240,4 @@ export default function DailyBreakdown({
     </div>
   )
 }
+

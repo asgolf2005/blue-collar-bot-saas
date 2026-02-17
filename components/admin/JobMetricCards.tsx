@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { Briefcase, Clock, Calendar, CheckCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Briefcase, Clock, Calendar, CheckCircle, ArrowUpRight, ArrowDownRight } from '@/components/ui/icons'
 
 interface JobMetricCardsProps {
   stats: {
@@ -139,3 +139,4 @@ export default function JobMetricCards({ stats, trends, periodLabel }: JobMetric
     </div>
   )
 }
+

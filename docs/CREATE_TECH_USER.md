@@ -11,7 +11,7 @@ node seed-full-month-data.js
 
 This creates:
 - ✅ 1 Admin user
-- ✅ 3 Technician users (Mike, Sarah, David)
+- ✅ 3 Technician users (Alex, Sarah, David)
 - ✅ 15 Customers
 - ✅ 10 Services
 - ✅ Full month of jobs
@@ -24,7 +24,7 @@ This creates:
 1. Go to Supabase Dashboard → **Authentication** → **Users**
 2. Click **"Add User"** → **"Create new user"**
 3. Fill in:
-   - **Email**: `mike@proplumbing.com`
+   - **Email**: `alex@proplumbing.com`
    - **Password**: `tech123`
    - Check "Auto Confirm User"
 4. Click **"Create user"**
@@ -37,8 +37,8 @@ This creates:
    ```
    id: [paste User ID from step 1]
    business_id: [your business ID - get from businesses table]
-   email: mike@proplumbing.com
-   full_name: Mike Johnson
+   email: alex@proplumbing.com
+   full_name: Alex Rivera
    phone: +1-555-200-0001
    role: tech
    ```
@@ -46,7 +46,7 @@ This creates:
 
 ### Step 3: Test Login
 1. Go to http://localhost:3001/login
-2. Email: `mike@proplumbing.com`
+2. Email: `alex@proplumbing.com`
 3. Password: `tech123`
 4. Should redirect to `/tech/today`
 
@@ -68,8 +68,8 @@ INSERT INTO users (id, business_id, email, full_name, phone, role)
 VALUES (
   'AUTH_USER_ID_HERE',  -- Replace with auth user ID
   'YOUR_BUSINESS_ID_HERE',  -- Replace with your business ID
-  'mike@proplumbing.com',
-  'Mike Johnson',
+  'alex@proplumbing.com',
+  'Alex Rivera',
   '+1-555-200-0001',
   'tech'
 );
@@ -94,7 +94,7 @@ WHERE u.role = 'tech';
 ```
 
 Should return:
-- Mike Johnson (mike@proplumbing.com)
+- Alex Rivera (alex@proplumbing.com)
 - Sarah Williams (sarah@proplumbing.com)
 - David Brown (david@proplumbing.com)
 
@@ -116,7 +116,7 @@ If empty, the users don't exist yet - run the seed script!
 - User has role='admin' instead of role='tech'
 - Update role in users table:
   ```sql
-  UPDATE users SET role = 'tech' WHERE email = 'mike@proplumbing.com';
+  UPDATE users SET role = 'tech' WHERE email = 'alex@proplumbing.com';
   ```
 
 ---
@@ -128,6 +128,7 @@ After running seed script, you'll have:
 | Name | Email | Password | Role |
 |------|-------|----------|------|
 | John Administrator | admin@proplumbing.com | admin123 | admin |
-| Mike Johnson | mike@proplumbing.com | tech123 | tech |
+| Alex Rivera | alex@proplumbing.com | tech123 | tech |
 | Sarah Williams | sarah@proplumbing.com | tech123 | tech |
 | David Brown | david@proplumbing.com | tech123 | tech |
+

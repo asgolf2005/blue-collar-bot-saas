@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AppointmentCard from '@/components/customer/AppointmentCard'
-import { Calendar } from 'lucide-react'
+import { Calendar } from '@/components/ui/lucide'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 export default async function AppointmentsPage() {
@@ -87,3 +87,5 @@ export default async function AppointmentsPage() {
     </div>
   )
 }
+
+

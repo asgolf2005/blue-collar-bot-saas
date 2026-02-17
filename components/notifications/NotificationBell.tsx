@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { Bell, Check, CheckCheck, X } from 'lucide-react'
+import { Bell, Check, CheckCheck, X } from '@/components/ui/icons'
 import { createClient } from '@/lib/supabase/client'
 import type { Notification } from '@/lib/notifications/types'
 import { formatNotificationTime } from '@/lib/notifications/types'
@@ -177,7 +177,7 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
-      <button
+      <button type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-xl hover:bg-surface-100 transition-colors"
         aria-label="Notifications"
@@ -203,7 +203,7 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
             </div>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
-                <button
+                <button type="button"
                   onClick={markAllAsRead}
                   className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1"
                 >
@@ -211,7 +211,7 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
                   Mark all read
                 </button>
               )}
-              <button
+              <button type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1 hover:bg-surface-100 rounded-lg transition-colors"
               >
@@ -261,7 +261,7 @@ export default function NotificationBell({ userId, initialNotifications = [] }: 
 
                   {/* Mark as read button */}
                   {!notification.read && (
-                    <button
+                    <button type="button"
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -355,3 +355,4 @@ function getNotificationIcon(type: string) {
       )
   }
 }
+

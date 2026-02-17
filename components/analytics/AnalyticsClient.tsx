@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { DollarSign, CheckCircle, TrendingUp, Star, TrendingDown, Minus } from 'lucide-react'
+import { DollarSign, CheckCircle, TrendingUp, Star, TrendingDown, Minus } from '@/components/ui/icons'
 
 type RangeKey = '7d' | '30d' | '90d' | 'ytd'
 
@@ -339,3 +339,4 @@ export default function AnalyticsClient({
     </div>
   )
 }
+

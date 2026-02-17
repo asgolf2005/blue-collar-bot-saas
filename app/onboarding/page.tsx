@@ -1,15 +1,26 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Wrench, Building, Briefcase, Check } from 'lucide-react'
+import { Building, Briefcase, Check, Database, Download, Upload } from '@/components/ui/icons'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
+
+interface ImportSummary {
+  customersImported: number
+  customersSkipped: number
+  jobsImported: number
+  jobsSkipped: number
+  errors: string[]
+}
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [importLoading, setImportLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -170,6 +181,71 @@ export default function OnboardingPage() {
     }
   }
 
+  const downloadImportTemplate = () => {
+    const template = {
+      customers: [
+        {
+          name: 'Acme Property Group',
+          phone: '+1 555 0101',
+          email: 'accounts@acme.example',
+          address: '123 Main Street, Springfield',
+        },
+      ],
+      jobs: [
+        {
+          customer_email: 'accounts@acme.example',
+          scheduled_start: '2025-12-01T09:00:00Z',
+          scheduled_end: '2025-12-01T11:00:00Z',
+          status: 'completed',
+          description: 'Replaced leaking shutoff valve',
+          urgency: 'medium',
+          total_cost: 325,
+        },
+      ],
+    }
+
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'blue-collar-import-template.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportData = async () => {
+    if (!importFile) {
+      setError('Please choose a JSON file to import.')
+      return
+    }
+
+    setImportLoading(true)
+    setError(null)
+    setImportSummary(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', importFile)
+
+      const response = await fetch('/api/onboarding/import', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to import data')
+      }
+
+      setImportSummary(result.summary)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
@@ -239,7 +315,7 @@ export default function OnboardingPage() {
                   </div>
                 )}
 
-                <button
+                <button type="button"
                   onClick={handleStep1}
                   disabled={loading || !address}
                   className="btn btn-primary w-full"
@@ -292,7 +368,7 @@ export default function OnboardingPage() {
                       </div>
                     </div>
                     {services.length > 1 && (
-                      <button
+                      <button type="button"
                         onClick={() => removeService(index)}
                         className="text-red-600 hover:text-red-700 mt-2"
                       >
@@ -303,7 +379,7 @@ export default function OnboardingPage() {
                 ))}
               </div>
 
-              <button
+              <button type="button"
                 onClick={addService}
                 className="btn btn-secondary w-full mb-4"
               >
@@ -316,7 +392,7 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              <button
+              <button type="button"
                 onClick={handleStep2}
                 disabled={loading}
                 className="btn btn-primary w-full"
@@ -337,7 +413,74 @@ export default function OnboardingPage() {
                 Your account is ready. Start managing your jobs and growing your business.
               </p>
 
-              <button
+              <div className="rounded-lg border border-border bg-surface p-4 text-left mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Database className="w-5 h-5 text-primary-600" />
+                  <h3 className="font-semibold text-gray-900">Optional: Import Existing Customers & Jobs</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Upload one JSON, CSV, or Excel file to bring over current and historical activity.
+                  Excel files should include sheets named <strong>customers</strong> and <strong>jobs</strong>.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-3 mb-3">
+                  <button
+                    onClick={downloadImportTemplate}
+                    type="button"
+                    className="btn btn-secondary flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Template
+                  </button>
+                  <label className="input flex items-center gap-2 cursor-pointer">
+                    <Upload className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-700 truncate">
+                      {importFile ? importFile.name : 'Choose JSON, CSV, or Excel file'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".json,.csv,.xlsx,.xls,application/json,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      className="hidden"
+                      onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                </div>
+
+                <button
+                  onClick={handleImportData}
+                  type="button"
+                  disabled={importLoading || !importFile}
+                  className="btn btn-primary w-full mb-3"
+                >
+                  {importLoading ? 'Importing...' : 'Import Customers & Jobs'}
+                </button>
+
+                {importSummary && (
+                  <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm">
+                    <p className="text-green-800 mb-1">
+                      Imported: {importSummary.customersImported} customers, {importSummary.jobsImported} jobs
+                    </p>
+                    <p className="text-green-700 mb-2">
+                      Skipped: {importSummary.customersSkipped} customers, {importSummary.jobsSkipped} jobs
+                    </p>
+                    {importSummary.errors.length > 0 && (
+                      <ul className="text-amber-800 list-disc pl-5 space-y-1 max-h-28 overflow-auto">
+                        {importSummary.errors.slice(0, 5).map((item, idx) => (
+                          <li key={`${item}-${idx}`}>{item}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-800 p-3 rounded-lg text-sm mb-4">
+                  {error}
+                </div>
+              )}
+
+              <button type="button"
                 onClick={handleComplete}
                 disabled={loading}
                 className="btn btn-primary px-8"
@@ -351,3 +494,4 @@ export default function OnboardingPage() {
     </div>
   )
 }
+

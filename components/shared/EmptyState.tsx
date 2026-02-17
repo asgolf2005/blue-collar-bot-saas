@@ -60,7 +60,7 @@ export function EmptyState({
 
         {/* Optional CTA */}
         {action && (
-          <button
+          <button type="button"
             onClick={action.onClick}
             className="mt-4 glass-btn-ghost text-sm"
           >

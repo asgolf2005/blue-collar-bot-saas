@@ -1,7 +1,5 @@
 'use client'
 
-import { BarChart3 } from 'lucide-react'
-
 interface WeekJob {
   scheduled_start: string
   status: string
@@ -41,8 +39,8 @@ export default function JobsChart({ weekJobs }: JobsChartProps) {
           <h3 className="text-lg font-semibold text-ink dark:text-surface-100 mb-1">Jobs This Week</h3>
           <p className="text-sm text-muted">Your activity over the last 7 days</p>
         </div>
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <BarChart3 className="w-5 h-5 text-primary" />
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-xs font-mono text-primary">
+          7D
         </div>
       </div>
 

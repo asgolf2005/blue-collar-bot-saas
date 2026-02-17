@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Camera, X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import type { PhotoType } from '@/lib/types'
 
 interface Photo {
@@ -101,7 +100,6 @@ export default function PhotoGallery({
   if (photos.length === 0) {
     return (
       <div className="card p-8 text-center">
-        <Camera className="w-12 h-12 text-muted mx-auto mb-3" />
         <p className="text-muted">{emptyMessage}</p>
       </div>
     )
@@ -120,7 +118,7 @@ export default function PhotoGallery({
             if (count === 0 && filter.value !== 'all') return null
 
             return (
-              <button
+              <button type="button"
                 key={filter.value}
                 onClick={() => setSelectedType(filter.value)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -155,7 +153,7 @@ export default function PhotoGallery({
 
             {/* Overlay on hover */}
             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
-              <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              <span className="text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">View</span>
             </div>
 
             {/* Photo type badge */}
@@ -177,36 +175,36 @@ export default function PhotoGallery({
           tabIndex={0}
         >
           {/* Close button */}
-          <button
+          <button type="button"
             className="absolute top-4 right-4 p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full transition-colors z-10"
             onClick={closeLightbox}
           >
-            <X className="w-6 h-6" />
+            Close
           </button>
 
           {/* Navigation - Previous */}
           {lightboxIndex > 0 && (
-            <button
+            <button type="button"
               className="absolute left-4 p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full transition-colors z-10"
               onClick={(e) => {
                 e.stopPropagation()
                 goToPrev()
               }}
             >
-              <ChevronLeft className="w-8 h-8" />
+              Prev
             </button>
           )}
 
           {/* Navigation - Next */}
           {lightboxIndex < filteredPhotos.length - 1 && (
-            <button
+            <button type="button"
               className="absolute right-4 p-2 text-white hover:bg-white hover:bg-opacity-10 rounded-full transition-colors z-10"
               onClick={(e) => {
                 e.stopPropagation()
                 goToNext()
               }}
             >
-              <ChevronRight className="w-8 h-8" />
+              Next
             </button>
           )}
 

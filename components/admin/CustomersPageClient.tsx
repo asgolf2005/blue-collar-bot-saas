@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useCallback } from 'react'
 import { Customer } from '@/lib/types'
 import CustomerFilters, { CustomerFilterState } from './CustomerFilters'
 import CustomerTable from './CustomerTable'
 import Link from 'next/link'
-import { Plus, Users, TrendingUp, UserCheck } from 'lucide-react'
+import { Plus, Users, TrendingUp, UserCheck } from '@/components/ui/icons'
 
 interface CustomerWithJobs extends Customer {
   jobs?: Array<{
@@ -86,7 +86,7 @@ function StatCard({
           </p>
           {trend && (
             <p className={`text-xs mt-2 font-mono ${trend.isPositive ? 'trend-up' : 'trend-down'}`}>
-              {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}% from last month
+              {trend.isPositive ? 'â†‘' : 'â†“'} {Math.abs(trend.value)}% from last month
             </p>
           )}
         </div>
@@ -131,7 +131,7 @@ function NeonButton({
   }
 
   return (
-    <button onClick={onClick} className={classes}>
+    <button type="button" onClick={onClick} className={classes}>
       {content}
     </button>
   )
@@ -370,3 +370,4 @@ export default function CustomersPageClient({ customers, invoices, technicians }
     </div>
   )
 }
+

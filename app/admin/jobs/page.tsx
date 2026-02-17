@@ -9,9 +9,6 @@ import { JobsPipelineBoard } from '@/components/admin/JobsPipelineBoard'
 import { DispatchAutopilotCard } from '@/components/admin/DispatchAutopilotCard'
 import { LocalDateTimeText } from '@/components/ui/LocalDateTimeText'
 import { endOfDay, endOfWeek, format, startOfDay, startOfWeek } from 'date-fns'
-import { 
-  Plus, 
-} from 'lucide-react'
 
 // Force dynamic rendering to handle searchParams changes
 export const dynamic = 'force-dynamic'
@@ -253,7 +250,6 @@ export default async function JobsPage(props: {
             <Button
               variant="glassPrimary"
               className="font-mono text-xs px-5 py-2.5 rounded-full"
-              icon={<Plus className="w-4 h-4" />}
             >
               NEW JOB
             </Button>

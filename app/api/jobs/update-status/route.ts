@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { sendJobStatusSMS, sendTechnicianAssignedSMS } from '@/lib/sms/job-notifications'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { evaluateCompletionVerification } from '@/lib/ai/completion-check'
 
 export async function POST(request: Request) {
   try {
@@ -13,10 +14,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { jobId, status, technicianId, scheduledStart, scheduledEnd } = await request.json()
+    const { jobId, status, technicianId, scheduledStart, scheduledEnd, description, urgency } =
+      await request.json()
 
     if (!jobId || !status) {
       return NextResponse.json({ error: 'Missing jobId or status' }, { status: 400 })
+    }
+
+    const allowedStatuses = ['scheduled', 'on_the_way', 'arrived', 'in_progress', 'completed', 'cancelled']
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
     const { data: profile } = await supabase
@@ -47,9 +54,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    if ((typeof description !== 'undefined' || typeof urgency !== 'undefined') && profile.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (status === 'completed' && profile.role === 'tech') {
+      const completionVerification = await evaluateCompletionVerification({ supabase, jobId })
+      if (completionVerification.status === 'block') {
+        return NextResponse.json(
+          {
+            error:
+              'Completion verification failed. Show problem identified and problem solved evidence before completing this job.',
+            code: 'COMPLETION_VERIFICATION_BLOCKED',
+            completionVerification,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
     // Only admins can change scheduled times
     let parsedScheduledStart: string | undefined
     let parsedScheduledEnd: string | undefined
+    let parsedDescription: string | null | undefined
+    let parsedUrgency: string | null | undefined
 
     if (profile.role === 'admin') {
       if (scheduledStart) {
@@ -67,6 +95,29 @@ export async function POST(request: Request) {
         }
         parsedScheduledEnd = endDate.toISOString()
       }
+
+      if (typeof description !== 'undefined') {
+        if (description === null || description === '') {
+          parsedDescription = null
+        } else if (typeof description === 'string') {
+          parsedDescription = description.trim() || null
+        } else {
+          return NextResponse.json({ error: 'Invalid description' }, { status: 400 })
+        }
+      }
+
+      if (typeof urgency !== 'undefined') {
+        if (urgency === null || urgency === '') {
+          parsedUrgency = null
+        } else if (
+          typeof urgency === 'string' &&
+          ['low', 'medium', 'high', 'emergency'].includes(urgency)
+        ) {
+          parsedUrgency = urgency
+        } else {
+          return NextResponse.json({ error: 'Invalid urgency' }, { status: 400 })
+        }
+      }
     }
 
     const updatePayload: Record<string, any> = { status }
@@ -78,6 +129,12 @@ export async function POST(request: Request) {
     }
     if (parsedScheduledEnd) {
       updatePayload.scheduled_end = parsedScheduledEnd
+    }
+    if (typeof parsedDescription !== 'undefined') {
+      updatePayload.description = parsedDescription
+    }
+    if (typeof parsedUrgency !== 'undefined') {
+      updatePayload.urgency = parsedUrgency
     }
 
     const { data: updatedJob, error: updateError } = await supabase

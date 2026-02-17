@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Loader2 } from 'lucide-react'
+import { Loader2 } from '@/components/ui/icons'
 
 /**
  * Utility function to merge class names
@@ -232,3 +232,4 @@ Button.displayName = 'Button'
 
 export { Button, buttonVariants }
 export default Button
+

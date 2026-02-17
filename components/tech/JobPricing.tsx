@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { DollarSign, Clock, Wrench, Save, Plus, X, CheckCircle } from 'lucide-react'
 
 interface JobPricingProps {
   jobId: string
@@ -89,56 +88,50 @@ export default function JobPricing({ jobId, initialData }: JobPricingProps) {
   }
 
   return (
-    <div className="bg-surface-50/90 backdrop-blur-xl rounded-2xl border border-surface-200 p-4">
-      <div className="flex items-center mb-4">
-        <DollarSign className="w-5 h-5 text-muted mr-2" />
-        <h2 className="font-semibold text-ink">Job Pricing</h2>
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.10),transparent_55%)] dark:opacity-70 dark:[background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.12),transparent_55%)]" />
+      <div className="relative mb-4">
+        <h2 className="font-semibold text-slate-900 dark:text-slate-100">Job Pricing</h2>
       </div>
 
       {/* Labor Section */}
-      <div className="mb-4 p-4 bg-surface-100 rounded-xl border border-surface-200">
-        <h3 className="font-medium text-ink mb-3 flex items-center text-sm">
-          <Clock className="w-4 h-4 mr-2 text-muted" />
-          Labor
-        </h3>
+      <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Labor</h3>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-surface-600 mb-1">Hours Worked</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Hours Worked</label>
             <input
               type="number"
               step="0.25"
               value={laborHours}
               onChange={(e) => setLaborHours(e.target.value)}
               placeholder="0.0"
-              className="w-full px-3 py-2 bg-surface-100 border border-surface-200 rounded-lg text-sm text-ink placeholder:text-muted focus:ring-primary/15 focus:border-primary/40 transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-surface-600 mb-1">Rate ($/hr)</label>
+            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Rate ($/hr)</label>
             <input
               type="number"
               step="1"
               value={laborRate}
               onChange={(e) => setLaborRate(e.target.value)}
               placeholder="100"
-              className="w-full px-3 py-2 bg-surface-100 border border-surface-200 rounded-lg text-sm text-ink placeholder:text-muted focus:ring-primary/15 focus:border-primary/40 transition"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </div>
         </div>
         <div className="mt-3 text-right">
-          <span className="text-sm text-muted">Labor Total: </span>
-          <span className="font-semibold text-ink">
+          <span className="text-sm text-slate-600 dark:text-slate-300">Labor Total: </span>
+          <span className="font-semibold text-slate-900 dark:text-slate-100">
             ${((parseFloat(laborHours) || 0) * (parseFloat(laborRate) || 0)).toFixed(2)}
           </span>
         </div>
       </div>
 
       {/* Parts Section */}
-      <div className="mb-4 p-4 bg-surface-100 rounded-xl border border-surface-200">
-        <h3 className="font-medium text-ink mb-3 flex items-center text-sm">
-          <Wrench className="w-4 h-4 mr-2 text-muted" />
-          Parts & Materials
-        </h3>
+      <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Parts & Materials</h3>
 
         {/* Add Part Form */}
         <div className="flex gap-2 mb-3">
@@ -147,7 +140,7 @@ export default function JobPricing({ jobId, initialData }: JobPricingProps) {
             value={newPartDesc}
             onChange={(e) => setNewPartDesc(e.target.value)}
             placeholder="Part description"
-            className="flex-1 px-3 py-2 bg-surface-100 border border-surface-200 rounded-lg text-sm text-ink placeholder:text-muted focus:ring-primary/15 focus:border-primary/40 transition"
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
           <input
             type="number"
@@ -155,14 +148,14 @@ export default function JobPricing({ jobId, initialData }: JobPricingProps) {
             value={newPartCost}
             onChange={(e) => setNewPartCost(e.target.value)}
             placeholder="Cost"
-            className="w-24 px-3 py-2 bg-surface-100 border border-surface-200 rounded-lg text-sm text-ink placeholder:text-muted focus:ring-primary/15 focus:border-primary/40 transition"
+            className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
-          <button
+          <button type="button"
             onClick={addPart}
-            className="px-3 py-2 bg-primary text-white dark:text-midnight-950 rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="rounded-xl bg-cyan-600 px-3 py-2 text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
             disabled={!newPartDesc.trim() || !newPartCost}
           >
-            <Plus className="w-4 h-4" />
+            Add
           </button>
         </div>
 
@@ -172,20 +165,20 @@ export default function JobPricing({ jobId, initialData }: JobPricingProps) {
             {parts.map((part) => (
               <div
                 key={part.id}
-                className="flex items-center justify-between bg-surface-100 p-2 rounded-lg border border-surface-200"
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 p-2 backdrop-blur dark:border-slate-700 dark:bg-slate-900/40"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-ink truncate">{part.description}</p>
+                  <p className="truncate text-sm text-slate-900 dark:text-slate-100">{part.description}</p>
                 </div>
                 <div className="flex items-center gap-2 ml-2">
-                  <span className="text-sm font-medium text-surface-600">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     ${part.cost.toFixed(2)}
                   </span>
-                  <button
+                  <button type="button"
                     onClick={() => removePart(part.id)}
-                    className="text-danger hover:text-danger/80 transition"
+                    className="text-red-600 transition hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
                   >
-                    <X className="w-4 h-4" />
+                    Remove
                   </button>
                 </div>
               </div>
@@ -194,37 +187,37 @@ export default function JobPricing({ jobId, initialData }: JobPricingProps) {
         )}
 
         <div className="text-right">
-          <span className="text-sm text-muted">Parts Total: </span>
-          <span className="font-semibold text-ink">
+          <span className="text-sm text-slate-600 dark:text-slate-300">Parts Total: </span>
+          <span className="font-semibold text-slate-900 dark:text-slate-100">
             ${parts.reduce((sum, part) => sum + part.cost, 0).toFixed(2)}
           </span>
         </div>
       </div>
 
       {/* Total Section */}
-      <div className="mb-4 p-4 bg-warning/10 border border-warning/20 rounded-xl">
+      <div className="relative mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/25 dark:bg-amber-400/10">
         <div className="flex items-center justify-between">
-          <span className="text-lg font-semibold text-ink">Total Job Cost:</span>
-          <span className="text-2xl font-bold text-warning">
+          <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">Total Job Cost:</span>
+          <span className="text-2xl font-bold text-amber-700 dark:text-amber-200">
             ${calculateTotal().toFixed(2)}
           </span>
         </div>
       </div>
 
       {/* Save Button */}
-      <button
+      <button type="button"
         onClick={handleSave}
         disabled={saving || !laborHours}
-        className="w-full flex items-center justify-center py-3 px-4 bg-primary text-white dark:text-midnight-950 font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        className="group relative flex w-full items-center justify-center overflow-hidden rounded-2xl px-4 py-3 font-semibold text-white transition-opacity hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Save className="w-5 h-5 mr-2" />
-        {saving ? 'Saving...' : 'Save Pricing'}
+        <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 opacity-90 transition-opacity group-hover:opacity-100 dark:from-cyan-500 dark:to-blue-500" />
+        <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
+        <span className="relative inline-flex items-center justify-center gap-2">{saving ? 'Saving...' : 'Save Pricing'}</span>
       </button>
 
       {showSuccess && (
-        <div className="mt-3 p-3 bg-success/10 border border-success/20 rounded-xl flex items-center justify-center">
-          <CheckCircle className="w-4 h-4 text-success mr-2" />
-          <p className="text-sm font-medium text-success">Pricing saved successfully</p>
+        <div className="mt-3 flex items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-400/25 dark:bg-emerald-400/10">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Pricing saved</p>
         </div>
       )}
     </div>

@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { Trash2, Send, CheckCircle, Eye, Edit, Download } from 'lucide-react'
 import { useBulkSelection } from '@/hooks/useBulkSelection'
 import BulkActionBar, { BulkActionButton } from '@/components/ui/BulkActionBar'
 import { showToast } from '@/lib/utils/toast'
@@ -205,23 +204,19 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
                       items={[
                         {
                           label: 'View Details',
-                          icon: <Eye className="w-4 h-4" />,
                           onClick: () => router.push(`/admin/invoices/${invoice.id}`),
                         },
                         {
                           label: 'Edit Invoice',
-                          icon: <Edit className="w-4 h-4" />,
                           onClick: () => router.push(`/admin/invoices/${invoice.id}`),
                         },
                         {
                           label: 'Download PDF',
-                          icon: <Download className="w-4 h-4" />,
                           onClick: () => showToast.info('PDF download coming soon'),
                           divider: true,
                         },
                         {
                           label: 'Send Invoice',
-                          icon: <Send className="w-4 h-4" />,
                       onClick: async () => {
                         try {
                           const response = await fetch('/api/invoices/bulk-send', {
@@ -240,7 +235,6 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
                         },
                         {
                           label: 'Mark as Paid',
-                          icon: <CheckCircle className="w-4 h-4" />,
                       onClick: async () => {
                         try {
                           const response = await fetch(`/api/invoices/${invoice.id}/mark-paid`, {
@@ -258,11 +252,10 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
                         },
                         {
                           label: 'Delete',
-                          icon: <Trash2 className="w-4 h-4" />,
-                      onClick: async () => {
-                        if (!confirm('Are you sure you want to delete this invoice?')) return
+                          onClick: async () => {
+                            if (!confirm('Are you sure you want to delete this invoice?')) return
 
-                        try {
+                            try {
                           const response = await fetch('/api/invoices/bulk-delete', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -289,17 +282,14 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
 
       <BulkActionBar selectedCount={selectedCount} onClear={clearSelection}>
         <BulkActionButton
-          icon={<Send className="w-4 h-4" />}
           label={isSending ? 'Sending...' : 'Send'}
           onClick={handleBulkSend}
         />
         <BulkActionButton
-          icon={<CheckCircle className="w-4 h-4" />}
           label={isMarkingPaid ? 'Marking...' : 'Mark Paid'}
           onClick={handleBulkMarkPaid}
         />
         <BulkActionButton
-          icon={<Trash2 className="w-4 h-4" />}
           label={isDeleting ? 'Deleting...' : 'Delete'}
           onClick={handleBulkDelete}
           variant="danger"

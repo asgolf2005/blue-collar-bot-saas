@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -14,7 +14,7 @@ import {
   Save,
   User,
   Users,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 
 const PANEL_CLASS =
   'rounded-3xl border border-border bg-bg-secondary/95 p-5 shadow-elevation-1 backdrop-blur sm:p-6'
@@ -289,3 +289,4 @@ export default function NewCustomerForm({
     </form>
   )
 }
+

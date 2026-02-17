@@ -91,7 +91,7 @@ export default function TechNav({ userName }: { userName: string }) {
             </div>
             {userId && <NotificationBell userId={userId} basePath="/tech/notifications" />}
             <ThemeToggle />
-            <button
+            <button type="button"
               onClick={handleLogout}
               className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 transition-all border border-slate-200 dark:border-slate-700"
             >

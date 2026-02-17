@@ -81,7 +81,7 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
                 )}>
                   {trend.positive ? '+' : ''}{trend.value}
                 </span>
-                <span className="text-xs text-slate-500">vs last month</span>
+                <span className="text-xs text-slate-500">Compared With Last Month</span>
               </div>
             )}
           </div>

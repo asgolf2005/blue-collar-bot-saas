@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useCallback, useEffect } from 'react'
 import { 
@@ -12,7 +12,7 @@ import {
   ChevronRight,
   AlertCircle,
   Menu
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { useTechnicianJobsRealtime } from '@/hooks/useJobsRealtime'
 import { RealtimeToastContainer, useRealtimeToasts } from '@/components/ui/RealtimeToast'
 import type { Job, JobStatus } from '@/lib/types'
@@ -140,7 +140,7 @@ function CurrentJobCard({
             <span className="text-sm font-medium">
               {formatTime(job.scheduled_start)}
             </span>
-            <span className="text-slate-600">•</span>
+            <span className="text-slate-600">â€¢</span>
             <span className="text-sm">
               {formatDuration(job.scheduled_start, job.scheduled_end)}
             </span>
@@ -183,7 +183,7 @@ function CurrentJobCard({
         {/* Action Buttons - Large touch targets (min 48px) */}
         <div className="flex gap-3">
           {actions.map((action) => (
-            <button
+            <button type="button"
               key={action.label}
               onClick={() => onStatusChange(job.id, action.nextStatus)}
               className={`
@@ -483,3 +483,4 @@ export function FieldView({ businessId, technicianId, technicianName }: FieldVie
 }
 
 export default FieldView
+

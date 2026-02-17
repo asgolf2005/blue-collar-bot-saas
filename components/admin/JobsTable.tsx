@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { ChevronRight, Trash2, UserCheck, RefreshCw, Edit, Eye, Copy } from 'lucide-react'
 import { useBulkSelection } from '@/hooks/useBulkSelection'
 import BulkActionBar, { BulkActionButton } from '@/components/ui/BulkActionBar'
 import ContextMenu, { ContextMenuItem } from '@/components/ui/ContextMenu'
@@ -121,22 +120,18 @@ export default function JobsTable({ jobs, getStatusColor, formatStatus }: JobsTa
   const getContextMenuItems = (job: Job): ContextMenuItem[] => [
     {
       label: 'View Details',
-      icon: <Eye className="w-4 h-4" />,
       onClick: () => router.push(`/admin/jobs/${job.id}`),
     },
     {
       label: 'Edit',
-      icon: <Edit className="w-4 h-4" />,
       onClick: () => router.push(`/admin/jobs/${job.id}`),
     },
     {
       label: 'Duplicate',
-      icon: <Copy className="w-4 h-4" />,
       onClick: () => handleDuplicateJob(job.id),
     },
     {
       label: 'Delete',
-      icon: <Trash2 className="w-4 h-4" />,
       onClick: () => handleDeleteJob(job.id),
       variant: 'danger' as const,
       divider: true,
@@ -237,7 +232,6 @@ export default function JobsTable({ jobs, getStatusColor, formatStatus }: JobsTa
 
       <BulkActionBar selectedCount={selectedCount} onClear={clearSelection}>
         <BulkActionButton
-          icon={<Trash2 className="w-4 h-4" />}
           label={isDeleting ? 'Deleting...' : 'Delete'}
           onClick={handleBulkDelete}
           variant="danger"

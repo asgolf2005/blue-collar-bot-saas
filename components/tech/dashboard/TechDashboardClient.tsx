@@ -2,20 +2,8 @@
 
 import Link from 'next/link'
 import { differenceInMinutes, format } from 'date-fns'
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  MapPin,
-  Navigation,
-  Phone,
-  Target,
-  TrendingUp,
-  User,
-  Wrench,
-} from 'lucide-react'
+
+import DispatchJobCard from '@/components/tech/DispatchJobCard'
 
 interface Job {
   id: string
@@ -39,7 +27,7 @@ interface Job {
         address: string | null
       }[]
     | null
-  service:
+  service?:
     | {
         name: string
         category: string | null
@@ -49,6 +37,7 @@ interface Job {
         category: string | null
       }[]
     | null
+    | undefined
 }
 
 interface WeekJob {
@@ -87,21 +76,6 @@ type NormalizedJob = Omit<Job, 'customer' | 'service'> & {
 const fallbackCustomer = { id: '', name: 'Unknown customer', phone: null, address: null }
 const fallbackService = { name: 'General service', category: null }
 const activeStatuses = new Set(['on_the_way', 'arrived', 'in_progress'])
-
-const statusStyles: Record<string, string> = {
-  scheduled:
-    'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-400/25 dark:bg-blue-400/10 dark:text-blue-300',
-  on_the_way:
-    'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300',
-  arrived:
-    'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-300',
-  in_progress:
-    'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-300',
-  completed:
-    'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300',
-  cancelled:
-    'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
-}
 
 const formatStatusLabel = (status: string) =>
   status
@@ -225,7 +199,6 @@ export default function TechDashboardClient({
               className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
             >
               Open Today
-              <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Link
               href="/tech/schedule"
@@ -269,85 +242,17 @@ export default function TechDashboardClient({
                 className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 View All
-                <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
 
             {today.length === 0 ? (
               <div className="p-8 text-center">
-                <CalendarDays className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500" />
                 <p className="mt-3 font-mono text-sm text-slate-600 dark:text-slate-300">No jobs scheduled today.</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+              <div className="space-y-3 p-4 sm:p-5">
                 {today.map((job) => (
-                  <div key={job.id} className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-                    <Link href={`/tech/jobs/${job.id}`} className="flex min-w-0 flex-1 items-start gap-4">
-                      <div className="w-16 shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2 text-center dark:border-slate-700 dark:bg-slate-800">
-                        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
-                        <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {format(new Date(job.scheduled_start), 'h:mm')}
-                        </p>
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{job.customer.name}</p>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                              statusStyles[job.status] || statusStyles.scheduled
-                            }`}
-                          >
-                            {formatStatusLabel(job.status)}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate font-mono text-xs text-slate-600 dark:text-slate-300">
-                          {job.description || job.service.name}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            {format(new Date(job.scheduled_start), 'h:mm a')} - {format(new Date(job.scheduled_end), 'h:mm a')}
-                          </span>
-                          {job.customer.address && (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {job.customer.address}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
-
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href={`/tech/jobs/${job.id}`}
-                        className="rounded-lg bg-blue-600 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
-                      >
-                        Open Job
-                      </Link>
-                      {job.customer.phone && (
-                        <a
-                          href={`tel:${job.customer.phone}`}
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          <Phone className="h-3.5 w-3.5" />
-                          Call
-                        </a>
-                      )}
-                      {job.customer.address && (
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer.address)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          <Navigation className="h-3.5 w-3.5" />
-                          Route
-                        </a>
-                      )}
-                    </div>
-                  </div>
+                  <DispatchJobCard key={job.id} job={job} />
                 ))}
               </div>
             )}
@@ -355,7 +260,6 @@ export default function TechDashboardClient({
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
               <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Attention Required</h3>
             </div>
             {attention.length === 0 ? (
@@ -378,7 +282,7 @@ export default function TechDashboardClient({
                         {format(new Date(job.scheduled_start), 'd MMM, h:mm a')} - {formatStatusLabel(job.status)}
                       </p>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                    <span className="text-xs font-mono text-amber-700 dark:text-amber-300">Open</span>
                   </Link>
                 ))}
               </div>
@@ -390,7 +294,7 @@ export default function TechDashboardClient({
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Performance Snapshot</h3>
-              <Target className="h-4 w-4 text-cyan-500" />
+              <span className="text-xs font-mono text-cyan-600 dark:text-cyan-300">MTD</span>
             </div>
             <div className="mt-4 space-y-3">
               <div className="flex items-end justify-between">
@@ -425,7 +329,7 @@ export default function TechDashboardClient({
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Workload Pulse (7d)</h3>
-              <TrendingUp className="h-4 w-4 text-blue-500" />
+              <span className="text-xs font-mono text-blue-600 dark:text-cyan-300">7d</span>
             </div>
             <div className="mt-4 flex h-36 items-end gap-2">
               {weekSeries.map((day) => (
@@ -451,7 +355,7 @@ export default function TechDashboardClient({
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <h3 className="font-display text-xl tracking-wide text-slate-900 dark:text-white">Upcoming Dispatches</h3>
-              <Clock3 className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400">Next</span>
             </div>
             {upcoming.length === 0 ? (
               <p className="mt-3 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">No upcoming jobs in next 7 days.</p>
@@ -471,7 +375,7 @@ export default function TechDashboardClient({
                         {format(new Date(job.scheduled_start), 'EEE d MMM, h:mm a')}
                       </p>
                     </div>
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs font-mono text-slate-400">Open</span>
                   </Link>
                 ))}
               </div>
@@ -485,21 +389,18 @@ export default function TechDashboardClient({
                 href="/tech/today"
                 className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                <Wrench className="h-4 w-4 text-cyan-500" />
                 Open Active Jobs
               </Link>
               <Link
                 href="/tech/schedule"
                 className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                <CalendarDays className="h-4 w-4 text-blue-500" />
                 Open Calendar
               </Link>
               <Link
                 href="/tech/stats"
                 className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                <User className="h-4 w-4 text-emerald-500" />
                 View My Stats
               </Link>
             </div>

@@ -3,7 +3,6 @@
 import { Customer } from '@/lib/types'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { User, Phone, Mail, MapPin, Save } from 'lucide-react'
 
 export default function CustomerProfileForm({
   customer,
@@ -59,10 +58,7 @@ export default function CustomerProfileForm({
 
       <div className="space-y-4">
         <div>
-          <label className="label flex items-center">
-            <User className="w-4 h-4 mr-2" />
-            Full Name
-          </label>
+          <label className="label">Full Name</label>
           <input
             type="text"
             value={name}
@@ -73,10 +69,7 @@ export default function CustomerProfileForm({
         </div>
 
         <div>
-          <label className="label flex items-center">
-            <Phone className="w-4 h-4 mr-2" />
-            Phone Number
-          </label>
+          <label className="label">Phone Number</label>
           <input
             type="tel"
             value={phone}
@@ -87,10 +80,7 @@ export default function CustomerProfileForm({
         </div>
 
         <div>
-          <label className="label flex items-center">
-            <Mail className="w-4 h-4 mr-2" />
-            Email Address
-          </label>
+          <label className="label">Email Address</label>
           <input
             type="email"
             value={email}
@@ -104,10 +94,7 @@ export default function CustomerProfileForm({
         </div>
 
         <div>
-          <label className="label flex items-center">
-            <MapPin className="w-4 h-4 mr-2" />
-            Service Address
-          </label>
+          <label className="label">Service Address</label>
           <textarea
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -131,9 +118,8 @@ export default function CustomerProfileForm({
         <button
           type="submit"
           disabled={loading}
-          className="btn btn-primary flex items-center"
+          className="btn btn-primary"
         >
-          <Save className="w-4 h-4 mr-2" />
           {loading ? 'Saving...' : 'Save Changes'}
         </button>
       </div>

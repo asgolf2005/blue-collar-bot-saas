@@ -93,14 +93,14 @@ export default function TopTechniciansChart({ data, onTechnicianClick }: TopTech
             />
             <XAxis
               type="number"
-              tick={{ fontSize: 11, fontFamily: 'JetBrains Mono', fill: '#64748b' }}
+              tick={{ fontSize: 11, fontFamily: 'Inter', fill: '#64748b' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               type="category"
               dataKey="name"
-              tick={{ fontSize: 12, fontFamily: 'JetBrains Mono', fill: '#64748b' }}
+              tick={{ fontSize: 12, fontFamily: 'Inter', fill: '#64748b' }}
               axisLine={false}
               tickLine={false}
               width={90}
@@ -137,7 +137,7 @@ export default function TopTechniciansChart({ data, onTechnicianClick }: TopTech
       <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           {data.map((tech) => (
-            <button
+            <button type="button"
               key={tech.id}
               onClick={() => handleClick(tech)}
               className={`

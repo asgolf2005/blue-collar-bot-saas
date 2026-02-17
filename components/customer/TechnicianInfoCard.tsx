@@ -1,6 +1,5 @@
 'use client'
 
-import { Phone, Clock, Navigation, User, MapPin } from 'lucide-react'
 import type { User as UserType } from '@/lib/types'
 
 interface TechnicianInfoCardProps {
@@ -70,7 +69,6 @@ export default function TechnicianInfoCard({
   if (!technician) {
     return (
       <div className="card p-4 text-center text-gray-500">
-        <User className="w-8 h-8 mx-auto mb-2 text-gray-300" />
         <p>Technician not yet assigned</p>
       </div>
     )
@@ -94,7 +92,6 @@ export default function TechnicianInfoCard({
           <div className="flex items-center space-x-4">
             {etaFormatted && status === 'on_the_way' && (
               <div className="flex items-center text-gray-700">
-                <Clock className="w-4 h-4 mr-1" />
                 <span className="font-medium">{etaFormatted}</span>
               </div>
             )}
@@ -104,7 +101,6 @@ export default function TechnicianInfoCard({
                 href={`tel:${technician.phone}`}
                 className="btn btn-primary flex items-center"
               >
-                <Phone className="w-4 h-4 mr-2" />
                 Call Technician
               </a>
             )}
@@ -120,7 +116,7 @@ export default function TechnicianInfoCard({
       <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
         <div className="flex items-center">
           <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center mr-3">
-            <User className="w-5 h-5 text-primary-600" />
+            <span className="text-primary-700 font-semibold">{technician.full_name.charAt(0).toUpperCase()}</span>
           </div>
           <div>
             <p className="font-medium text-gray-900 text-sm">{technician.full_name}</p>
@@ -135,7 +131,7 @@ export default function TechnicianInfoCard({
             href={`tel:${technician.phone}`}
             className="p-2 rounded-full bg-primary-100 text-primary-600 hover:bg-primary-200 transition-colors"
           >
-            <Phone className="w-4 h-4" />
+            Call
           </a>
         )}
       </div>
@@ -152,7 +148,6 @@ export default function TechnicianInfoCard({
           <span className={`font-semibold ${statusConfig.color}`}>{statusConfig.text}</span>
           {etaFormatted && status === 'on_the_way' && (
             <span className="ml-auto flex items-center text-gray-600">
-              <Clock className="w-4 h-4 mr-1" />
               {etaFormatted}
             </span>
           )}
@@ -176,7 +171,6 @@ export default function TechnicianInfoCard({
                   href={`tel:${technician.phone}`}
                   className="flex items-center text-sm text-gray-600 hover:text-primary-600 transition-colors"
                 >
-                  <Phone className="w-4 h-4 mr-2" />
                   {technician.phone}
                 </a>
               )}
@@ -191,13 +185,11 @@ export default function TechnicianInfoCard({
               href={`tel:${technician.phone}`}
               className="flex-1 btn btn-primary flex items-center justify-center"
             >
-              <Phone className="w-4 h-4 mr-2" />
               Call Now
             </a>
           )}
           {status === 'on_the_way' && (
             <button className="flex-1 btn btn-secondary flex items-center justify-center">
-              <Navigation className="w-4 h-4 mr-2" />
               Track Location
             </button>
           )}

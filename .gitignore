@@ -38,3 +38,6 @@ nul
 
 .vercel
 .env*.local
+
+# Local icon dump file with broken Windows ACLs (untracked); ignore so tooling doesn't error.
+chat-bubble.svg

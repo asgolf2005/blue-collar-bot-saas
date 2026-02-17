@@ -2,12 +2,13 @@
 
 import { JobStatus } from '@/lib/types'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Navigation, MapPin, Wrench, CheckCircle, Loader2, MapPinOff } from 'lucide-react'
+import { showToast } from '@/lib/utils/toast'
 
 interface StatusButtonsProps {
   jobId: string
   currentStatus: JobStatus
   customerAddress?: string
+  onGetDirections?: () => void
 }
 
 const statusSteps: JobStatus[] = ['scheduled', 'on_the_way', 'arrived', 'in_progress', 'completed']
@@ -22,23 +23,28 @@ const statusLabels: Record<JobStatus, string> = {
 }
 
 const statusColors: Record<JobStatus, { bg: string; border: string; text: string; glow: string }> = {
-  scheduled: { bg: 'bg-cyan-500', border: 'border-cyan-500', text: 'text-cyan-400', glow: 'shadow-[0_0_30px_rgba(34,211,238,0.5)]' },
-  on_the_way: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-400', glow: 'shadow-[0_0_30px_rgba(251,191,36,0.5)]' },
-  arrived: { bg: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-400', glow: 'shadow-[0_0_30px_rgba(96,165,250,0.5)]' },
-  in_progress: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-400', glow: 'shadow-[0_0_30px_rgba(251,191,36,0.5)]' },
-  completed: { bg: 'bg-emerald-500', border: 'border-emerald-500', text: 'text-emerald-400', glow: 'shadow-[0_0_30px_rgba(52,211,153,0.5)]' },
-  cancelled: { bg: 'bg-red-500', border: 'border-red-500', text: 'text-red-400', glow: 'shadow-[0_0_30px_rgba(248,113,113,0.5)]' },
+  scheduled: { bg: 'bg-cyan-500', border: 'border-cyan-500', text: 'text-cyan-700 dark:text-cyan-300', glow: 'shadow-[0_0_30px_rgba(34,211,238,0.35)]' },
+  on_the_way: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-700 dark:text-amber-300', glow: 'shadow-[0_0_30px_rgba(251,191,36,0.30)]' },
+  arrived: { bg: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-700 dark:text-blue-300', glow: 'shadow-[0_0_30px_rgba(96,165,250,0.30)]' },
+  in_progress: { bg: 'bg-amber-500', border: 'border-amber-500', text: 'text-amber-700 dark:text-amber-300', glow: 'shadow-[0_0_30px_rgba(251,191,36,0.30)]' },
+  completed: { bg: 'bg-emerald-500', border: 'border-emerald-500', text: 'text-emerald-700 dark:text-emerald-300', glow: 'shadow-[0_0_30px_rgba(52,211,153,0.30)]' },
+  cancelled: { bg: 'bg-red-500', border: 'border-red-500', text: 'text-red-700 dark:text-red-300', glow: 'shadow-[0_0_30px_rgba(248,113,113,0.25)]' },
 }
 
 export default function StatusButtons({
   jobId,
   currentStatus,
   customerAddress,
+  onGetDirections,
 }: StatusButtonsProps) {
   const [status, setStatus] = useState(currentStatus)
   const [updating, setUpdating] = useState(false)
   const [isTracking, setIsTracking] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [completionNotice, setCompletionNotice] = useState<{
+    status: 'warning' | 'block'
+    message: string
+  } | null>(null)
   const watchIdRef = useRef<number | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastPositionRef = useRef<GeolocationPosition | null>(null)
@@ -157,6 +163,45 @@ export default function StatusButtons({
   const updateStatus = async (newStatus: JobStatus) => {
     setUpdating(true)
     try {
+      if (newStatus === 'completed') {
+        const verificationResponse = await fetch('/api/ai/verify-completion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ jobId }),
+        })
+
+        const verificationPayload = (await verificationResponse.json()) as {
+          result?: { status?: 'pass' | 'warning' | 'block'; summary?: string }
+          error?: string
+        }
+
+        if (verificationResponse.ok && verificationPayload.result) {
+          if (verificationPayload.result.status === 'block') {
+            setCompletionNotice({
+              status: 'block',
+              message:
+                verificationPayload.result.summary ||
+                'Completion verification blocked completion. Add before/after proof that problem is solved.',
+            })
+            showToast.error('Completion verification blocked completion.')
+            return
+          }
+
+          if (verificationPayload.result.status === 'warning') {
+            setCompletionNotice({
+              status: 'warning',
+              message:
+                verificationPayload.result.summary ||
+                'Completion verification has warnings. Review evidence before completion.',
+            })
+            showToast.warning('Completion verification returned warnings.')
+          } else {
+            setCompletionNotice(null)
+          }
+        }
+      }
+
       const response = await fetch('/api/jobs/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,6 +212,16 @@ export default function StatusButtons({
       const result = await response.json()
 
       if (!response.ok) {
+        if (result.code === 'COMPLETION_VERIFICATION_BLOCKED') {
+          setCompletionNotice({
+            status: 'block',
+            message:
+              result.error ||
+              'Completion verification blocked completion. Add before/after evidence first.',
+          })
+          showToast.error(result.error || 'Completion verification blocked completion.')
+          return
+        }
         throw new Error(result.error || 'Failed to update status')
       }
 
@@ -179,8 +234,9 @@ export default function StatusButtons({
       }
 
       setStatus(result.status || newStatus)
+      setCompletionNotice(null)
     } catch (error: any) {
-      alert('Failed to update status: ' + error.message)
+      showToast.error('Failed to update status: ' + error.message)
     } finally {
       setUpdating(false)
     }
@@ -199,29 +255,25 @@ export default function StatusButtons({
       case 'on_the_way':
         return {
           label: "I'm on the way",
-          icon: <Navigation className="w-5 h-5" />,
           color: statusColors.on_the_way,
         }
       case 'arrived':
         return {
           label: "I've arrived",
-          icon: <MapPin className="w-5 h-5" />,
           color: statusColors.arrived,
         }
       case 'in_progress':
         return {
           label: 'Start work',
-          icon: <Wrench className="w-5 h-5" />,
           color: statusColors.in_progress,
         }
       case 'completed':
         return {
           label: 'Complete job',
-          icon: <CheckCircle className="w-5 h-5" />,
           color: statusColors.completed,
         }
       default:
-        return { label: 'Update', icon: null, color: statusColors.scheduled }
+        return { label: 'Update', color: statusColors.scheduled }
     }
   }
 
@@ -231,52 +283,47 @@ export default function StatusButtons({
 
   if (status === 'completed') {
     return (
-      <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-6 text-center">
-        <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-500/30">
-          <CheckCircle className="w-8 h-8 text-emerald-400" />
-        </div>
-        <h3 className="text-lg font-bold text-white">Job Completed</h3>
-        <p className="text-sm text-emerald-400 mt-1">Great work! All done.</p>
+      <div className="rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 text-center shadow-sm dark:border-emerald-400/25 dark:bg-emerald-400/10">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Job Completed</h3>
+        <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">Great work. All done.</p>
       </div>
     )
   }
 
   if (status === 'cancelled') {
     return (
-      <div className="rounded-2xl bg-red-500/10 border border-red-500/30 p-6 text-center">
-        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-red-500/30">
-          <MapPinOff className="w-8 h-8 text-red-400" />
-        </div>
-        <h3 className="text-lg font-bold text-white">Job Cancelled</h3>
-        <p className="text-sm text-red-400 mt-1">This job has been cancelled.</p>
+      <div className="rounded-3xl border border-red-200 bg-red-50/70 p-6 text-center shadow-sm dark:border-red-400/25 dark:bg-red-400/10">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Job Cancelled</h3>
+        <p className="mt-1 text-sm text-red-700 dark:text-red-300">This job has been cancelled.</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.14),transparent_50%)] dark:opacity-80 dark:[background:radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.18),transparent_50%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-20 [background:linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] [background-size:28px_28px] dark:opacity-15 dark:[background:linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)]" />
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="relative mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Wrench className="w-5 h-5 text-cyan-400" />
-          <h3 className="font-semibold text-white">Job Progress</h3>
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Job Progress</h3>
         </div>
         {isTracking && (
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Live</span>
           </div>
         )}
       </div>
       
-      <div className="space-y-4">
+      <div className="relative space-y-4">
         {/* Progress Bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
-            <span className="text-slate-400 uppercase tracking-wider">Progress</span>
-            <span className="font-bold text-white">{Math.round(progress)}%</span>
+            <span className="uppercase tracking-wider text-slate-500 dark:text-slate-400">Progress</span>
+            <span className="font-semibold text-slate-900 dark:text-slate-100">{Math.round(progress)}%</span>
           </div>
-          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
             <div 
               className={`h-full rounded-full transition-all duration-500 ${colors.bg} ${colors.glow}`}
               style={{ width: `${progress}%` }}
@@ -285,8 +332,8 @@ export default function StatusButtons({
         </div>
 
         {/* Current Status */}
-        <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
-          <span className="text-sm text-slate-400">Current Status</span>
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
+          <span className="text-sm text-slate-600 dark:text-slate-300">Current Status</span>
           <span className={`text-sm font-bold ${colors.text}`}>
             {statusLabels[status]}
           </span>
@@ -294,14 +341,14 @@ export default function StatusButtons({
 
         {/* Location Error */}
         {locationError && (status === 'on_the_way' || status === 'arrived') && (
-          <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-            <MapPinOff className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-400/25 dark:bg-amber-400/10">
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-400">Location unavailable</p>
-              <p className="text-xs text-slate-400 mt-0.5">{locationError}</p>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Location unavailable</p>
+              <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{locationError}</p>
               <button
+                type="button"
                 onClick={startTracking}
-                className="text-xs text-cyan-400 underline mt-1 hover:text-cyan-300"
+                className="mt-1 text-xs font-medium text-cyan-700 underline hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200"
               >
                 Try again
               </button>
@@ -309,35 +356,66 @@ export default function StatusButtons({
           </div>
         )}
 
+        {completionNotice && (
+          <div
+            className={`rounded-2xl border p-3 ${
+              completionNotice.status === 'block'
+                ? 'border-red-200 bg-red-50/70 dark:border-red-400/25 dark:bg-red-400/10'
+                : 'border-amber-200 bg-amber-50/70 dark:border-amber-400/25 dark:bg-amber-400/10'
+            }`}
+          >
+            <p
+              className={`text-sm font-medium ${
+                completionNotice.status === 'block'
+                  ? 'text-red-800 dark:text-red-200'
+                  : 'text-amber-800 dark:text-amber-200'
+              }`}
+            >
+              Completion verification
+            </p>
+            <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">{completionNotice.message}</p>
+          </div>
+        )}
+
         {/* Main Action Button */}
         {buttonConfig && nextStatus && (
           <button
-            onClick={() => updateStatus(nextStatus)}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              void updateStatus(nextStatus)
+            }}
             disabled={updating}
             className={`w-full h-14 flex items-center justify-center gap-2 rounded-xl font-bold text-slate-900 transition-all active:scale-[0.98] disabled:opacity-50 ${buttonConfig.color.bg} ${buttonConfig.color.glow} hover:brightness-110`}
           >
             {updating ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <div className="h-5 w-5 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin" />
             ) : (
-              <>
-                {buttonConfig.icon}
-                {buttonConfig.label}
-              </>
+              <>{buttonConfig.label}</>
             )}
           </button>
         )}
 
         {/* Get Directions Button */}
         {customerAddress && (status === 'on_the_way' || status === 'scheduled') && (
-          <a
-            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customerAddress)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full h-12 px-4 bg-slate-700/50 text-white font-medium rounded-xl border border-slate-600 hover:border-cyan-500/30 hover:bg-slate-700 transition-all active:scale-[0.98]"
+          <button
+            type="button"
+            onClick={() => {
+              if (onGetDirections) {
+                onGetDirections()
+                return
+              }
+              window.open(
+                `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(customerAddress)}`,
+                '_blank',
+                'noopener,noreferrer'
+              )
+            }}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
           >
-            <Navigation className="w-5 h-5 text-cyan-400" />
             Get Directions
-          </a>
+          </button>
         )}
       </div>
     </div>

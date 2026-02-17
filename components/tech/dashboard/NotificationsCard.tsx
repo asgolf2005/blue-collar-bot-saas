@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { Bell, Calendar, AlertCircle, CheckCircle, Info } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 
@@ -108,12 +107,12 @@ export default function NotificationsCard() {
     setUnreadCount((prev) => Math.max(prev - 1, 0))
   }
 
-  const typeConfig: Record<string, { icon: any; color: keyof typeof colorClasses }> = {
-    job_assigned: { icon: Calendar, color: 'primary' },
-    job_status_changed: { icon: Info, color: 'info' },
-    invoice_sent: { icon: CheckCircle, color: 'success' },
-    payment_received: { icon: CheckCircle, color: 'success' },
-    appointment_reminder: { icon: AlertCircle, color: 'warning' },
+  const typeConfig: Record<string, { color: keyof typeof colorClasses }> = {
+    job_assigned: { color: 'primary' },
+    job_status_changed: { color: 'info' },
+    invoice_sent: { color: 'success' },
+    payment_received: { color: 'success' },
+    appointment_reminder: { color: 'warning' },
   }
 
   const getTimeAgo = (timestamp: string) =>
@@ -127,7 +126,7 @@ export default function NotificationsCard() {
           <p className="text-sm text-muted">{unreadCount} unread</p>
         </div>
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center relative">
-          <Bell className="w-5 h-5 text-primary" />
+          <span className="text-xs font-mono text-primary">N</span>
           {unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-danger rounded-full flex items-center justify-center text-white text-xs font-bold">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -143,13 +142,11 @@ export default function NotificationsCard() {
           </div>
         ) : notifications.length === 0 ? (
           <div className="py-8 text-center text-muted">
-            <Bell className="w-10 h-10 mx-auto mb-3 text-surface-300" />
             <p className="text-sm">No notifications yet</p>
           </div>
         ) : (
           notifications.map((notification) => {
-            const config = typeConfig[notification.type] || { icon: Info, color: 'info' }
-            const Icon = config.icon
+            const config = typeConfig[notification.type] || { color: 'info' }
             const colors = colorClasses[config.color]
             const timeAgo = getTimeAgo(notification.created_at)
 
@@ -157,9 +154,9 @@ export default function NotificationsCard() {
               <div
                 className="flex items-start gap-3 p-3 rounded-xl border border-surface-200 dark:border-white/10 hover:border-primary/30 hover:bg-surface-50 dark:hover:bg-white/5 transition-all motion-base group"
               >
-                {/* Icon */}
-                <div className={`w-10 h-10 rounded-lg ${colors.bg} flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                  <Icon className={`w-5 h-5 ${colors.icon}`} />
+                {/* Status dot */}
+                <div className="pt-1.5">
+                  <div className={`h-2.5 w-2.5 rounded-full ${colors.bg}`} aria-hidden="true" />
                 </div>
 
                 {/* Content */}
@@ -201,7 +198,7 @@ export default function NotificationsCard() {
 
       {/* View All Button */}
       {unreadCount > 0 && (
-        <button
+        <button type="button"
           onClick={markAllAsRead}
           className="w-full mt-4 py-2.5 px-4 rounded-xl border border-surface-200 dark:border-white/10 text-sm font-medium text-ink dark:text-surface-100 hover:bg-surface-50 dark:hover:bg-white/5 hover:border-primary/30 transition-all"
         >

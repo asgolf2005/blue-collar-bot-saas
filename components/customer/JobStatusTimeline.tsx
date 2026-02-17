@@ -1,13 +1,11 @@
 'use client'
 
 import { format } from 'date-fns'
-import { Calendar, Navigation, MapPin, Wrench, CheckCircle, XCircle } from 'lucide-react'
 import type { JobStatus } from '@/lib/types'
 
 interface TimelineStep {
   status: JobStatus
   label: string
-  icon: React.ComponentType<{ className?: string }>
   timestamp?: string
 }
 
@@ -32,11 +30,11 @@ export default function JobStatusTimeline({
   variant = 'vertical'
 }: JobStatusTimelineProps) {
   const allSteps: TimelineStep[] = [
-    { status: 'scheduled', label: 'Scheduled', icon: Calendar },
-    { status: 'on_the_way', label: 'On the Way', icon: Navigation },
-    { status: 'arrived', label: 'Arrived', icon: MapPin },
-    { status: 'in_progress', label: 'In Progress', icon: Wrench },
-    { status: 'completed', label: 'Completed', icon: CheckCircle },
+    { status: 'scheduled', label: 'Scheduled' },
+    { status: 'on_the_way', label: 'On the Way' },
+    { status: 'arrived', label: 'Arrived' },
+    { status: 'in_progress', label: 'In Progress' },
+    { status: 'completed', label: 'Completed' },
   ]
 
   const statusOrder: JobStatus[] = ['scheduled', 'on_the_way', 'arrived', 'in_progress', 'completed']
@@ -79,7 +77,6 @@ export default function JobStatusTimeline({
 
           {allSteps.map((step, index) => {
             const state = getStepState(index)
-            const Icon = step.icon
             const timestamp = formatTimestamp(getTimestamp(step.status))
 
             return (
@@ -95,11 +92,7 @@ export default function JobStatusTimeline({
                       : 'bg-white border-surface-200 text-muted'
                   }`}
                 >
-                  {state === 'completed' ? (
-                    <CheckCircle className="w-5 h-5" />
-                  ) : (
-                    <Icon className="w-5 h-5" />
-                  )}
+                  <span className="text-sm font-semibold">{state === 'completed' ? 'Done' : index + 1}</span>
                 </div>
                 <div className="mt-2 text-center">
                   <p
@@ -130,7 +123,6 @@ export default function JobStatusTimeline({
     <div className="relative">
       {allSteps.map((step, index) => {
         const state = getStepState(index)
-        const Icon = step.icon
         const timestamp = formatTimestamp(getTimestamp(step.status))
         const isLast = index === allSteps.length - 1
 
@@ -149,13 +141,9 @@ export default function JobStatusTimeline({
                     : 'bg-white border-surface-200 text-muted'
                 }`}
               >
-                {state === 'completed' ? (
-                  <CheckCircle className="w-5 h-5" />
-                ) : currentStatus === 'cancelled' && index === 0 ? (
-                  <XCircle className="w-5 h-5" />
-                ) : (
-                  <Icon className="w-5 h-5" />
-                )}
+                <span className="text-sm font-semibold">
+                  {state === 'completed' ? 'Done' : currentStatus === 'cancelled' && index === 0 ? 'X' : index + 1}
+                </span>
               </div>
               {!isLast && (
                 <div
@@ -202,7 +190,7 @@ export default function JobStatusTimeline({
         <div className="flex items-start mt-4">
           <div className="flex flex-col items-center mr-4">
             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-danger/10 border-2 border-danger/40 text-danger">
-              <XCircle className="w-5 h-5" />
+              <span className="text-sm font-semibold">X</span>
             </div>
           </div>
           <div>

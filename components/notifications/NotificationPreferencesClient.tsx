@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, Check, X } from 'lucide-react'
+import { Bell, Check, X } from '@/components/ui/icons'
 import { NOTIFICATION_CONFIG } from '@/lib/notifications/types'
 import type { NotificationPreference, NotificationType } from '@/lib/notifications/types'
 import { showToast } from '@/lib/utils/toast'
@@ -134,7 +134,7 @@ export default function NotificationPreferencesClient({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button type="button"
               onClick={disableAll}
               disabled={saving}
               className="glass-btn-ghost glass-btn-sm"
@@ -142,7 +142,7 @@ export default function NotificationPreferencesClient({
               <X className="w-4 h-4" />
               Disable All
             </button>
-            <button
+            <button type="button"
               onClick={enableAll}
               disabled={saving}
               className="glass-btn-primary glass-btn-sm"
@@ -181,7 +181,7 @@ export default function NotificationPreferencesClient({
                 </div>
 
                 {/* Toggle */}
-                <button
+                <button type="button"
                   onClick={() => togglePreference(type)}
                   className={`
                     relative inline-flex h-6 w-11 items-center rounded-full transition-colors
@@ -273,3 +273,4 @@ function getIcon(iconName: string, isEnabled: boolean) {
       )
   }
 }
+

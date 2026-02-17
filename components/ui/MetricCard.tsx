@@ -1,5 +1,5 @@
-import { ReactNode } from 'react'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+﻿import { ReactNode } from 'react'
+import { ArrowUp, ArrowDown } from '@/components/ui/lucide'
 
 interface MetricCardProps {
   label: string
@@ -87,3 +87,5 @@ export default function MetricCard({
     </div>
   )
 }
+
+

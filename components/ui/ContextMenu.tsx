@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { MoreVertical } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
 export interface ContextMenuItem {
@@ -67,7 +66,7 @@ export default function ContextMenu({
 
   return (
     <div className={cn('relative', className)}>
-      <button
+      <button type="button"
         ref={buttonRef}
         onClick={(e) => {
           e.stopPropagation()
@@ -80,7 +79,7 @@ export default function ContextMenu({
         )}
         aria-label="More options"
       >
-        <MoreVertical className="w-4 h-4 text-muted" />
+        <span className="text-xs font-semibold text-muted">More</span>
       </button>
 
       {isOpen && (
@@ -93,7 +92,7 @@ export default function ContextMenu({
         >
           {items.map((item, index) => (
             <div key={index}>
-              <button
+              <button type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleItemClick(item)

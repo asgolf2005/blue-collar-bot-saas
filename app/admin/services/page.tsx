@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -18,7 +18,7 @@ import {
   PlusCircle,
   AlertTriangle,
   ArrowRight
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect } from 'react'
 
@@ -295,11 +295,11 @@ export default function ServicesPage() {
                      transition-all"
         />
         {searchQuery && (
-          <button
+          <button type="button"
             onClick={() => setSearchQuery('')}
             className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
           >
-            <span className="text-xs">×</span>
+            <span className="text-xs">Ã—</span>
           </button>
         )}
       </div>
@@ -379,16 +379,12 @@ function MetricCard({
   const c = colors[color]
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <Icon className={`w-5 h-5 ${c.light} ${c.dark}`} />
-        </div>
-        <div>
-          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">{label}</div>
-          <div className={`font-display text-3xl ${c.light} ${c.dark}`}>{value}</div>
-        </div>
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow hover:shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+        <Icon className={`w-4 h-4 ${c.light} ${c.dark}`} />
       </div>
+      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </div>
   )
 }
@@ -460,3 +456,4 @@ function ServiceCard({ service }: { service: Service }) {
     </Link>
   )
 }
+

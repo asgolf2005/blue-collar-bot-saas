@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import CreateInvoiceForm from '@/components/invoices/CreateInvoiceForm'
-import { ArrowLeft, BriefcaseBusiness, FileText, Sparkles } from 'lucide-react'
+import { ArrowLeft, BriefcaseBusiness, Receipt, Sparkles } from '@/components/ui/lucide'
 import Link from 'next/link'
 
 export default async function NewInvoicePage({
@@ -117,7 +117,7 @@ export default async function NewInvoicePage({
               {totalEligibleJobs} eligible jobs
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              <FileText className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+              <Receipt className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
               {availableCount} ready to invoice
             </div>
             {alreadyInvoicedCount > 0 && (
@@ -172,3 +172,5 @@ export default async function NewInvoicePage({
     </div>
   )
 }
+
+

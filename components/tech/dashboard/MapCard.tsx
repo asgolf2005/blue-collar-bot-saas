@@ -1,6 +1,5 @@
 'use client'
 
-import { MapPin, Navigation } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 
@@ -173,7 +172,7 @@ export default function MapCard({ jobs }: MapCardProps) {
           </p>
         </div>
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Navigation className="w-5 h-5 text-primary" />
+          <span className="text-xs font-mono text-primary">MAP</span>
         </div>
       </div>
 
@@ -192,7 +191,6 @@ export default function MapCard({ jobs }: MapCardProps) {
             {error && (
               <div className="absolute inset-0 flex items-center justify-center bg-surface-50 dark:bg-surface-800">
                 <div className="text-center">
-                  <MapPin className="w-12 h-12 text-danger mx-auto mb-3" />
                   <p className="text-sm text-danger">{error}</p>
                 </div>
               </div>
@@ -200,7 +198,6 @@ export default function MapCard({ jobs }: MapCardProps) {
             {!loading && !error && jobsWithAddresses.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-surface-50 dark:bg-surface-800">
                 <div className="text-center">
-                  <MapPin className="w-12 h-12 text-muted mx-auto mb-3" />
                   <p className="text-sm text-muted">No addresses available for today&apos;s jobs</p>
                 </div>
               </div>
@@ -231,10 +228,7 @@ export default function MapCard({ jobs }: MapCardProps) {
                       {job.customer.name}
                     </h4>
                     <p className="text-xs text-muted mb-2">{job.service.name}</p>
-                    <div className="flex items-start gap-1.5 text-xs text-muted">
-                      <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                      <span className="line-clamp-2">{job.customer.address}</span>
-                    </div>
+                    <div className="text-xs text-muted line-clamp-2">{job.customer.address}</div>
                     <div className="mt-2 text-xs text-primary font-medium">
                       {format(new Date(job.scheduled_start), 'HH:mm')}
                     </div>

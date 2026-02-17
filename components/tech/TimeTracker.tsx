@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Clock, Play, Pause, StopCircle, Timer } from 'lucide-react'
-import { formatDistanceToNow, differenceInMinutes } from 'date-fns'
+
+import { differenceInMinutes, format, formatDistanceToNow } from 'date-fns'
 
 interface TimeTrackerProps {
   jobId: string
@@ -20,6 +20,8 @@ interface TimeEntry {
 
 export default function TimeTracker({ jobId }: TimeTrackerProps) {
   const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null)
+  const [history, setHistory] = useState<TimeEntry[]>([])
+  const [historyLoading, setHistoryLoading] = useState(true)
   const [isOnBreak, setIsOnBreak] = useState(false)
   const [breakStart, setBreakStart] = useState<Date | null>(null)
   const [totalBreakMinutes, setTotalBreakMinutes] = useState(0)
@@ -60,6 +62,35 @@ export default function TimeTracker({ jobId }: TimeTrackerProps) {
     loadActiveEntry()
   }, [loadActiveEntry])
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('time_entries')
+        .select('*')
+        .eq('job_id', jobId)
+        .eq('technician_id', user.id)
+        .not('clock_out', 'is', null)
+        .order('clock_in', { ascending: false })
+        .limit(30)
+
+      if (error) throw error
+      setHistory(data || [])
+    } catch (e) {
+      // Keep UI stable even if history fails to load.
+      setHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [jobId, supabase])
+
+  useEffect(() => {
+    void loadHistory()
+  }, [loadHistory])
+
   const handleClockIn = async () => {
     setLoading(true)
     try {
@@ -83,6 +114,7 @@ export default function TimeTracker({ jobId }: TimeTrackerProps) {
 
       setActiveEntry(data)
       setTotalBreakMinutes(0)
+      void loadHistory()
     } catch (error: any) {
       alert('Failed to clock in: ' + error.message)
     } finally {
@@ -111,6 +143,7 @@ export default function TimeTracker({ jobId }: TimeTrackerProps) {
       setIsOnBreak(false)
       setBreakStart(null)
       setTotalBreakMinutes(0)
+      void loadHistory()
     } catch (error: any) {
       alert('Failed to clock out: ' + error.message)
     } finally {
@@ -152,26 +185,109 @@ export default function TimeTracker({ jobId }: TimeTrackerProps) {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
   }
 
+  const calcNetMinutes = useCallback((entry: TimeEntry) => {
+    if (!entry.clock_out) return 0
+    const total = differenceInMinutes(new Date(entry.clock_out), new Date(entry.clock_in))
+    const breaks = entry.break_minutes || 0
+    return Math.max(0, total - breaks)
+  }, [])
+
+  const groupedHistory = useMemo(() => {
+    const groups = new Map<string, { date: Date; entries: TimeEntry[]; totalMinutes: number }>()
+
+    for (const entry of history) {
+      const d = new Date(entry.clock_in)
+      const key = format(d, 'yyyy-MM-dd')
+      const existing = groups.get(key)
+      const net = calcNetMinutes(entry)
+      if (existing) {
+        existing.entries.push(entry)
+        existing.totalMinutes += net
+      } else {
+        groups.set(key, { date: d, entries: [entry], totalMinutes: net })
+      }
+    }
+
+    return Array.from(groups.values()).sort((a, b) => b.date.getTime() - a.date.getTime())
+  }, [calcNetMinutes, history])
+
+  const WorkLog = () => (
+    <div className="pt-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300">Work Log</p>
+        {!historyLoading && history.length > 0 && (
+          <p className="text-xs text-slate-500 dark:text-slate-400">Last 30 entries</p>
+        )}
+      </div>
+
+      {historyLoading ? (
+        <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+          Loading history...
+        </div>
+      ) : history.length === 0 ? (
+        <div className="mt-2 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+          No time entries yet. Clock in and clock out to create a record.
+        </div>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {groupedHistory.map((group) => (
+            <div key={format(group.date, 'yyyy-MM-dd')} className="rounded-2xl border border-slate-200 bg-white/70 backdrop-blur dark:border-slate-800 dark:bg-slate-900/50">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{format(group.date, 'EEE, d MMM')}</p>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{formatDuration(group.totalMinutes)}</p>
+              </div>
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                {group.entries.map((entry) => {
+                  const start = new Date(entry.clock_in)
+                  const end = entry.clock_out ? new Date(entry.clock_out) : null
+                  const breaks = entry.break_minutes || 0
+                  const net = calcNetMinutes(entry)
+
+                  return (
+                    <div key={entry.id || entry.clock_in} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {format(start, 'h:mm a')}
+                          {end ? ` - ${format(end, 'h:mm a')}` : ''}
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          Break {breaks}m
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{formatDuration(net)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   if (!activeEntry) {
     return (
-      <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Clock className="w-5 h-5 text-cyan-400" />
-          <h3 className="font-semibold text-white">Time Tracking</h3>
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.12),transparent_55%)] dark:opacity-80 dark:[background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.16),transparent_55%)]" />
+        <div className="relative mb-4">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Time Tracking</h3>
         </div>
-        <div className="text-center py-6">
-          <div className="w-16 h-16 bg-slate-700/50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-600">
-            <Timer className="w-8 h-8 text-slate-400" />
-          </div>
-          <p className="text-slate-400 mb-4">Not clocked in yet</p>
-          <button
+        <div className="relative text-center py-6">
+          <p className="mb-4 text-slate-600 dark:text-slate-300">Not clocked in yet</p>
+          <button type="button"
             onClick={handleClockIn}
             disabled={loading}
-            className="w-full h-12 flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-[0.98] disabled:opacity-50"
+            className="group relative h-12 w-full overflow-hidden rounded-2xl font-semibold text-white transition-opacity active:scale-[0.98] disabled:opacity-50"
           >
-            <Play className="w-5 h-5" />
-            Clock In
+            <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 opacity-90 transition-opacity group-hover:opacity-100 dark:from-cyan-500 dark:to-blue-500" />
+            <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
+            <span className="relative inline-flex items-center justify-center gap-2">Clock In</span>
           </button>
+        </div>
+
+        <div className="relative">
+          <WorkLog />
         </div>
       </div>
     )
@@ -180,39 +296,40 @@ export default function TimeTracker({ jobId }: TimeTrackerProps) {
   const workMinutes = getWorkDuration()
 
   return (
-    <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Clock className="w-5 h-5 text-cyan-400" />
-          <h3 className="font-semibold text-white">Time Tracking</h3>
-        </div>
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.12),transparent_55%)] dark:opacity-80 dark:[background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.16),transparent_55%)]" />
+
+      <div className="relative mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100">Time Tracking</h3>
         <div className="flex items-center gap-1.5">
-          <div className={`w-2 h-2 rounded-full ${isOnBreak ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]'}`} />
-          <span className={`text-xs font-bold uppercase tracking-wider ${isOnBreak ? 'text-amber-400' : 'text-emerald-400'}`}>
+          <div
+            className={`h-2 w-2 rounded-full ${isOnBreak ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.55)]'}`}
+          />
+          <span className={`text-xs font-semibold uppercase tracking-wider ${isOnBreak ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
             {isOnBreak ? 'Break' : 'Active'}
           </span>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="relative space-y-4">
         {/* Timer Display */}
-        <div className="text-center py-6 px-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-          <div className="text-5xl font-bold text-white tabular-nums tracking-tight drop-shadow-lg">
+        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-6 text-center dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="font-display-soft text-5xl tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
             {formatDurationDetailed(workMinutes)}
           </div>
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
             Clocked in {formatDistanceToNow(new Date(activeEntry.clock_in), { addSuffix: true })}
           </p>
         </div>
 
         {/* Break Info */}
         {totalBreakMinutes > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-            <span className="text-sm text-amber-400">Break time</span>
-            <span className="text-sm font-bold text-amber-400">
+          <div className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 dark:border-amber-400/25 dark:bg-amber-400/10">
+            <span className="text-sm text-amber-800 dark:text-amber-200">Break time</span>
+            <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">
               {formatDuration(totalBreakMinutes)}
               {isOnBreak && breakStart && (
-                <span className="text-amber-400/60"> + current</span>
+                <span className="text-amber-700/60 dark:text-amber-200/60"> + current</span>
               )}
             </span>
           </div>
@@ -220,27 +337,27 @@ export default function TimeTracker({ jobId }: TimeTrackerProps) {
 
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3">
-          <button
+          <button type="button"
             onClick={handleToggleBreak}
-            className={`h-12 flex items-center justify-center gap-2 font-bold rounded-xl transition-all active:scale-[0.98] ${
+            className={`h-12 flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all active:scale-[0.98] ${
               isOnBreak
-                ? 'bg-emerald-500 text-slate-900 shadow-[0_0_20px_rgba(52,211,153,0.3)]'
-                : 'bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30'
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400'
+                : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-400/25 dark:bg-amber-400/10 dark:text-amber-200 dark:hover:bg-amber-400/15'
             }`}
           >
-            {isOnBreak ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
             {isOnBreak ? 'End Break' : 'Take Break'}
           </button>
 
-          <button
+          <button type="button"
             onClick={handleClockOut}
             disabled={loading}
-            className="h-12 flex items-center justify-center gap-2 bg-red-500/20 border border-red-500/30 text-red-400 font-bold rounded-xl hover:bg-red-500/30 transition-all active:scale-[0.98] disabled:opacity-50"
+            className="h-12 flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 text-red-800 font-semibold hover:bg-red-100 transition-all active:scale-[0.98] disabled:opacity-50 dark:border-red-400/25 dark:bg-red-400/10 dark:text-red-200 dark:hover:bg-red-400/15"
           >
-            <StopCircle className="w-4 h-4" />
             Clock Out
           </button>
         </div>
+
+        <WorkLog />
       </div>
     </div>
   )

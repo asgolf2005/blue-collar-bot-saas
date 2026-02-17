@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { format, addDays } from 'date-fns'
 import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
-import { Wrench } from 'lucide-react'
+import { Wrench } from '@/components/ui/lucide'
 
 export default async function CustomerDashboard() {
   const supabase = await createClient()
@@ -447,3 +447,5 @@ export default async function CustomerDashboard() {
     </div>
   )
 }
+
+

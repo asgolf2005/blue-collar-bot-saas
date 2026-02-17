@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
@@ -14,7 +14,7 @@ import {
   X,
   Filter,
   Clock
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { formatDistanceToNow, isToday, isYesterday, parseISO } from 'date-fns'
 
 // Types
@@ -60,7 +60,7 @@ const mockNotifications: Notification[] = [
   {
     id: '4',
     title: 'Job completed',
-    message: 'HVAC installation completed by Mike',
+    message: 'HVAC installation completed by Alex Rivera',
     type: 'job',
     read: true,
     link: '/admin/jobs/2',
@@ -201,7 +201,7 @@ export default function NotificationsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400 mr-2" />
           {(['all', 'job', 'system', 'billing'] as TypeFilter[]).map((type) => (
-            <button
+            <button type="button"
               key={type}
               onClick={() => setTypeFilter(type)}
               className={`px-4 py-2 rounded-full font-mono text-xs capitalize transition-colors ${
@@ -358,7 +358,7 @@ function NotificationCard({
               <ArrowRight className="w-3 h-3" />
             </Link>
           )}
-          <button
+          <button type="button"
             onClick={(e) => {
               e.stopPropagation()
               onDismiss()
@@ -405,16 +405,12 @@ function MetricCard({
   const c = colors[color]
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <Icon className={`w-5 h-5 ${c.light} ${c.dark}`} />
-        </div>
-        <div>
-          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">{label}</div>
-          <div className={`font-display text-3xl ${c.light} ${c.dark}`}>{value}</div>
-        </div>
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow hover:shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+        <Icon className={`w-4 h-4 ${c.light} ${c.dark}`} />
       </div>
+      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </div>
   )
 }
@@ -457,3 +453,4 @@ function getNotificationColors(type: string) {
       }
   }
 }
+

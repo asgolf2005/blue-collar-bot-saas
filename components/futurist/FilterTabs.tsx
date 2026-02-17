@@ -30,7 +30,7 @@ export function FilterTabs<T extends string>({
       {options.map((option) => {
         const isActive = value === option.value
         return (
-          <button
+          <button type="button"
             key={option.value}
             onClick={() => onChange(option.value)}
             className={cn(

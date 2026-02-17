@@ -2,9 +2,9 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Camera, Upload, X, Image as ImageIcon, CheckCircle, Loader2 } from 'lucide-react'
-import Image from 'next/image'
 import { PhotoType, Media } from '@/lib/types'
+import PartIdentifier from '@/components/tech/PartIdentifier'
+import CompletionVerifier from '@/components/tech/CompletionVerifier'
 
 interface PhotoUploadProps {
   jobId: string
@@ -17,6 +17,8 @@ interface PhotoItem {
   type: PhotoType
   uploading?: boolean
 }
+
+type ProofTabKey = 'analysis' | 'proof' | 'verification'
 
 const photoTypes: { value: PhotoType; label: string; description: string }[] = [
   { value: 'before', label: 'Before', description: 'Photos before starting work' },
@@ -32,6 +34,11 @@ export default function PhotoUpload({ jobId, existingPhotos = [] }: PhotoUploadP
       type: (p.file_type as PhotoType) || 'during'
     }))
   )
+  const [openTabs, setOpenTabs] = useState<Record<ProofTabKey, boolean>>({
+    analysis: true,
+    proof: true,
+    verification: true,
+  })
   const [uploading, setUploading] = useState(false)
   const [selectedType, setSelectedType] = useState<PhotoType>('before')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -131,152 +138,215 @@ export default function PhotoUpload({ jobId, existingPhotos = [] }: PhotoUploadP
   const getPhotosByType = (type: PhotoType) => photos.filter(p => p.type === type)
   const getPhotoCountByType = (type: PhotoType) => photos.filter(p => p.type === type && !p.uploading).length
 
+  const toggleTab = (tab: ProofTabKey) => {
+    setOpenTabs((previous) => ({
+      ...previous,
+      [tab]: !previous[tab],
+    }))
+  }
+
   return (
-    <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <Camera className="w-5 h-5 text-cyan-400" />
-        <h3 className="font-semibold text-white">Proof of Work</h3>
-        <span className="ml-auto text-xs text-slate-400">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
+    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="pointer-events-none absolute inset-0 opacity-50 [background:linear-gradient(135deg,rgba(148,163,184,0.09)_0%,rgba(148,163,184,0)_40%)] dark:opacity-80 dark:[background:linear-gradient(135deg,rgba(148,163,184,0.14)_0%,rgba(148,163,184,0)_45%)]" />
+      <div className="pointer-events-none absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-slate-300/70 to-transparent dark:from-slate-500/60" />
+      <div className="relative mb-4 flex items-center gap-2">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100">Field Record</h3>
+        <span className="ml-auto text-xs text-slate-500 dark:text-slate-400">{photos.length} photo{photos.length !== 1 ? 's' : ''}</span>
       </div>
 
-      <div className="space-y-4">
-        {/* Photo Type Selector */}
-        <div className="space-y-2">
-          <label className="text-xs text-slate-400 uppercase tracking-wider">Photo Type</label>
-          <div className="grid grid-cols-3 gap-2">
-            {photoTypes.map((type) => {
-              const count = getPhotoCountByType(type.value)
-              const isSelected = selectedType === type.value
-              return (
-                <button
-                  key={type.value}
-                  onClick={() => setSelectedType(type.value)}
-                  className={`relative py-3 px-2 rounded-xl border text-sm font-medium transition-all ${
-                    isSelected
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
-                      : 'bg-slate-700/30 border-slate-600/30 text-slate-400 hover:bg-slate-700/50'
-                  }`}
-                >
-                  <span className="block">{type.label}</span>
-                  {count > 0 && (
-                    <span className={`absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded-full ${
-                      isSelected ? 'bg-cyan-500 text-slate-900' : 'bg-slate-600 text-white'
-                    }`}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-          <p className="text-xs text-slate-500">
-            {photoTypes.find(t => t.value === selectedType)?.description}
-          </p>
-        </div>
-
-        {/* Upload Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <button
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={uploading}
-            className="h-12 flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-[0.98] disabled:opacity-50"
-          >
-            <Camera className="w-5 h-5" />
-            Take Photo
-          </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="h-12 flex items-center justify-center gap-2 bg-slate-700/50 hover:bg-slate-700 text-white font-medium rounded-xl border border-slate-600 transition-all active:scale-[0.98] disabled:opacity-50"
-          >
-            <Upload className="w-5 h-5" />
-            Upload
-          </button>
-        </div>
-
-        {/* Photo Gallery */}
-        {photos.length > 0 && (
-          <div className="space-y-3 pt-2">
-            {photoTypes.map((type) => {
-              const typePhotos = getPhotosByType(type.value)
-              if (typePhotos.length === 0) return null
-
-              return (
-                <div key={type.value}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-white">{type.label}</h4>
-                    <span className="text-xs text-slate-400">{typePhotos.length} photo(s)</span>
-                  </div>
+      <div className="relative space-y-3">
+        {([
+          {
+            key: 'analysis',
+            title: 'Photo Analysis',
+            subtitle: 'Review likely part condition and next step',
+            content: <PartIdentifier jobId={jobId} />,
+          },
+          {
+            key: 'proof',
+            title: 'Proof of Work',
+            subtitle: `${photos.length} photo${photos.length === 1 ? '' : 's'} saved`,
+            content: (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Photo Type</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {typePhotos.map((photo) => (
-                      <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-slate-700 border border-slate-600">
-                        {photo.uploading ? (
-                          <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                            <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
-                          </div>
-                        ) : (
-                          <>
-                            <Image
-                              src={photo.url}
-                              alt={`${type.label} photo`}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 33vw, 20vw"
-                            />
-                            <button
-                              onClick={() => deletePhoto(photo.id)}
-                              className="absolute top-1 right-1 p-1 bg-red-500/80 hover:bg-red-500 text-white rounded-lg transition-colors"
-                              aria-label="Delete photo"
+                    {photoTypes.map((type) => {
+                      const count = getPhotoCountByType(type.value)
+                      const isSelected = selectedType === type.value
+                      return (
+                        <button
+                          type="button"
+                          key={type.value}
+                          onClick={() => setSelectedType(type.value)}
+                          className={`relative min-h-12 rounded-xl border px-2 py-3 text-sm font-medium transition-all ${
+                            isSelected
+                              ? 'bg-slate-200 border-slate-300 text-slate-900 dark:bg-slate-700/70 dark:border-slate-600 dark:text-slate-100'
+                              : 'bg-white/70 border-slate-200 text-slate-700 hover:bg-slate-50 dark:bg-slate-900/40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <span className="block">{type.label}</span>
+                          {count > 0 && (
+                            <span
+                              className={`absolute -top-1 -right-1 h-5 w-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+                                isSelected
+                                  ? 'bg-slate-900 text-white dark:bg-slate-200 dark:text-slate-900'
+                                  : 'bg-slate-700 text-white dark:bg-slate-600'
+                              }`}
                             >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    {photoTypes.find((type) => type.value === selectedType)?.description}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={uploading}
+                    className="group relative min-h-12 overflow-hidden rounded-2xl font-semibold text-white transition-opacity active:scale-[0.98] disabled:opacity-50"
+                  >
+                    <span className="absolute inset-0 bg-gradient-to-r from-slate-700 to-slate-900 opacity-90 transition-opacity group-hover:opacity-100 dark:from-slate-500 dark:to-slate-700" />
+                    <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
+                    <span className="relative inline-flex items-center justify-center">Take Photo</span>
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="min-h-12 rounded-2xl border border-slate-200 bg-white/70 font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                  >
+                    Upload
+                  </button>
+                </div>
+
+                {photos.length > 0 && (
+                  <div className="space-y-3 pt-2">
+                    {photoTypes.map((type) => {
+                      const typePhotos = getPhotosByType(type.value)
+                      if (typePhotos.length === 0) return null
+
+                      return (
+                        <div key={type.value}>
+                          <div className="mb-2 flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{type.label}</h4>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{typePhotos.length} photo(s)</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {typePhotos.map((photo) => (
+                              <div key={photo.id} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40">
+                                {photo.uploading ? (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur dark:bg-slate-900/60">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-900/20 border-t-cyan-500 dark:border-white/10 dark:border-t-cyan-400" />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <img
+                                      src={photo.url}
+                                      alt={`${type.label} photo`}
+                                      className="absolute inset-0 h-full w-full object-cover"
+                                      loading="lazy"
+                                      decoding="async"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => deletePhoto(photo.id)}
+                                      className="absolute top-1 right-1 rounded-lg bg-red-600/90 px-2 py-1 text-[11px] font-semibold text-white shadow-sm transition-colors hover:bg-red-600"
+                                      aria-label="Delete photo"
+                                    >
+                                      Remove
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {photos.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-8 text-center dark:border-slate-700 dark:bg-slate-800/40">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">No photos yet</p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Take photos to document your work</p>
+                  </div>
+                )}
+
+                {photos.length > 0 && (
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                    <span>Documentation</span>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-300">{photos.length} saved</span>
+                  </div>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: 'verification',
+            title: 'Completion Verification',
+            subtitle: 'Confirm problem identified and resolved',
+            content: <CompletionVerifier jobId={jobId} />,
+          },
+        ] as const).map((tab) => {
+          const isOpen = openTabs[tab.key]
+
+          return (
+            <section
+              key={tab.key}
+              className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.35)] dark:border-slate-700 dark:bg-slate-900/60 dark:shadow-[0_10px_24px_-18px_rgba(2,6,23,0.7)]"
+            >
+              <button
+                type="button"
+                onClick={() => toggleTab(tab.key)}
+                className="flex min-h-12 w-full items-center justify-between gap-3 border-b border-transparent px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{tab.title}</p>
+                  <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{tab.subtitle}</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-slate-300 bg-slate-100/70 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300">
+                  {isOpen ? 'Close' : 'Open'}
+                </span>
+              </button>
+
+              <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                <div className="overflow-hidden">
+                  <div className={`px-3 pb-3 transition-all duration-300 ${isOpen ? 'translate-x-0 opacity-100' : '-translate-x-6 opacity-0'}`}>
+                    <div className={`mb-2 h-[2px] w-full origin-left bg-gradient-to-r from-slate-400/60 via-slate-300/20 to-transparent transition-transform duration-500 ${isOpen ? 'scale-x-100' : 'scale-x-0'}`} />
+                    {tab.content}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {photos.length === 0 && (
-          <div className="text-center py-8 px-4 bg-slate-700/30 border border-dashed border-slate-600/50 rounded-xl">
-            <ImageIcon className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">No photos yet</p>
-            <p className="text-xs text-slate-500 mt-1">Take photos to document your work</p>
-          </div>
-        )}
-
-        {/* Completion Indicator */}
-        {photos.length > 0 && (
-          <div className="flex items-center justify-between pt-3 border-t border-slate-700/50">
-            <span className="text-sm text-slate-400">Documentation</span>
-            <div className="flex items-center gap-1.5 text-emerald-400">
-              <CheckCircle className="w-4 h-4" />
-              <span className="text-sm font-medium">{photos.length} saved</span>
-            </div>
-          </div>
-        )}
+              </div>
+            </section>
+          )
+        })}
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -12,7 +12,7 @@ import {
   Mail,
   ShieldCheck,
   Workflow,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 
 type AuthMessage = { type: 'success' | 'error'; text: string } | null
 type PortalRole = 'admin' | 'tech' | 'customer'
@@ -321,3 +321,4 @@ export default function LoginPage() {
     </div>
   )
 }
+

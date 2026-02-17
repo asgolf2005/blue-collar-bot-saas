@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -9,7 +9,7 @@ import {
   Target,
   TrendingUp,
   Award,
-} from 'lucide-react'
+} from '@/components/ui/lucide'
 import { getDateRange, formatDisplayDate } from '@/lib/analytics/dateUtils'
 
 interface JobWithDetails {
@@ -310,7 +310,7 @@ export default async function CompletionDetailPage({
               href="/admin/jobs?status=completed"
               className="font-mono text-xs text-cyan-600 hover:text-cyan-700 dark:text-cyan-400"
             >
-              View All →
+              View All â†’
             </Link>
           </div>
 
@@ -359,3 +359,5 @@ export default async function CompletionDetailPage({
     </div>
   )
 }
+
+

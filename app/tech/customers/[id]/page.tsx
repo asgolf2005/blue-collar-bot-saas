@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar } from '@/components/ui/lucide'
 import { format } from 'date-fns'
 
 export default async function TechCustomerPage({ params }: { params: { id: string } }) {
@@ -184,3 +184,5 @@ export default async function TechCustomerPage({ params }: { params: { id: strin
     </div>
   )
 }
+
+

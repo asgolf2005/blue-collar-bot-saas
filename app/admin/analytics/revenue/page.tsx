@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -6,8 +6,8 @@ import {
   Calendar,
   User,
   Wrench,
-  FileText,
-} from 'lucide-react'
+  Receipt,
+} from '@/components/ui/lucide'
 import { getDateRange, formatDisplayDate } from '@/lib/analytics/dateUtils'
 
 interface InvoiceWithDetails {
@@ -446,7 +446,7 @@ export default async function RevenueDetailPage({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <Receipt className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <h2 className="font-display text-xl text-slate-900 dark:text-white">
@@ -461,7 +461,7 @@ export default async function RevenueDetailPage({
             href="/admin/invoices?status=paid"
             className="font-mono text-xs text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
           >
-            View All →
+            View All â†’
           </Link>
         </div>
 
@@ -508,3 +508,5 @@ export default async function RevenueDetailPage({
     </div>
   )
 }
+
+

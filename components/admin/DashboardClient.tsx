@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { Plus, Calendar, DollarSign, Briefcase, Clock, CheckCircle, TrendingUp, Users, ChevronRight, Zap, FileText, UserPlus } from 'lucide-react'
 import { TiltCard, AnimatedCounter, MeshBackground, FloatingActionButton } from '@/components/ui/effects'
 import { useRouter } from 'next/navigation'
 import JobsTable from '@/components/admin/JobsTable'
@@ -57,19 +56,19 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
 
   const fabActions = [
     {
-      icon: <Plus className="w-5 h-5" />,
+      icon: <span className="text-xs font-bold">JOB</span>,
       label: 'New Job',
       onClick: () => router.push('/admin/jobs/new'),
       color: 'primary' as const
     },
     {
-      icon: <UserPlus className="w-5 h-5" />,
+      icon: <span className="text-xs font-bold">CUST</span>,
       label: 'New Customer',
       onClick: () => router.push('/admin/customers/new'),
       color: 'accent' as const
     },
     {
-      icon: <FileText className="w-5 h-5" />,
+      icon: <span className="text-xs font-bold">INV</span>,
       label: 'New Invoice',
       onClick: () => router.push('/admin/invoices/new'),
       color: 'success' as const
@@ -102,7 +101,6 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
             {/* Shimmer effect */}
             <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
-            <Plus className="w-5 h-5 relative z-10" />
             <span className="relative z-10">New Job</span>
           </Link>
         </div>
@@ -120,16 +118,13 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-blue-100 text-sm font-medium">Total Jobs</span>
                   <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                    <Briefcase className="w-5 h-5" />
+                    <span className="text-xs font-bold">ALL</span>
                   </div>
                 </div>
                 <div className="text-5xl font-bold mb-2">
                   <AnimatedCounter value={stats.totalJobs} />
                 </div>
-                <div className="flex items-center gap-2 text-blue-100">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">All time total</span>
-                </div>
+                <div className="text-sm text-blue-100">All time total</div>
               </div>
             </div>
           </TiltCard>
@@ -143,7 +138,7 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">In Progress</span>
                   <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-amber-500" />
+                    <span className="text-xs font-bold text-amber-600">NOW</span>
                   </div>
                 </div>
                 <div className="text-5xl font-bold text-slate-900 dark:text-white mb-2">
@@ -166,7 +161,7 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Scheduled</span>
                   <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-blue-500" />
+                    <span className="text-xs font-bold text-blue-600">SCH</span>
                   </div>
                 </div>
                 <div className="text-5xl font-bold text-slate-900 dark:text-white mb-2">
@@ -188,7 +183,7 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-emerald-100 text-sm font-medium">Completion Rate</span>
                   <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5" />
+                    <span className="text-xs font-bold">%</span>
                   </div>
                 </div>
                 <div className="text-5xl font-bold mb-3">
@@ -218,9 +213,9 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                   </div>
                   <Link
                     href="/admin/jobs"
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                   >
-                    View all <ChevronRight className="w-4 h-4" />
+                    View all
                   </Link>
                 </div>
               </div>
@@ -249,13 +244,13 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                 <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4">This Week</h3>
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <Zap className="w-8 h-8 text-white" />
+                    <span className="text-white text-xs font-bold">WK</span>
                   </div>
                   <div>
                     <div className="text-4xl font-bold text-slate-900 dark:text-white">
                       <AnimatedCounter value={stats.thisWeekJobs} />
                     </div>
-                    <div className="text-slate-500 text-sm">jobs scheduled</div>
+                    <div className="text-slate-500 text-sm">Jobs Scheduled</div>
                   </div>
                 </div>
               </div>
@@ -267,13 +262,13 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
                 <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4">Total Customers</h3>
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                    <Users className="w-8 h-8 text-white" />
+                    <span className="text-white text-xs font-bold">C</span>
                   </div>
                   <div>
                     <div className="text-4xl font-bold text-slate-900 dark:text-white">
                       <AnimatedCounter value={stats.customerCount} />
                     </div>
-                    <div className="text-slate-500 text-sm">active customers</div>
+                    <div className="text-slate-500 text-sm">Active Customers</div>
                   </div>
                 </div>
               </div>
@@ -285,35 +280,32 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
               <div className="space-y-3">
                 <Link href="/admin/jobs/new" className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-slate-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-800 transition-all group">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
-                    <Plus className="w-5 h-5 text-white" />
+                    <span className="text-white text-xs font-bold">JOB</span>
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">New Job</div>
                     <div className="text-xs text-slate-500">Create a new service job</div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
                 </Link>
 
                 <Link href="/admin/calendar" className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/50 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 border border-slate-200 dark:border-slate-600 hover:border-cyan-200 dark:hover:border-cyan-800 transition-all group">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform">
-                    <Calendar className="w-5 h-5 text-white" />
+                    <span className="text-white text-xs font-bold">CAL</span>
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">Calendar</div>
                     <div className="text-xs text-slate-500">View schedule</div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-cyan-500 transition-colors" />
                 </Link>
 
                 <Link href="/admin/invoices/new" className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border border-slate-200 dark:border-slate-600 hover:border-emerald-200 dark:hover:border-emerald-800 transition-all group">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
-                    <DollarSign className="w-5 h-5 text-white" />
+                    <span className="text-white text-xs font-bold">INV</span>
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">Create Invoice</div>
                     <div className="text-xs text-slate-500">Bill a customer</div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
                 </Link>
               </div>
             </div>

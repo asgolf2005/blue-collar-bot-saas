@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -15,7 +15,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import { createClient } from '@/lib/supabase/client'
 
 interface Customer {
@@ -402,3 +402,4 @@ export default function EditCustomerPage() {
     </div>
   )
 }
+

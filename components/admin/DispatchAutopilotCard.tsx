@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bot, Loader2, Sparkles, UserCheck } from 'lucide-react'
+import { Bot, Loader2, Sparkles, UserCheck } from '@/components/ui/icons'
 import { Button } from '@/components/ui/Button'
 import { showToast } from '@/lib/utils/toast'
 
@@ -211,3 +211,4 @@ export function DispatchAutopilotCard() {
     </div>
   )
 }
+

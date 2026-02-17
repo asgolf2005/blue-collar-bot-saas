@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useMemo } from 'react'
 import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns'
-import { Clock, Calendar, ChevronRight, MapPin, Users } from 'lucide-react'
+import { Clock, Calendar, ChevronRight, MapPin, Users } from '@/components/ui/icons'
 import Link from 'next/link'
 import type { JobWithDetails } from '@/lib/types'
 
@@ -304,3 +304,4 @@ export default function UpcomingJobs({ jobs }: UpcomingJobsProps) {
     </div>
   )
 }
+

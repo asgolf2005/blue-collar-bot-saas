@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState } from 'react'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, isWithinInterval, startOfDay, endOfDay, parseISO, addWeeks } from 'date-fns'
-import { Calendar, Filter, ChevronRight, ChevronLeft, Clock, MapPin, Wrench } from 'lucide-react'
+import { Calendar, Filter, ChevronRight, ChevronLeft, Clock, MapPin, Wrench } from '@/components/ui/icons'
 import { useRouter } from 'next/navigation'
 import type { JobWithDetails } from '@/lib/types'
 
@@ -250,7 +250,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
             {/* View Mode Toggle - Pill Buttons */}
             <div className="flex items-center bg-gray-900 rounded-full p-1 border border-gray-800">
               {(['day', 'week', 'fortnight', 'month'] as ViewMode[]).map(mode => (
-                <button
+                <button type="button"
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`
@@ -268,7 +268,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
 
             {/* Date Navigation */}
             <div className="flex items-center gap-2 bg-gray-900 rounded-lg border border-gray-800 px-3 py-1.5">
-              <button
+              <button type="button"
                 onClick={() => navigateDate('prev')}
                 className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors duration-200"
               >
@@ -282,7 +282,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                 </span>
               </div>
 
-              <button
+              <button type="button"
                 onClick={() => navigateDate('next')}
                 className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors duration-200"
               >
@@ -291,7 +291,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
             </div>
 
             {/* Today Button */}
-            <button
+            <button type="button"
               onClick={goToToday}
               className="px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-sm font-mono text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200"
             >
@@ -628,3 +628,4 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
     </div>
   )
 }
+

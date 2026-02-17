@@ -35,11 +35,7 @@ export default async function TechDashboard() {
   const weekAgo = new Date(today)
   weekAgo.setDate(weekAgo.getDate() - 6)
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
-  const todayJobsQuery = supabase
-    .from('jobs')
-    .select(
-      `
+  const jobSelect = `
       id,
       scheduled_start,
       scheduled_end,
@@ -47,10 +43,12 @@ export default async function TechDashboard() {
       description,
       urgency,
       total_cost,
-      customer:customers(id, name, phone, address),
-      service:services(name, category)
+      customer:customers(id, name, phone, address)
     `
-    )
+
+  const todayJobsQuery = supabase
+    .from('jobs')
+    .select(jobSelect)
     .eq('technician_id', user.id)
     .gte('scheduled_start', today.toISOString())
     .lt('scheduled_start', tomorrow.toISOString())
@@ -58,19 +56,7 @@ export default async function TechDashboard() {
 
   const upcomingJobsQuery = supabase
     .from('jobs')
-    .select(
-      `
-      id,
-      scheduled_start,
-      scheduled_end,
-      status,
-      description,
-      urgency,
-      total_cost,
-      customer:customers(id, name, phone, address),
-      service:services(name, category)
-    `
-    )
+    .select(jobSelect)
     .eq('technician_id', user.id)
     .gte('scheduled_start', tomorrow.toISOString())
     .lt('scheduled_start', nextWeek.toISOString())
@@ -91,19 +77,7 @@ export default async function TechDashboard() {
 
   const attentionJobsQuery = supabase
     .from('jobs')
-    .select(
-      `
-      id,
-      scheduled_start,
-      scheduled_end,
-      status,
-      description,
-      urgency,
-      total_cost,
-      customer:customers(id, name, phone, address),
-      service:services(name, category)
-    `
-    )
+    .select(jobSelect)
     .eq('technician_id', user.id)
     .in('status', [...activeStatuses])
     .lt('scheduled_start', now.toISOString())

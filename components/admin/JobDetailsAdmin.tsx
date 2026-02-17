@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { JobWithDetails, User } from '@/lib/types'
 import { format, parseISO, isPast } from 'date-fns'
@@ -7,7 +7,7 @@ import {
   MessageSquare, Send, FileText, Plus, User as UserIcon, 
   AlertCircle, CheckCircle, Truck, Play, Circle, XCircle,
   ExternalLink, MessageCircle, Receipt, ChevronRight, Briefcase, Trash2
-} from 'lucide-react'
+} from '@/components/ui/icons'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
@@ -86,6 +86,14 @@ const URGENCY_CONFIG: Record<string, { color: string; label: string }> = {
 }
 
 const DELETE_HOLD_MS = 1200
+type EditableUrgency = '' | 'low' | 'medium' | 'high' | 'emergency'
+
+function toEditableUrgency(value?: string | null): EditableUrgency {
+  if (value === 'low' || value === 'medium' || value === 'high' || value === 'emergency') {
+    return value
+  }
+  return ''
+}
 
 function toLocalDateTimeInputValue(value?: string | null) {
   if (!value) return ''
@@ -192,14 +200,28 @@ export default function JobDetailsAdmin({
   const [scheduledEnd, setScheduledEnd] = useState(
     toLocalDateTimeInputValue(job.scheduled_end)
   )
+  const [description, setDescription] = useState(job.description || '')
+  const [urgency, setUrgency] = useState<EditableUrgency>(toEditableUrgency(job.urgency))
   const [invoice, setInvoice] = useState<any>(null)
   const [loadingInvoice, setLoadingInvoice] = useState(true)
   const deleteHoldIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const deleteHoldStartedAtRef = useRef<number | null>(null)
   const deleteTriggeredRef = useRef(false)
   
-  const statusConfig = STATUS_CONFIG[job.status] || STATUS_CONFIG.scheduled
-  const isOverdue = job.scheduled_start && isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
+  const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.scheduled
+  const currentStartDate = scheduledStart ? new Date(scheduledStart) : parseISO(job.scheduled_start)
+  const isOverdue =
+    !Number.isNaN(currentStartDate.getTime()) &&
+    isPast(currentStartDate) &&
+    status === 'scheduled'
+  const urgencyConfig = urgency ? URGENCY_CONFIG[urgency] : null
+  const hasChanges =
+    status !== job.status ||
+    technicianId !== (job.technician_id || '') ||
+    scheduledStart !== toLocalDateTimeInputValue(job.scheduled_start) ||
+    scheduledEnd !== toLocalDateTimeInputValue(job.scheduled_end) ||
+    description !== (job.description || '') ||
+    urgency !== toEditableUrgency(job.urgency)
 
   const stopDeleteHold = (resetProgress = true) => {
     if (deleteHoldIntervalRef.current) {
@@ -276,6 +298,8 @@ export default function JobDetailsAdmin({
           technicianId: technicianId || null,
           scheduledStart: scheduledStart ? new Date(scheduledStart).toISOString() : undefined,
           scheduledEnd: scheduledEnd ? new Date(scheduledEnd).toISOString() : undefined,
+          description,
+          urgency: urgency || null,
         }),
       })
 
@@ -286,7 +310,7 @@ export default function JobDetailsAdmin({
       }
 
       showToast.success('Job updated successfully')
-      window.location.reload()
+      router.refresh()
     } catch (error: any) {
       showToast.error('Failed to update job: ' + error.message)
     } finally {
@@ -385,7 +409,7 @@ export default function JobDetailsAdmin({
               <span className="text-sm font-medium text-rose-700 dark:text-rose-300">Overdue</span>
             </div>
           )}
-          <StatusBadge status={job.status} />
+          <StatusBadge status={status} />
         </div>
       </div>
 
@@ -467,18 +491,51 @@ export default function JobDetailsAdmin({
 
           {/* Description Card */}
           <Card title="Job Description" icon={<Briefcase className="w-5 h-5" />}>
-            {job.description ? (
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{job.description}</p>
-            ) : (
-              <p className="text-slate-400 italic">No description provided</p>
-            )}
-            
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-4">
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
-                URGENCY_CONFIG[job.urgency || 'low']?.color || URGENCY_CONFIG.low.color
-              }`}>
-                <AlertCircle className="w-3.5 h-3.5" />
-                {URGENCY_CONFIG[job.urgency || 'low']?.label || 'Normal Priority'}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">
+                  Description
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all resize-y"
+                  placeholder="Describe the job scope, issues, and customer requests..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">
+                    Urgency
+                  </label>
+                  <select
+                    value={urgency}
+                    onChange={(e) => setUrgency(e.target.value as EditableUrgency)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all appearance-none cursor-pointer"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                  >
+                    <option value="">Not set</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="emergency">Emergency</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  {urgencyConfig ? (
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${urgencyConfig.color}`}>
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      {urgencyConfig.label}
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-300 dark:bg-slate-800/60 dark:border-slate-700">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      No priority set
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </Card>
@@ -562,9 +619,9 @@ export default function JobDetailsAdmin({
                 </select>
               </div>
 
-              <button
+              <button type="button"
                 onClick={handleUpdateJob}
-                disabled={saving}
+                disabled={saving || !hasChanges}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-300 text-white font-medium transition-all hover:shadow-lg active:scale-[0.98]"
               >
                 {saving ? (
@@ -575,7 +632,7 @@ export default function JobDetailsAdmin({
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Save Changes
+                    {hasChanges ? 'Save Changes' : 'No Changes'}
                   </>
                 )}
               </button>
@@ -707,7 +764,7 @@ export default function JobDetailsAdmin({
                   <span className="text-sm text-slate-600 dark:text-slate-400">{job.customer.phone}</span>
                 </div>
 
-                <button
+                <button type="button"
                   onClick={handleSendSMS}
                   disabled={sendingSMS}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-cyan-200 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 font-medium transition-all disabled:opacity-50"
@@ -739,3 +796,4 @@ export default function JobDetailsAdmin({
     </div>
   )
 }
+

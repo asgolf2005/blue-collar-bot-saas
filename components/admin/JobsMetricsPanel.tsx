@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { Calendar, CheckCircle2, MapPin, PlayCircle } from 'lucide-react'
+import { Calendar, CheckCircle2, MapPin, PlayCircle } from '@/components/ui/icons'
 
 type StatusKey = 'scheduled' | 'on_the_way' | 'in_progress' | 'completed'
 
@@ -89,9 +89,23 @@ export function JobsMetricsPanel({
                 href={`/admin/jobs/${job.id}`}
                 className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-cyan-500 transition-colors"
               >
-                <div className="font-mono text-sm text-slate-900 dark:text-white">
-                  {new Date(job.scheduled_start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                </div>
+                {(() => {
+                  const scheduled = new Date(job.scheduled_start)
+                  return (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        {scheduled.toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </div>
+                      <div className="font-mono text-sm text-slate-900 dark:text-white tabular-nums">
+                        {scheduled.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  )
+                })()}
                 <div className="font-mono text-xs text-slate-600 dark:text-slate-400 mt-1 truncate">
                   {job.customer?.name || 'Unknown'}
                 </div>
@@ -137,21 +151,18 @@ function MetricCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left bg-white dark:bg-slate-900 rounded-xl border p-4 transition-all ${
+      className={`w-full text-left rounded-2xl border bg-white dark:bg-slate-900 p-5 transition-all ${
         isExpanded
-          ? 'border-blue-500 dark:border-cyan-500 ring-1 ring-blue-500/40 dark:ring-cyan-500/40 shadow-sm'
-          : 'border-slate-200 dark:border-slate-800 hover:shadow-md'
+          ? 'border-blue-500 dark:border-cyan-500 ring-1 ring-blue-500/40 dark:ring-cyan-500/40 shadow-[0_10px_24px_-18px_rgba(56,189,248,0.45)]'
+          : 'border-slate-200 dark:border-slate-800 hover:shadow-sm'
       }`}
     >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <Icon className={`w-5 h-5 ${c.light} ${c.dark}`} />
-        </div>
-        <div>
-          <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">{label}</div>
-          <div className={`font-display text-3xl ${c.light} ${c.dark}`}>{value}</div>
-        </div>
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+        <Icon className={`w-4 h-4 ${c.light} ${c.dark}`} />
       </div>
+      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </button>
   )
 }
+

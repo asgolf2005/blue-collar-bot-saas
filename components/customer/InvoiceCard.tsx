@@ -3,7 +3,6 @@
 import { Invoice, Customer } from '@/lib/types'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { FileText, AlertCircle, CheckCircle, Clock } from 'lucide-react'
 
 interface InvoiceWithCustomer extends Invoice {
   customer: Customer
@@ -11,30 +10,25 @@ interface InvoiceWithCustomer extends Invoice {
 
 export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer }) {
   const getStatusConfig = (status: string) => {
-    const configs: Record<string, { color: string; icon: any; label: string }> = {
+    const configs: Record<string, { color: string; label: string }> = {
       draft: {
         color: 'bg-gray-50 text-gray-700 border-gray-200',
-        icon: FileText,
         label: 'Draft',
       },
       sent: {
         color: 'bg-blue-50 text-blue-700 border-blue-200',
-        icon: Clock,
         label: 'Awaiting Payment',
       },
       paid: {
         color: 'bg-green-50 text-green-700 border-green-200',
-        icon: CheckCircle,
         label: 'Paid',
       },
       overdue: {
         color: 'bg-red-50 text-red-700 border-red-200',
-        icon: AlertCircle,
         label: 'Overdue',
       },
       cancelled: {
         color: 'bg-gray-50 text-gray-600 border-gray-200',
-        icon: FileText,
         label: 'Cancelled',
       },
     }
@@ -42,7 +36,6 @@ export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer 
   }
 
   const statusConfig = getStatusConfig(invoice.status)
-  const StatusIcon = statusConfig.icon
 
   return (
     <Link href={`/customer/invoices/${invoice.id}`}>
@@ -50,7 +43,6 @@ export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer 
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-4 h-4 text-gray-400" />
               <span className="font-mono text-sm font-medium text-gray-900">
                 {invoice.invoice_number}
               </span>
@@ -71,7 +63,6 @@ export default function InvoiceCard({ invoice }: { invoice: InvoiceWithCustomer 
             <div
               className={`mt-2 px-3 py-1 rounded-full text-xs font-medium border inline-flex items-center gap-1 ${statusConfig.color}`}
             >
-              <StatusIcon className="w-3 h-3" />
               {statusConfig.label}
             </div>
           </div>

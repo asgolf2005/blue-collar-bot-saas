@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Briefcase, Plus, Download, Zap } from 'lucide-react'
+import { Briefcase, Plus, Download, Zap } from '@/components/ui/icons'
 import {
   format,
   startOfDay,
@@ -403,7 +403,7 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
 
           {/* Quick actions */}
           <div className="flex items-center gap-2">
-            <button
+            <button type="button"
               onClick={handleExport}
               className="px-4 py-2 rounded-lg text-sm font-semibold text-ink dark:text-white bg-white dark:bg-slate-800/80 border border-surface-200 dark:border-slate-600 shadow-sm hover:border-primary/40 hover:text-primary dark:hover:text-primary transition-colors flex items-center gap-2"
             >
@@ -430,7 +430,7 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex flex-wrap gap-2">
               {(['today', 'week', 'month', 'quarter', 'all'] as TimeRangeKey[]).map(range => (
-                <button
+                <button type="button"
                   key={range}
                   onClick={() => setTimeRange(range)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
@@ -517,3 +517,4 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
     </>
   )
 }
+

@@ -70,7 +70,7 @@ export default function JobsOverview({ jobs }: JobsOverviewProps) {
           <span className="text-sm text-muted mr-2">{stats.scheduled} jobs scheduled</span>
           <div className="flex rounded-full border-2 border-surface-200 bg-surface-50 p-1">
             {timePeriods.map((item) => (
-              <button
+              <button type="button"
                 key={item.key}
                 onClick={() => setPeriod(item.key)}
                 className={`px-3 py-1 text-xs font-semibold rounded-full transition ${

@@ -36,7 +36,7 @@ export function ConnectionStatus({ autoRefresh = false }: ConnectionStatusProps)
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
         <div className="w-2 h-2 rounded-full bg-red-500" />
         <span className="font-mono text-[10px] text-red-600 dark:text-red-400">OFFLINE</span>
-        <button
+        <button type="button"
           onClick={() => {
             void refetch()
           }}

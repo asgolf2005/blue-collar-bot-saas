@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { startOfWeek, startOfMonth, endOfMonth, format, differenceInHours } from 'date-fns'
-import { TrendingUp, CheckCircle, DollarSign, Clock, Calendar, Briefcase, Zap, MapPin, BarChart3, Star } from 'lucide-react'
+import { TrendingUp, CheckCircle, DollarSign, Clock, Calendar, Briefcase, Zap, MapPin, BarChart3, Star } from '@/components/ui/lucide'
 
 export default async function TechStatsPage() {
   const supabase = await createClient()
@@ -210,7 +210,7 @@ export default async function TechStatsPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-ink">{count}</p>
-                  <p className="text-xs text-muted">jobs</p>
+                  <p className="text-xs text-muted">Jobs</p>
                 </div>
               </div>
             ))}
@@ -220,3 +220,5 @@ export default async function TechStatsPage() {
     </div>
   )
 }
+
+

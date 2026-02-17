@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { showToast } from '@/lib/utils/toast'
-import { Save, Trash2 } from 'lucide-react'
+import { Save, Trash2 } from '@/components/ui/icons'
 import { Customer } from '@/lib/types'
 
 interface EditCustomerFormProps {
@@ -177,3 +177,4 @@ export default function EditCustomerForm({ customer, businessId }: EditCustomerF
     </form>
   )
 }
+

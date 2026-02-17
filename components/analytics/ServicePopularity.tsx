@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
-import { Award } from 'lucide-react'
+﻿import { createClient } from '@/lib/supabase/server'
+import { Award } from '@/components/ui/lucide'
 
 interface ServicePopularityProps {
   businessId: string
@@ -284,7 +284,7 @@ export default async function ServicePopularity({ businessId, rangeStart, rangeE
                   </span>
                 </div>
                 <p className="text-xs text-white/40 mt-1 ml-6 font-mono">
-                  {services[0].count} JOBS • ${services[0].revenue.toFixed(0)} REVENUE
+                  {services[0].count} JOBS â€¢ ${services[0].revenue.toFixed(0)} REVENUE
                 </p>
               </div>
             )}
@@ -294,3 +294,5 @@ export default async function ServicePopularity({ businessId, rangeStart, rangeE
     </div>
   )
 }
+
+

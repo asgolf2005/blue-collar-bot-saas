@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { MapPin, Navigation, Clock } from 'lucide-react'
 import { formatDistance, formatDuration } from '@/lib/maps/eta-calculator'
 
 interface TechnicianETAProps {
@@ -65,10 +64,7 @@ export default function TechnicianETA({ jobId, jobAddress, techName }: Technicia
   if (error || !eta) {
     return (
       <div className="card p-4 bg-gray-50 dark:bg-gray-800/50">
-        <div className="flex items-center gap-2 text-muted">
-          <MapPin className="w-5 h-5" />
-          <span>Your technician will arrive soon</span>
-        </div>
+        <div className="text-muted">Your technician will arrive soon</div>
       </div>
     )
   }
@@ -81,7 +77,6 @@ export default function TechnicianETA({ jobId, jobAddress, techName }: Technicia
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="font-semibold text-lg flex items-center gap-2">
-            <Navigation className={`w-5 h-5 text-primary ${eta.isMoving ? 'animate-pulse' : ''}`} />
             {techName} is on the way
           </h3>
           <p className="text-sm text-muted mt-1">Heading to {jobAddress}</p>
@@ -91,10 +86,7 @@ export default function TechnicianETA({ jobId, jobAddress, techName }: Technicia
       <div className="grid grid-cols-2 gap-4">
         {/* ETA */}
         <div className="p-3 bg-primary/5 rounded-lg">
-          <div className="flex items-center gap-2 mb-1">
-            <Clock className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted uppercase">Estimated Arrival</span>
-          </div>
+          <div className="mb-1 text-xs text-muted uppercase">Estimated Arrival</div>
           <div className="text-2xl font-bold text-primary">
             {minutesAway < 60 ? `${minutesAway} min` : formatDuration(eta.duration)}
           </div>
@@ -109,10 +101,7 @@ export default function TechnicianETA({ jobId, jobAddress, techName }: Technicia
 
         {/* Distance */}
         <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          <div className="flex items-center gap-2 mb-1">
-            <MapPin className="w-4 h-4 text-muted" />
-            <span className="text-xs text-muted uppercase">Distance Away</span>
-          </div>
+          <div className="mb-1 text-xs text-muted uppercase">Distance Away</div>
           <div className="text-2xl font-bold">
             {formatDistance(eta.distance)}
           </div>
@@ -125,7 +114,7 @@ export default function TechnicianETA({ jobId, jobAddress, techName }: Technicia
       {minutesAway <= 10 && (
         <div className="mt-4 p-3 bg-success/10 border border-success/20 rounded-lg">
           <p className="text-sm text-success font-medium">
-            🎯 Your technician will arrive in about {minutesAway} minutes!
+            Heads up: your technician will arrive in about {minutesAway} minutes.
           </p>
         </div>
       )}

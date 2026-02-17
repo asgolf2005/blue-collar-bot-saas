@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NewCustomerForm from '@/components/admin/NewCustomerForm'
-import { ArrowLeft, Sparkles, Users } from 'lucide-react'
+import { ArrowLeft, Sparkles, Users } from '@/components/ui/lucide'
 import Link from 'next/link'
 
 export default async function NewCustomerPage() {
@@ -73,3 +73,5 @@ export default async function NewCustomerPage() {
     </div>
   )
 }
+
+

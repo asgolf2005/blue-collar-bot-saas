@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Search, Clock, Briefcase, Users, FileText, X, Loader2 } from 'lucide-react'
+import { Search, Clock, Briefcase, Users, Receipt, X, Loader2 } from '@/components/ui/icons'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { EmptySearch } from '@/components/ui/EmptyState'
@@ -171,7 +171,7 @@ export default function GlobalSearch() {
               title: invoice.invoice_number,
               subtitle: invoice.customers?.name || 'No customer',
               url: `/admin/invoices/${invoice.id}`,
-              metadata: `$${parseFloat(invoice.total.toString()).toFixed(2)} • ${invoice.status}`,
+              metadata: `$${parseFloat(invoice.total.toString()).toFixed(2)} â€¢ ${invoice.status}`,
             })
           })
         }
@@ -234,7 +234,7 @@ export default function GlobalSearch() {
       case 'customer':
         return <Users className="w-4 h-4" />
       case 'invoice':
-        return <FileText className="w-4 h-4" />
+        return <Receipt className="w-4 h-4" />
       default:
         return <Search className="w-4 h-4" />
     }
@@ -278,7 +278,7 @@ export default function GlobalSearch() {
               className="flex-1 bg-transparent border-none outline-none text-ink dark:text-surface-100 placeholder-surface-400"
             />
             {loading && <Loader2 className="w-4 h-4 text-surface-400 animate-spin" />}
-            <button
+            <button type="button"
               onClick={() => setIsOpen(false)}
               className="p-1 hover:bg-surface-100 dark:hover:bg-surface-800 rounded-lg transition-colors"
             >
@@ -291,7 +291,7 @@ export default function GlobalSearch() {
             {results.length > 0 ? (
               <div className="p-2">
                 {results.map((result, index) => (
-                  <button
+                  <button type="button"
                     key={result.id}
                     onClick={() => handleSelect(result)}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
@@ -335,7 +335,7 @@ export default function GlobalSearch() {
                       Recent Searches
                     </p>
                     {recentSearches.map((search, index) => (
-                      <button
+                      <button type="button"
                         key={index}
                         onClick={() => setQuery(search)}
                         className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 text-left"
@@ -357,15 +357,15 @@ export default function GlobalSearch() {
           <div className="flex items-center justify-between px-4 py-2 border-t border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800">
             <div className="flex items-center gap-4 text-xs text-surface-500">
               <div className="flex items-center gap-1">
-                <kbd className="px-2 py-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded text-xs">↑↓</kbd>
+                <kbd className="px-2 py-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded text-xs">â†‘â†“</kbd>
                 <span>Navigate</span>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="px-2 py-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded text-xs">↵</kbd>
+                <kbd className="px-2 py-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded text-xs">â†µ</kbd>
                 <span>Select</span>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="px-2 py-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded text-xs">esc</kbd>
+                <kbd className="px-2 py-1 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded text-xs">Esc</kbd>
                 <span>Close</span>
               </div>
             </div>
@@ -375,3 +375,4 @@ export default function GlobalSearch() {
     </>
   )
 }
+

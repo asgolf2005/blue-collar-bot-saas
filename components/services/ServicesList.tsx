@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import { Service } from '@/lib/types'
 import { useState } from 'react'
 import ServiceCard from './ServiceCard'
 import ServiceForm from './ServiceForm'
-import { Plus } from 'lucide-react'
+import { Plus } from '@/components/ui/icons'
 import { EmptyServices } from '@/components/ui/EmptyState'
 
 interface ServiceWithStats extends Service {
@@ -39,7 +39,7 @@ export default function ServicesList({
     <div>
       {/* Add Service Button */}
       <div className="mb-6">
-        <button
+        <button type="button"
           onClick={() => setShowForm(true)}
           className="btn btn-primary flex items-center"
         >
@@ -108,3 +108,4 @@ export default function ServicesList({
     </div>
   )
 }
+

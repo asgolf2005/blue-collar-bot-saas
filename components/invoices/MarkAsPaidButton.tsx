@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, Loader2 } from '@/components/ui/icons'
 
 export default function MarkAsPaidButton({
   invoiceId,
@@ -51,3 +51,4 @@ export default function MarkAsPaidButton({
     </button>
   )
 }
+

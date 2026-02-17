@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo } from 'react'
 import {
@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { DollarSign, Briefcase, Clock } from 'lucide-react'
+import { DollarSign, Briefcase, Clock } from '@/components/ui/icons'
 
 interface RevenueDataPoint {
   date: string
@@ -163,7 +163,7 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
           {(Object.keys(viewConfig) as ChartView[]).map((v) => {
             const Icon = viewConfig[v].icon
             return (
-              <button
+              <button type="button"
                 key={v}
                 onClick={() => setView(v)}
                 className={`
@@ -240,14 +240,14 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
             <XAxis
               dataKey="date"
               tickFormatter={formatXAxisDateLabel}
-              tick={{ fontSize: 11, fontFamily: 'JetBrains Mono', fill: '#64748b' }}
+              tick={{ fontSize: 11, fontFamily: 'Inter', fill: '#64748b' }}
               axisLine={false}
               tickLine={false}
               minTickGap={10}
               dy={10}
             />
             <YAxis
-              tick={{ fontSize: 11, fontFamily: 'JetBrains Mono', fill: '#64748b' }}
+              tick={{ fontSize: 11, fontFamily: 'Inter', fill: '#64748b' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
@@ -297,8 +297,9 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
       </div>
 
       <p className="font-mono text-[10px] text-slate-400 dark:text-slate-500 text-center mt-2">
-        Hover for breakdown • Click chart for details
+        Hover for breakdown â€¢ Click chart for details
       </p>
     </div>
   )
 }
+

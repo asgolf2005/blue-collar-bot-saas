@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { MapPin, MapPinOff, Navigation } from 'lucide-react'
 import { showToast } from '@/lib/utils/toast'
 
 interface LocationSharingProps {
@@ -114,7 +113,7 @@ export default function LocationSharing({ jobId, autoStart = false }: LocationSh
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Navigation className={`w-5 h-5 ${isSharing ? 'text-primary animate-pulse' : 'text-muted'}`} />
+          <span className={`h-2 w-2 rounded-full ${isSharing ? 'bg-primary animate-pulse' : 'bg-surface-300 dark:bg-white/15'}`} aria-hidden="true" />
           <span className="font-semibold">Location Sharing</span>
         </div>
         {isSharing && lastUpdate && (
@@ -130,26 +129,21 @@ export default function LocationSharing({ jobId, autoStart = false }: LocationSh
         </div>
       )}
 
-      <button
+      <button type="button"
         onClick={isSharing ? stopSharing : startSharing}
         className={`w-full ${isSharing ? 'glass-btn-danger' : 'glass-btn-primary'}`}
       >
-        {isSharing ? (
-          <>
-            <MapPinOff className="w-4 h-4" />
-            Stop Sharing Location
-          </>
-        ) : (
-          <>
-            <MapPin className="w-4 h-4" />
-            Start Sharing Location
-          </>
-        )}
+        {isSharing ? 'Stop Sharing Location' : 'Start Sharing Location'}
       </button>
 
       {isSharing && (
         <p className="text-xs text-muted mt-2 text-center">
-          Your location is being shared in real-time
+          Your live location is visible to admin and customer tracking views.
+        </p>
+      )}
+      {!isSharing && (
+        <p className="text-xs text-muted mt-2 text-center">
+          Turn this on to share live progress with admin and the customer.
         </p>
       )}
     </div>

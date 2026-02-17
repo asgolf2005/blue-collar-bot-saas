@@ -1,6 +1,6 @@
-'use client'
+﻿'use client'
 
-import { Search, Share2 } from 'lucide-react'
+import { Search, Share2 } from '@/components/ui/icons'
 import NotificationBell from '@/components/NotificationBell'
 
 interface AdminNavBarProps {
@@ -59,3 +59,4 @@ export default function AdminNavBar({
     </div>
   )
 }
+

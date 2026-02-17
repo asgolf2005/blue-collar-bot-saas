@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState } from 'react'
 import {
@@ -16,7 +16,7 @@ import {
   AlertTriangle,
   PlusCircle,
   type LucideIcon,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 
 interface ServiceData {
   id: string
@@ -141,7 +141,7 @@ export default function ServiceBreakdownTable({
             Revenue breakdown by service type
           </p>
         </div>
-        <button
+        <button type="button"
           onClick={onExport}
           className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg font-mono text-xs text-slate-700 dark:text-slate-300 transition-colors"
         >
@@ -155,7 +155,7 @@ export default function ServiceBreakdownTable({
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-700">
               <th className="text-left py-3 px-2">
-                <button
+                <button type="button"
                   onClick={() => handleSort('name')}
                   className="flex items-center gap-1 font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                 >
@@ -164,7 +164,7 @@ export default function ServiceBreakdownTable({
                 </button>
               </th>
               <th className="text-right py-3 px-2">
-                <button
+                <button type="button"
                   onClick={() => handleSort('revenue')}
                   className="flex items-center justify-end gap-1 font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-auto"
                 >
@@ -173,7 +173,7 @@ export default function ServiceBreakdownTable({
                 </button>
               </th>
               <th className="text-right py-3 px-2">
-                <button
+                <button type="button"
                   onClick={() => handleSort('jobs')}
                   className="flex items-center justify-end gap-1 font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-auto"
                 >
@@ -182,7 +182,7 @@ export default function ServiceBreakdownTable({
                 </button>
               </th>
               <th className="text-right py-3 px-2">
-                <button
+                <button type="button"
                   onClick={() => handleSort('avgTicket')}
                   className="flex items-center justify-end gap-1 font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-auto"
                 >
@@ -191,7 +191,7 @@ export default function ServiceBreakdownTable({
                 </button>
               </th>
               <th className="text-right py-3 px-2">
-                <button
+                <button type="button"
                   onClick={() => handleSort('trend')}
                   className="flex items-center justify-end gap-1 font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-200 transition-colors ml-auto"
                 >
@@ -292,3 +292,4 @@ export default function ServiceBreakdownTable({
     </div>
   )
 }
+

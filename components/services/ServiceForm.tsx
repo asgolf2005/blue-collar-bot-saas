@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { Service } from '@/lib/types'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { X, Save, Loader2 } from 'lucide-react'
+import { X, Save, Loader2 } from '@/components/ui/icons'
 import { useRouter } from 'next/navigation'
 import { showToast } from '@/lib/utils/toast'
 
@@ -84,7 +84,7 @@ export default function ServiceForm({
         <h2 className="text-xl font-bold text-gray-900">
           {service ? 'Edit Service' : 'Add New Service'}
         </h2>
-        <button
+        <button type="button"
           onClick={onClose}
           className="text-gray-400 hover:text-gray-600 transition-colors"
         >
@@ -195,3 +195,4 @@ export default function ServiceForm({
     </div>
   )
 }
+

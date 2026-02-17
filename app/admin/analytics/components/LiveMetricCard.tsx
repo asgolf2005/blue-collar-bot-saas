@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { TrendingUp, TrendingDown, Minus, LucideIcon } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, LucideIcon } from '@/components/ui/icons'
 
 interface LiveMetricCardProps {
   label: string
@@ -87,7 +87,6 @@ export default function LiveMetricCard({
   delay = 0,
 }: LiveMetricCardProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const [tooltipVisible, setTooltipVisible] = useState(false)
   const colors = colorClasses[color]
 
   // Parse value for animation
@@ -108,50 +107,29 @@ export default function LiveMetricCard({
   return (
     <div
       className={`
-        relative bg-white dark:bg-slate-900 rounded-xl border p-5 
-        transition-all duration-500 ease-out cursor-pointer h-full
-        ${colors.border}
+        rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 
+        transition-all duration-500 ease-out h-full
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
-        hover:shadow-lg hover:scale-[1.02] hover:border-cyan-400 dark:hover:border-cyan-400/50
+        hover:shadow-sm
       `}
-      onMouseEnter={() => setTooltipVisible(true)}
-      onMouseLeave={() => setTooltipVisible(false)}
     >
-      {/* Click indicator */}
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600" />
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+        <Icon className={`w-4 h-4 ${colors.text}`} />
       </div>
-
-      {/* Tooltip */}
-      {tooltipVisible && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap z-10 animate-fade-in">
-          Click for details
-          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 dark:bg-slate-800 rotate-45"></div>
-        </div>
-      )}
-
-      <div className="flex items-start gap-4">
-        <div className={`w-12 h-12 rounded-xl ${colors.bg} flex items-center justify-center ${colors.text}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            {label}
-          </p>
-          <p className={`font-display text-3xl ${colors.text} mt-1`}>
-            <AnimatedNumber value={numericValue} prefix={prefix} suffix={suffix} />
-          </p>
-          <div className={`flex items-center gap-1 mt-1 ${changeColor}`}>
-            <ChangeIcon className="w-3.5 h-3.5" />
-            <span className="font-mono text-xs font-medium">
-              {change > 0 ? '+' : ''}{change}%
-            </span>
-            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-1">
-              {changeLabel}
-            </span>
-          </div>
-        </div>
+      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+        <AnimatedNumber value={numericValue} prefix={prefix} suffix={suffix} />
+      </p>
+      <div className={`flex items-center gap-1 mt-1 ${changeColor}`}>
+        <ChangeIcon className="w-3.5 h-3.5" />
+        <span className="font-mono text-xs font-medium">
+          {change > 0 ? '+' : ''}{change}%
+        </span>
+        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-1">
+          {changeLabel}
+        </span>
       </div>
     </div>
   )
 }
+

@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
-import { Command, ChevronDown, ChevronUp } from 'lucide-react'
+import { Command, ChevronDown, ChevronUp } from '@/components/ui/icons'
 import { cn } from '@/lib/utils/cn'
 
 interface Shortcut {
@@ -25,20 +25,20 @@ export default function KeyboardShortcutsCard({
   const getShortcuts = (): Shortcut[] => {
     if (role === 'admin') {
       return [
-        { keys: ['⌘', 'K'], description: 'Search' },
+        { keys: ['âŒ˜', 'K'], description: 'Search' },
         { keys: ['?'], description: 'Show all shortcuts' },
         { keys: ['G', 'J'], description: 'Go to Jobs' },
         { keys: ['G', 'C'], description: 'Go to Customers' },
         { keys: ['G', 'I'], description: 'Go to Invoices' },
         { keys: ['G', 'A'], description: 'Go to Analytics' },
-        { keys: ['⌘', '⇧', 'N'], description: 'New Job' },
-        { keys: ['⌘', '⇧', 'C'], description: 'New Customer' },
+        { keys: ['âŒ˜', 'â‡§', 'N'], description: 'New Job' },
+        { keys: ['âŒ˜', 'â‡§', 'C'], description: 'New Customer' },
       ]
     }
 
     if (role === 'tech') {
       return [
-        { keys: ['⌘', 'K'], description: 'Search' },
+        { keys: ['âŒ˜', 'K'], description: 'Search' },
         { keys: ['?'], description: 'Show all shortcuts' },
         { keys: ['G', 'T'], description: 'Go to Today' },
         { keys: ['G', 'D'], description: 'Go to Dashboard' },
@@ -48,7 +48,7 @@ export default function KeyboardShortcutsCard({
 
     // Customer role
     return [
-      { keys: ['⌘', 'K'], description: 'Search' },
+      { keys: ['âŒ˜', 'K'], description: 'Search' },
       { keys: ['?'], description: 'Show all shortcuts' },
     ]
   }
@@ -58,7 +58,7 @@ export default function KeyboardShortcutsCard({
   return (
     <div className={cn('glass-card overflow-hidden', className)}>
       {/* Header */}
-      <button
+      <button type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-5 py-4 flex items-center justify-between hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
       >
@@ -112,3 +112,4 @@ export default function KeyboardShortcutsCard({
     </div>
   )
 }
+

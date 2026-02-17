@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek, addDays, startOfDay, isToday as isDateToday } from 'date-fns'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Plus, Calendar, MapPin, PlayCircle, CheckCircle2, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Calendar, Truck, PlayCircle, CheckCircle2, XCircle } from '@/components/ui/icons'
 
 interface Customer {
   id: string
@@ -45,7 +45,7 @@ const statusConfig: Record<string, { color: string; bg: string; label: string; i
     color: 'text-amber-600 dark:text-amber-400', 
     bg: 'bg-amber-500',
     label: 'EN ROUTE',
-    icon: MapPin
+    icon: Truck
   },
   in_progress: { 
     color: 'text-blue-600 dark:text-blue-400', 
@@ -63,7 +63,7 @@ const statusConfig: Record<string, { color: string; bg: string; label: string; i
     color: 'text-rose-600 dark:text-rose-400', 
     bg: 'bg-rose-500',
     label: 'CANCELLED',
-    icon: Clock
+    icon: XCircle
   },
 }
 
@@ -186,7 +186,7 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
           label="EN ROUTE"
           value={jobCounts.on_the_way}
           color="amber"
-          icon={MapPin}
+          icon={Truck}
         />
         <MiniStatCard
           label="IN PROGRESS"
@@ -213,20 +213,20 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
                 {getViewTitle()}
               </h2>
               <div className="flex items-center gap-1">
-                <button
+                <button type="button"
                   onClick={goToToday}
                   className="px-3 py-1.5 text-xs font-mono font-medium bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white rounded-full transition-colors"
                 >
                   TODAY
                 </button>
-                <button
+                <button type="button"
                   onClick={goToPrevious}
                   className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   title="Previous"
                 >
                   <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
-                <button
+                <button type="button"
                   onClick={goToNext}
                   className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   title="Next"
@@ -241,7 +241,7 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
               {/* View Mode Toggle */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
                 {(['month', 'week', 'day'] as ViewMode[]).map((mode) => (
-                  <button
+                  <button type="button"
                     key={mode}
                     onClick={() => setViewMode(mode)}
                     className={`px-3 py-1.5 text-xs font-mono rounded-md transition-all ${
@@ -497,3 +497,4 @@ function MiniStatCard({
     </div>
   )
 }
+

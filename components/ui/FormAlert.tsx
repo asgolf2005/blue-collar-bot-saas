@@ -1,5 +1,5 @@
-import React from 'react'
-import { CheckCircle2, XCircle, Info, AlertTriangle } from 'lucide-react'
+﻿import React from 'react'
+import { CheckCircle2, XCircle, Info, AlertTriangle } from '@/components/ui/lucide'
 
 interface FormAlertProps {
   type: 'success' | 'danger' | 'info' | 'warning'
@@ -33,7 +33,7 @@ export function FormAlert({ type, message, onClose }: FormAlertProps) {
         </p>
       </div>
       {onClose && (
-        <button
+        <button type="button"
           onClick={onClose}
           className={`${colors[type]} hover:opacity-70 transition-opacity`}
           aria-label="Close alert"
@@ -44,3 +44,5 @@ export function FormAlert({ type, message, onClose }: FormAlertProps) {
     </div>
   )
 }
+
+

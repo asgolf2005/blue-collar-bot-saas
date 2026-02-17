@@ -3,7 +3,6 @@
 import { Job, Customer } from '@/lib/types'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { Clock, MapPin, Calendar, CheckCircle } from 'lucide-react'
 
 interface JobWithCustomer extends Job {
   customer: Customer
@@ -40,36 +39,22 @@ export default function AppointmentCard({
     return labels[status] || status
   }
 
-  const getStatusIcon = (status: string) => {
-    if (status === 'completed') {
-      return <CheckCircle className="w-5 h-5" />
-    }
-    return <Clock className="w-5 h-5" />
-  }
-
   return (
     <Link href={`/customer/appointments/${job.id}`}>
       <div className="card hover:shadow-elevation-2 transition cursor-pointer">
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <Calendar className="w-4 h-4 text-muted" />
               <span className="font-medium text-ink">
                 {format(new Date(job.scheduled_start), 'EEEE, MMMM d, yyyy')}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted">
-              <Clock className="w-4 h-4 text-muted" />
-              <span>
-                {format(new Date(job.scheduled_start), 'h:mm a')} - {format(new Date(job.scheduled_end), 'h:mm a')}
-              </span>
+            <div className="text-sm text-muted">
+              {format(new Date(job.scheduled_start), 'h:mm a')} - {format(new Date(job.scheduled_end), 'h:mm a')}
             </div>
           </div>
           <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(job.status)}`}>
-            <div className="flex items-center gap-1">
-              {getStatusIcon(job.status)}
-              <span>{getStatusText(job.status)}</span>
-            </div>
+            {getStatusText(job.status)}
           </div>
         </div>
 
@@ -91,11 +76,7 @@ export default function AppointmentCard({
 
         {showHistory && (
           <div className="mt-3 pt-3 border-t border-surface-200">
-            <Link
-              href={`/customer/appointments/${job.id}`}
-              className="text-primary hover:text-primary/80 text-sm font-medium"
-            >
-              View Details</Link>
+            <span className="text-primary text-sm font-medium">View details</span>
           </div>
         )}
       </div>

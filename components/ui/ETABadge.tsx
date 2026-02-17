@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock } from 'lucide-react'
+import { Clock } from '@/components/ui/icons'
 
 interface ETABadgeProps {
   minutes: number
@@ -38,3 +38,4 @@ export default function ETABadge({ minutes, label = 'ETA', className = '' }: ETA
     </span>
   )
 }
+

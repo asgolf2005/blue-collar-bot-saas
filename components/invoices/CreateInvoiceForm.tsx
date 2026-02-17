@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -6,25 +6,27 @@ import Link from 'next/link'
 import {
   AlertTriangle,
   CheckCircle2,
-  Circle,
   DollarSign,
-  FileText,
+  Receipt,
   Plus,
   Save,
   Search,
   ShieldCheck,
   Wrench,
   X,
-} from 'lucide-react'
+} from '@/components/ui/icons'
 
 interface Job {
   id: string
   customer_id: string
   scheduled_start: string
-  description: string
+  scheduled_end?: string | null
+  description: string | null
   labor_hours: number | null
   labor_rate: number | null
   parts_cost: number | null
+  total_cost?: number | null
+  urgency?: string | null
   status: string
   hasInvoice?: boolean
   customer: {
@@ -69,6 +71,7 @@ interface ComplianceCheck {
   label: string
   passed: boolean
   blocking: boolean
+  applicable?: boolean
   hint?: string
 }
 
@@ -87,6 +90,66 @@ function formatJobSlot(dateString: string) {
 
 function toStatusLabel(status: string) {
   return status.replace(/_/g, ' ')
+}
+
+function buildLineItemsFromJob(job: Job): LineItem[] {
+  const items: LineItem[] = []
+
+  job.services?.forEach((js) => {
+    if (!js.service) return
+    items.push({
+      type: 'service',
+      description: js.service.name,
+      quantity: 1,
+      unit_price: js.service.base_price || 0,
+      service_id: js.service.id,
+    })
+  })
+
+  if (job.labor_hours && job.labor_rate) {
+    items.push({
+      type: 'labor',
+      description: `Labor (${job.labor_hours} hours)`,
+      quantity: job.labor_hours,
+      unit_price: job.labor_rate,
+    })
+  }
+
+  if (job.parts_cost && job.parts_cost > 0) {
+    items.push({
+      type: 'parts',
+      description: 'Parts and Materials',
+      quantity: 1,
+      unit_price: job.parts_cost,
+    })
+  }
+
+  if (items.length === 0) {
+    items.push({
+      type: 'service',
+      description: job.description?.trim() || 'Service charge',
+      quantity: 1,
+      unit_price: job.total_cost && job.total_cost > 0 ? job.total_cost : 0,
+    })
+  }
+
+  return items
+}
+
+function buildDefaultInvoiceNotes(job: Job): string {
+  const notes: string[] = []
+
+  if (job.description?.trim()) {
+    notes.push(`Job scope: ${job.description.trim()}`)
+  }
+
+  if (job.customer?.address?.trim()) {
+    notes.push(`Service address: ${job.customer.address.trim()}`)
+  }
+
+  notes.push(`Scheduled: ${formatJobSlot(job.scheduled_start)}`)
+
+  return notes.join('\n')
 }
 
 export default function CreateInvoiceForm({
@@ -145,8 +208,10 @@ export default function CreateInvoiceForm({
     lineItems.length > 0 &&
     lineItems.every((item) => item.description.trim().length > 0 && item.quantity > 0 && item.unit_price >= 0)
 
-  const complianceChecks = useMemo<ComplianceCheck[]>(
-    () => [
+  const complianceChecks = useMemo<ComplianceCheck[]>(() => {
+    const buyerIdentityApplies = total >= 1000
+
+    return [
       {
         id: 'business-name',
         label: 'Business legal name is set',
@@ -202,16 +267,32 @@ export default function CreateInvoiceForm({
       {
         id: 'buyer-identity-1000',
         label: 'Buyer identity present for totals over $1,000',
-        passed: total < 1000 || Boolean(selectedJob?.customer?.name?.trim()),
+        passed: Boolean(selectedJob?.customer?.name?.trim()),
         blocking: false,
+        applicable: buyerIdentityApplies,
         hint: 'Recommended for AU tax invoice compliance.',
       },
-    ],
-    [businessProfile.address, businessProfile.email, businessProfile.name, businessProfile.phone, hasValidDueDays, hasValidLineItems, selectedJob?.customer?.address, selectedJob?.customer?.name, selectedJob?.customer_id, total]
-  )
+    ]
+  }, [
+    businessProfile.address,
+    businessProfile.email,
+    businessProfile.name,
+    businessProfile.phone,
+    hasValidDueDays,
+    hasValidLineItems,
+    selectedJob?.customer?.address,
+    selectedJob?.customer?.name,
+    selectedJob?.customer_id,
+    total,
+  ])
 
-  const failedBlockingChecks = complianceChecks.filter((check) => check.blocking && !check.passed)
-  const failedWarningChecks = complianceChecks.filter((check) => !check.blocking && !check.passed)
+  const activeComplianceChecks = complianceChecks.filter((check) => check.applicable !== false)
+  const blockingChecks = activeComplianceChecks.filter((check) => check.blocking)
+  const warningChecks = activeComplianceChecks.filter((check) => !check.blocking)
+  const passedBlockingCount = blockingChecks.filter((check) => check.passed).length
+  const passedWarningCount = warningChecks.filter((check) => check.passed).length
+  const failedBlockingChecks = blockingChecks.filter((check) => !check.passed)
+  const failedWarningChecks = warningChecks.filter((check) => !check.passed)
   const isComplianceReady = failedBlockingChecks.length === 0
 
   const handleJobSelect = useCallback(
@@ -220,40 +301,14 @@ export default function CreateInvoiceForm({
       const job = jobs.find((j) => j.id === jobId)
       if (!job) return
 
-      const items: LineItem[] = []
-
-      job.services?.forEach((js) => {
-        if (!js.service) return
-        items.push({
-          type: 'service',
-          description: js.service.name,
-          quantity: 1,
-          unit_price: js.service.base_price || 0,
-          service_id: js.service.id,
-        })
+      setLineItems(buildLineItemsFromJob(job))
+      setNotes((currentNotes) => {
+        const shouldAutofill = selectedJobId !== jobId || currentNotes.trim().length === 0
+        if (!shouldAutofill) return currentNotes
+        return buildDefaultInvoiceNotes(job)
       })
-
-      if (job.labor_hours && job.labor_rate) {
-        items.push({
-          type: 'labor',
-          description: `Labor (${job.labor_hours} hours)`,
-          quantity: job.labor_hours,
-          unit_price: job.labor_rate,
-        })
-      }
-
-      if (job.parts_cost && job.parts_cost > 0) {
-        items.push({
-          type: 'parts',
-          description: 'Parts and Materials',
-          quantity: 1,
-          unit_price: job.parts_cost,
-        })
-      }
-
-      setLineItems(items)
     },
-    [jobs]
+    [jobs, selectedJobId]
   )
 
   useEffect(() => {
@@ -299,8 +354,6 @@ export default function CreateInvoiceForm({
     setError(null)
 
     if (!isComplianceReady) {
-      const firstMissing = failedBlockingChecks[0]
-      setError(firstMissing?.hint || 'Please complete required invoice compliance fields before creating this invoice.')
       return
     }
 
@@ -344,7 +397,7 @@ export default function CreateInvoiceForm({
     return (
       <div className={PANEL_CLASS}>
         <div className="mx-auto max-w-lg text-center">
-          <FileText className="mx-auto mb-3 h-9 w-9 text-slate-400 dark:text-slate-500" />
+          <Receipt className="mx-auto mb-3 h-9 w-9 text-slate-400 dark:text-slate-500" />
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">No invoice-ready jobs</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             Jobs must be in Arrived, In Progress, or Completed status to create invoices.
@@ -593,52 +646,112 @@ export default function CreateInvoiceForm({
               </span>
             </div>
 
-            <div className="space-y-2">
-              {complianceChecks.map((check) => (
-                <div
-                  key={check.id}
-                  className={`rounded-xl border px-3 py-2 ${
-                    check.passed
-                      ? 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-500/30 dark:bg-emerald-500/10'
-                      : check.blocking
-                        ? 'border-rose-200 bg-rose-50/60 dark:border-rose-500/30 dark:bg-rose-500/10'
-                        : 'border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10'
-                  }`}
-                >
-                  <p className="flex items-start gap-2 text-xs">
+            <div className="mb-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Required</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {passedBlockingCount}/{blockingChecks.length || 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Recommended</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {passedWarningCount}/{warningChecks.length || 0}
+                </p>
+              </div>
+            </div>
+
+            <details className="mb-3 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
+              <summary className="cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-200">
+                View all compliance requirements
+              </summary>
+              <div className="mt-2 space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Required
+                </p>
+                {blockingChecks.map((check) => (
+                  <div key={check.id} className="flex items-start gap-2 text-xs">
                     {check.passed ? (
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
                     ) : (
-                      <Circle className="mt-0.5 h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-rose-600 dark:text-rose-300" />
                     )}
                     <span className="text-slate-700 dark:text-slate-200">{check.label}</span>
-                  </p>
-                  {!check.passed && check.hint && (
-                    <p className="mt-1 pl-5 text-[11px] text-slate-600 dark:text-slate-300">{check.hint}</p>
-                  )}
-                </div>
-              ))}
-            </div>
+                  </div>
+                ))}
 
-            {!isComplianceReady && (
-              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                {warningChecks.length > 0 && (
+                  <>
+                    <p className="pt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Recommended
+                    </p>
+                    {warningChecks.map((check) => (
+                      <div key={check.id} className="flex items-start gap-2 text-xs">
+                        {check.passed ? (
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
+                        ) : (
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-300" />
+                        )}
+                        <span className="text-slate-700 dark:text-slate-200">{check.label}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </details>
+
+            {failedBlockingChecks.length > 0 ? (
+              <div className="space-y-2">
+                {failedBlockingChecks.map((check) => (
+                  <div
+                    key={check.id}
+                    className="rounded-xl border border-rose-200 bg-rose-50/60 px-3 py-2 dark:border-rose-500/30 dark:bg-rose-500/10"
+                  >
+                    <p className="flex items-start gap-2 text-xs">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-rose-600 dark:text-rose-300" />
+                      <span className="text-slate-700 dark:text-slate-200">{check.label}</span>
+                    </p>
+                    {check.hint && (
+                      <p className="mt-1 pl-5 text-[11px] text-slate-600 dark:text-slate-300">{check.hint}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
                 <p className="flex items-center gap-1.5">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Required fields missing for invoice compliance.
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  All required compliance checks are complete.
                 </p>
-                <Link
-                  href="/admin/settings"
-                  className="mt-1 inline-flex text-rose-700 underline decoration-dotted underline-offset-2 dark:text-rose-200"
-                >
-                  Open Settings
-                </Link>
               </div>
             )}
+
+            {failedWarningChecks.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Recommendations
+                </p>
+                <div className="space-y-2">
+                  {failedWarningChecks.map((check) => (
+                    <div
+                      key={check.id}
+                      className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10"
+                    >
+                      <p className="text-xs text-slate-700 dark:text-slate-200">{check.label}</p>
+                      {check.hint && (
+                        <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">{check.hint}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </section>
 
           <section className={`${PANEL_CLASS} p-4`}>
             <div className="mb-3 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
+              <Receipt className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Live Summary</h3>
             </div>
 
@@ -721,3 +834,4 @@ export default function CreateInvoiceForm({
     </form>
   )
 }
+

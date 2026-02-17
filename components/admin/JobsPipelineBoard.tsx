@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ElementType } from 'react'
 import Link from 'next/link'
@@ -8,10 +8,11 @@ import {
   Calendar,
   CheckCircle2,
   Loader2,
-  MapPin,
   PlayCircle,
+  Truck,
   User,
-} from 'lucide-react'
+  XCircle,
+} from '@/components/ui/icons'
 import { showToast } from '@/lib/utils/toast'
 
 type PipelineStatus = 'scheduled' | 'on_the_way' | 'in_progress' | 'completed' | 'cancelled'
@@ -45,10 +46,10 @@ const STATUS_META: Record<
   }
 > = {
   scheduled: { title: 'SCHEDULED', color: 'cyan', icon: Calendar },
-  on_the_way: { title: 'EN ROUTE', color: 'amber', icon: MapPin },
+  on_the_way: { title: 'EN ROUTE', color: 'amber', icon: Truck },
   in_progress: { title: 'IN PROGRESS', color: 'blue', icon: PlayCircle },
   completed: { title: 'COMPLETED', color: 'emerald', icon: CheckCircle2 },
-  cancelled: { title: 'CANCELLED', color: 'slate', icon: CheckCircle2 },
+  cancelled: { title: 'CANCELLED', color: 'slate', icon: XCircle },
 }
 
 function normalizeStatus(status: string): PipelineStatus {
@@ -375,3 +376,4 @@ function PipelineColumn({
     </div>
   )
 }
+

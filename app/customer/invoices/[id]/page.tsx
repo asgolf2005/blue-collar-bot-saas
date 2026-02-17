@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { format } from 'date-fns'
-import { ArrowLeft, FileText, Download, CheckCircle, Clock, AlertCircle, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, Download, CheckCircle, Clock, AlertCircle, Phone, Mail } from '@/components/ui/lucide'
 import Link from 'next/link'
 import { InvoiceLineItem } from '@/lib/types'
 import InvoiceDownloadButton from '@/components/customer/InvoiceDownloadButton'
@@ -257,7 +257,7 @@ export default async function InvoiceDetailsPage({
                 href={`/customer/appointments/${invoice.job.id}`}
                 className="text-primary hover:text-primary/80 text-sm font-medium"
               >
-                View Appointment →
+                View Appointment â†’
               </Link>
             </div>
           )}
@@ -266,3 +266,5 @@ export default async function InvoiceDetailsPage({
     </div>
   )
 }
+
+
