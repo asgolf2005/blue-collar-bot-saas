@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { compactLines, withTimeout } from '@/lib/ai/utils'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { trackAICost } from '@/lib/ai/cost-tracker'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
       10_000,
       'Troubleshooting request timed out'
     )
+    trackAICost(user.id, Models.FAST, completion.usage?.total_tokens || 0)
 
     const reply =
       completion.choices[0]?.message?.content?.trim() ||

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evaluateCompletionVerification } from '@/lib/ai/completion-check'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { trackAICost } from '@/lib/ai/cost-tracker'
 
 export async function POST(request: Request) {
   try {
@@ -57,7 +58,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const result = await evaluateCompletionVerification({ supabase, jobId })
+    const result = await evaluateCompletionVerification({
+      supabase,
+      jobId,
+      onAIUsage: (model, tokens) => trackAICost(user.id, model, tokens),
+    })
 
     return NextResponse.json({
       success: true,

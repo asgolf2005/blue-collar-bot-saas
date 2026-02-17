@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { compactLines, withTimeout } from '@/lib/ai/utils'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { trackAICost } from '@/lib/ai/cost-tracker'
 
 type VoiceMode = 'job_note' | 'transcript'
 
@@ -102,6 +103,14 @@ export async function POST(request: Request) {
       'Voice transcription timed out'
     )
 
+    const transcriptionTokens =
+      typeof transcription === 'string'
+        ? 0
+        : Number(
+            (transcription as { usage?: { total_tokens?: number } }).usage?.total_tokens || 0
+          )
+    trackAICost(user.id, Models.WHISPER, transcriptionTokens)
+
     const transcript = typeof transcription === 'string' ? transcription.trim() : ''
 
     if (!transcript) {
@@ -152,6 +161,7 @@ export async function POST(request: Request) {
       10_000,
       'Voice note formatting timed out'
     )
+    trackAICost(user.id, Models.FAST, formattingCompletion.usage?.total_tokens || 0)
 
     const formattedNoteRaw = formattingCompletion.choices[0]?.message?.content || ''
     const formattedNote = formattedNoteRaw.trim() || transcript

@@ -147,9 +147,11 @@ function buildMissingPhotosResult(
 export async function evaluateCompletionVerification({
   supabase,
   jobId,
+  onAIUsage,
 }: {
   supabase: SupabaseClient
   jobId: string
+  onAIUsage?: (model: string, tokens: number) => void
 }): Promise<CompletionVerificationResult> {
   const [{ data: media, error: mediaError }, { data: notes }] = await Promise.all([
     supabase
@@ -299,6 +301,7 @@ export async function evaluateCompletionVerification({
       12_000,
       'Completion verification timed out'
     )
+    onAIUsage?.(Models.VISION, response.usage?.total_tokens || 0)
 
     const parsed = parseJsonFromModel<VerificationAIResponse>(response.choices[0]?.message?.content)
     if (!parsed?.results || !Array.isArray(parsed.results)) {

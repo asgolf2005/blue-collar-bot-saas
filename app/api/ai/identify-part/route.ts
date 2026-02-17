@@ -4,6 +4,7 @@ import { fileToDataUrl, parseJsonFromModel, withTimeout } from '@/lib/ai/utils'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { toReadableSentence, toTitleCase, normalizeWhitespace } from '@/lib/utils/text'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { trackAICost } from '@/lib/ai/cost-tracker'
 
 interface PartAnalysisResponse {
   part_name?: string
@@ -183,6 +184,7 @@ export async function POST(request: Request) {
       10_000,
       'Part identification timed out'
     )
+    trackAICost(user.id, 'gpt-4o-vision', completion.usage?.total_tokens || 0)
 
     const parsed = parseJsonFromModel<PartAnalysisResponse>(completion.choices[0]?.message?.content)
     if (!parsed) {
