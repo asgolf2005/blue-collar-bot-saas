@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evaluateCompletionVerification } from '@/lib/ai/completion-check'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
@@ -28,6 +29,17 @@ export async function POST(request: Request) {
 
     if (!profile) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
+    }
+
+    const rateLimit = checkRateLimit(`${user.id}:ai:verify-completion`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfter) },
+        }
+      )
     }
 
     const { data: job } = await supabase

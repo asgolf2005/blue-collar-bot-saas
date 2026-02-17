@@ -13,9 +13,9 @@ type VaultPayloadV1 = {
 }
 
 function getVaultKey(): Buffer {
-  const secret = process.env.TECH_PASSWORD_VAULT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!secret) {
-    throw new Error('Missing TECH_PASSWORD_VAULT_SECRET or SUPABASE_SERVICE_ROLE_KEY')
+  const secret = process.env.TECH_PASSWORD_VAULT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error('TECH_PASSWORD_VAULT_SECRET must be set and >= 32 chars')
   }
 
   return createHash('sha256').update(secret).digest()
@@ -153,4 +153,3 @@ export async function getDecryptedTechPasswordsByBusiness({
 
   return map
 }
-

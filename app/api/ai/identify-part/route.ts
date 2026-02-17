@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { fileToDataUrl, parseJsonFromModel, withTimeout } from '@/lib/ai/utils'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { toReadableSentence, toTitleCase, normalizeWhitespace } from '@/lib/utils/text'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 interface PartAnalysisResponse {
   part_name?: string
@@ -100,6 +101,17 @@ export async function POST(request: Request) {
 
     if (!profile) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
+    }
+
+    const rateLimit = checkRateLimit(`${user.id}:ai:identify-part`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfter) },
+        }
+      )
     }
 
     const { data: job } = await supabase

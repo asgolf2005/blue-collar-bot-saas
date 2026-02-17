@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { compactLines, withTimeout } from '@/lib/ai/utils'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -60,6 +61,17 @@ export async function POST(request: Request) {
 
     if (!profile) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
+    }
+
+    const rateLimit = checkRateLimit(`${user.id}:ai:troubleshoot`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfter) },
+        }
+      )
     }
 
     const { data: job } = await supabase
