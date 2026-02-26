@@ -1,47 +1,36 @@
-﻿import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import { notFound, redirect } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import { 
+import {
   ArrowLeft,
-  Bath,
-  Droplets,
-  RotateCcw,
-  Flame,
-  Wrench,
-  PlusCircle,
-  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
   Clock,
   DollarSign,
-  Calendar,
-  User,
-  Building2,
-  MapPin,
   ExternalLink,
-  CheckCircle2,
+  MapPin,
   PlayCircle,
+  Plus,
   Truck,
-  AlertCircle
+  User,
 } from '@/components/ui/lucide'
+import { createClient } from '@/lib/supabase/server'
 
-// Types
 interface Service {
   id: string
   name: string
   description: string | null
-  base_price: number
+  base_price: number | null
   duration_minutes: number | null
   is_active: boolean
   created_at: string
-  category?: string
 }
 
 interface Job {
   id: string
   status: string
   scheduled_start: string
-  scheduled_end: string
-  description: string | null
   customer?: {
     name: string
   }
@@ -50,114 +39,69 @@ interface Job {
   }
 }
 
-// Contextual icon mapping based on service name keywords
-function getServiceIcon(serviceName: string) {
-  const name = serviceName.toLowerCase()
-  
-  // Toilet/Bathroom/WC keywords
-  if (/\b(toilet|bathroom|wc|restroom|lavatory)\b/.test(name)) {
-    return { icon: Bath, color: 'cyan', label: 'Bathroom' }
-  }
-  
-  // Pipe/Leak/Faucet keywords
-  if (/\b(pipe|leak|faucet|plumbing|water|flow)\b/.test(name)) {
-    return { icon: Droplets, color: 'blue', label: 'Plumbing' }
-  }
-  
-  // Drain/Clog/Sewer keywords
-  if (/\b(drain|clog|sewer|blockage|backup)\b/.test(name)) {
-    return { icon: RotateCcw, color: 'amber', label: 'Drain' }
-  }
-  
-  // Heater/Hot water/Boiler keywords
-  if (/\b(heater|hot water|boiler|tank|heating|warm)\b/.test(name)) {
-    return { icon: Flame, color: 'orange', label: 'Heating' }
-  }
-  
-  // Install/New/Setup keywords
-  if (/\b(install|installation|new|setup|replacement)\b/.test(name)) {
-    return { icon: PlusCircle, color: 'emerald', label: 'Install' }
-  }
-  
-  // Emergency/Urgent keywords
-  if (/\b(emergency|urgent|rush|asap|immediate)\b/.test(name)) {
-    return { icon: AlertTriangle, color: 'red', label: 'Emergency' }
-  }
-  
-  // Repair/Fix/Maintenance keywords
-  if (/\b(repair|fix|maintenance|service|inspect)\b/.test(name)) {
-    return { icon: Wrench, color: 'slate', label: 'Repair' }
-  }
-  
-  // Default
-  return { icon: Wrench, color: 'slate', label: 'Service' }
+interface BookedJobRow {
+  id: string
+  status: string
+  scheduled_start: string
+  customer: { name: string } | Array<{ name: string }> | null
+  technician: { full_name: string } | Array<{ full_name: string }> | null
 }
 
-// Color classes for icons
-const colorClasses: Record<string, { bg: string; text: string; darkBg: string; darkText: string }> = {
-  cyan: { 
-    bg: 'bg-cyan-100', 
-    text: 'text-cyan-600', 
-    darkBg: 'dark:bg-cyan-500/20', 
-    darkText: 'dark:text-cyan-400' 
-  },
-  blue: { 
-    bg: 'bg-blue-100', 
-    text: 'text-blue-600', 
-    darkBg: 'dark:bg-blue-500/20', 
-    darkText: 'dark:text-blue-400' 
-  },
-  amber: { 
-    bg: 'bg-amber-100', 
-    text: 'text-amber-600', 
-    darkBg: 'dark:bg-amber-500/20', 
-    darkText: 'dark:text-amber-400' 
-  },
-  orange: { 
-    bg: 'bg-orange-100', 
-    text: 'text-orange-600', 
-    darkBg: 'dark:bg-orange-500/20', 
-    darkText: 'dark:text-orange-400' 
-  },
-  emerald: { 
-    bg: 'bg-emerald-100', 
-    text: 'text-emerald-600', 
-    darkBg: 'dark:bg-emerald-500/20', 
-    darkText: 'dark:text-emerald-400' 
-  },
-  red: { 
-    bg: 'bg-red-100', 
-    text: 'text-red-600', 
-    darkBg: 'dark:bg-red-500/20', 
-    darkText: 'dark:text-red-400' 
-  },
-  slate: { 
-    bg: 'bg-slate-100', 
-    text: 'text-slate-600', 
-    darkBg: 'dark:bg-slate-500/20', 
-    darkText: 'dark:text-slate-400' 
-  },
-}
-
-// Status badge colors
 const statusColors: Record<string, string> = {
-  scheduled: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-400',
-  on_the_way: 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-400',
-  arrived: 'bg-blue-100 text-blue-700 dark:bg-blue-400/10 dark:text-blue-400',
-  in_progress: 'bg-blue-100 text-blue-700 dark:bg-blue-400/10 dark:text-blue-400',
-  completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-400',
-  cancelled: 'bg-slate-100 text-slate-600 dark:bg-slate-400/10 dark:text-slate-400',
+  scheduled: 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300',
+  on_the_way: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+  arrived: 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300',
+  in_progress:
+    'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300',
+  completed:
+    'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300',
+  cancelled:
+    'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300',
+}
+
+function formatPrice(value: number | null) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'Custom quote'
+  return `$${value.toFixed(0)}`
+}
+
+function formatDuration(minutes: number | null) {
+  if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) return 'Varies'
+  const hours = Math.floor(minutes / 60)
+  const remaining = minutes % 60
+  if (hours > 0 && remaining > 0) return `${hours}h ${remaining}m`
+  if (hours > 0) return `${hours}h`
+  return `${remaining}m`
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function getStatusLabel(status: string) {
+  if (status === 'on_the_way') return 'EN ROUTE'
+  return status.replace('_', ' ').toUpperCase()
 }
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
 
-  // Auth check
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('users')
@@ -165,303 +109,171 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'admin') {
-    redirect('/tech/today')
-  }
+  if (!profile || profile.role !== 'admin') redirect('/tech/today')
 
-  // Get service details
   const { data: service } = await supabase
     .from('services')
     .select('*')
     .eq('id', id)
     .eq('business_id', profile.business_id)
-    .single()
+    .single<Service>()
 
-  if (!service) {
-    notFound()
-  }
+  if (!service) notFound()
 
-  // Step 1: Get job IDs from job_services join table for this service
-  const { data: jobServiceLinks, error: jobLinksError } = await supabase
-    .from('job_services')
-    .select('job_id')
-    .eq('service_id', id)
+  const { data: jobServiceLinks } = await supabase.from('job_services').select('job_id').eq('service_id', id)
+  const jobIds = (jobServiceLinks || []).map((row) => row.job_id)
 
-  if (jobLinksError) {
-    console.error('Error fetching job_services:', jobLinksError)
-  }
-
-  // Extract job IDs
-  const jobIds = jobServiceLinks?.map(js => js.job_id) || []
-
-  // Step 2: Fetch jobs with customer and technician details
-  // RLS will filter to only show jobs from this business
   let bookedJobs: Job[] = []
-  
   if (jobIds.length > 0) {
-    const { data: jobs, error: jobsError } = await supabase
+    const { data: jobs } = await supabase
       .from('jobs')
-      .select(`
-        *,
+      .select(
+        `
+        id,
+        status,
+        scheduled_start,
         customer:customers(name),
         technician:users(full_name)
-      `)
+      `
+      )
       .in('id', jobIds)
       .eq('business_id', profile.business_id)
       .order('scheduled_start', { ascending: true })
 
-    if (jobsError) {
-      console.error('Error fetching jobs:', jobsError)
-    }
-
-    bookedJobs = (jobs || []) as Job[]
+    bookedJobs = ((jobs || []) as BookedJobRow[]).map((row) => ({
+      id: row.id,
+      status: row.status,
+      scheduled_start: row.scheduled_start,
+      customer: (Array.isArray(row.customer) ? row.customer[0] : row.customer) ?? undefined,
+      technician: (Array.isArray(row.technician) ? row.technician[0] : row.technician) ?? undefined,
+    }))
   }
 
-  // Get service icon
-  const { icon: IconComponent, color } = getServiceIcon(service.name)
-  const colors = colorClasses[color]
-
-  // Format current date
+  const completedJobs = bookedJobs.filter((job) => job.status === 'completed').length
   const now = new Date()
-  const sysTime = now.toLocaleDateString('en-US', { 
-    day: '2-digit', 
-    month: 'short', 
-    year: 'numeric' 
-  }).toUpperCase().replace(/,/g, '')
-
-  // Group jobs by date
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  
-  const tomorrow = new Date(today)
+  const todayKey = now.toISOString().split('T')[0]
+  const tomorrow = new Date(now)
   tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowKey = tomorrow.toISOString().split('T')[0]
 
-  const groupedJobs = {
+  const grouped = {
     today: [] as Job[],
     tomorrow: [] as Job[],
-    upcoming: [] as { date: string; jobs: Job[] }[]
+    upcoming: [] as { date: string; jobs: Job[] }[],
   }
 
-  // Helper to format date key
-  const formatDateKey = (date: Date) => date.toISOString().split('T')[0]
-
   const upcomingMap = new Map<string, Job[]>()
-
-  bookedJobs.forEach(job => {
-    const jobDate = new Date(job.scheduled_start)
-    jobDate.setHours(0, 0, 0, 0)
-    
-    const jobDateKey = formatDateKey(jobDate)
-    const todayKey = formatDateKey(today)
-    const tomorrowKey = formatDateKey(tomorrow)
-
-    if (jobDateKey === todayKey) {
-      groupedJobs.today.push(job)
-    } else if (jobDateKey === tomorrowKey) {
-      groupedJobs.tomorrow.push(job)
-    } else if (jobDate > tomorrow) {
-      if (!upcomingMap.has(jobDateKey)) {
-        upcomingMap.set(jobDateKey, [])
-      }
-      upcomingMap.get(jobDateKey)!.push(job)
+  for (const job of bookedJobs) {
+    const dateKey = new Date(job.scheduled_start).toISOString().split('T')[0]
+    if (dateKey === todayKey) {
+      grouped.today.push(job)
+      continue
     }
-  })
+    if (dateKey === tomorrowKey) {
+      grouped.tomorrow.push(job)
+      continue
+    }
+    const list = upcomingMap.get(dateKey) || []
+    list.push(job)
+    upcomingMap.set(dateKey, list)
+  }
 
-  // Convert upcoming map to sorted array
-  groupedJobs.upcoming = Array.from(upcomingMap.entries())
+  grouped.upcoming = Array.from(upcomingMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, jobs]) => ({
-      date,
-      jobs: jobs.sort((a, b) => 
-        new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime()
-      )
-    }))
-
-  // Sort today's and tomorrow's jobs by time
-  groupedJobs.today.sort((a, b) => 
-    new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime()
-  )
-  groupedJobs.tomorrow.sort((a, b) => 
-    new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime()
-  )
-
-  const totalBookings = bookedJobs.length
-  const completedBookings = bookedJobs.filter(j => j.status === 'completed').length
+    .map(([date, jobs]) => ({ date, jobs }))
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <Link href="/admin/services">
-              <Button variant="ghost" className="p-2 h-auto">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </Link>
-            <h1 className="font-display text-4xl sm:text-5xl text-slate-900 dark:text-white tracking-wide">
-              SERVICE DETAIL
-            </h1>
-          </div>
-          <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest ml-14">
-            SYS.TIME: {sysTime}
-          </p>
-        </div>
-        <div className="flex gap-2 ml-14 sm:ml-0">
-          <Link href={`/admin/services/${id}/edit`}>
-            <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all">
-              EDIT SERVICE
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Link href="/admin/services">
+            <Button variant="ghost" className="rounded-full p-2">
+              <ArrowLeft className="h-5 w-5" />
             </Button>
+          </Link>
+          <div>
+            <h1 className="admin-page-header mb-1">SERVICE DETAIL</h1>
+            <p className="font-sans text-sm text-slate-600 dark:text-slate-400">Track performance and bookings.</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/admin/services/new">
+            <Button variant="secondary" className="rounded-full px-4 py-2 text-xs font-semibold">
+              <Plus className="h-4 w-4" />
+              NEW SERVICE
+            </Button>
+          </Link>
+          <Link href={`/admin/services/${id}/edit`}>
+            <Button className="admin-btn-primary rounded-full px-5 py-2 text-xs font-semibold">EDIT SERVICE</Button>
           </Link>
         </div>
       </div>
 
-      {/* Service Info Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-6 sm:p-8">
-          <div className="flex flex-col sm:flex-row gap-6">
-            {/* Large Icon */}
-            <div className="flex-shrink-0">
-              <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl ${colors.bg} ${colors.darkBg} flex items-center justify-center`}>
-                <IconComponent className={`w-10 h-10 sm:w-12 sm:h-12 ${colors.text} ${colors.darkText}`} />
-              </div>
+      <div className="admin-card p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-3xl uppercase tracking-wide text-slate-900 dark:text-slate-100">
+                {service.name}
+              </h2>
+              <span
+                className={`inline-flex rounded-sm border px-2 py-1 font-sans text-xs font-medium ${
+                  service.is_active
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+                    : 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                {service.is_active ? 'Active' : 'Archived'}
+              </span>
             </div>
-
-            {/* Service Details */}
-            <div className="flex-grow">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
-                <div>
-                  <h2 className="font-display text-2xl sm:text-3xl text-slate-900 dark:text-white">
-                    {service.name}
-                  </h2>
-                  {!service.is_active && (
-                    <span className="inline-block mt-2 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono text-[10px]">
-                      ARCHIVED
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  <DollarSign className="w-6 h-6" />
-                  <span className="font-display text-3xl">
-                    {parseFloat(service.base_price.toString()).toFixed(0)}
-                  </span>
-                </div>
-              </div>
-
-              {service.description && (
-                <p className="font-mono text-sm text-slate-600 dark:text-slate-400 mb-4 max-w-2xl">
-                  {service.description}
-                </p>
-              )}
-
-              {/* Metadata Row */}
-              <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                {service.duration_minutes && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-slate-400" />
-                    <span className="font-mono text-xs text-slate-500 dark:text-slate-400">DURATION:</span>
-                    <span className="font-mono text-sm text-slate-900 dark:text-white">{service.duration_minutes} minutes</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <span className="font-mono text-xs text-slate-500 dark:text-slate-400">CATEGORY:</span>
-                  <span className="font-mono text-sm text-slate-900 dark:text-white">{getServiceIcon(service.name).label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span className="font-mono text-xs text-slate-500 dark:text-slate-400">COMPLETED:</span>
-                  <span className="font-mono text-sm text-emerald-600 dark:text-emerald-400">{completedBookings} jobs</span>
-                </div>
-              </div>
-            </div>
+            {service.description ? (
+              <p className="mt-2 max-w-2xl font-sans text-sm text-slate-600 dark:text-slate-400">
+                {service.description}
+              </p>
+            ) : (
+              <p className="mt-2 font-sans text-sm text-slate-500 dark:text-slate-500">
+                No description set for this service.
+              </p>
+            )}
           </div>
+          <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Created {formatDate(service.created_at)}</p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile label="Price" value={formatPrice(service.base_price)} icon={DollarSign} />
+          <StatTile label="Duration" value={formatDuration(service.duration_minutes)} icon={Clock} />
+          <StatTile label="Booked" value={String(bookedJobs.length)} icon={Calendar} />
+          <StatTile label="Completed" value={String(completedJobs)} icon={CheckCircle2} />
         </div>
       </div>
 
-      {/* Booked Appointments */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">BOOKED APPOINTMENTS</h2>
-              <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 mt-1 tracking-wider">
-                {totalBookings} {totalBookings === 1 ? 'BOOKING' : 'BOOKINGS'} TOTAL
-              </p>
-            </div>
-          </div>
+      <div className="admin-card">
+        <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+          <h2 className="admin-section-title">BOOKED APPOINTMENTS</h2>
+          <p className="font-sans text-sm text-slate-500 dark:text-slate-400">
+            {bookedJobs.length} total booking{bookedJobs.length === 1 ? '' : 's'}
+          </p>
         </div>
 
-        <div className="p-4 space-y-4">
-          {totalBookings === 0 ? (
-            <div className="h-40 flex items-center justify-center text-slate-400 dark:text-slate-600">
-              <div className="text-center">
-                <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p className="font-mono text-sm">No bookings yet</p>
-                <p className="font-mono text-[10px] text-slate-400 mt-1">
-                  Jobs with this service will appear here
-                </p>
-              </div>
+        <div className="p-4 space-y-5">
+          {bookedJobs.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-300 px-6 py-12 text-center dark:border-slate-700">
+              <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+              <p className="font-sans text-sm text-slate-500 dark:text-slate-400">
+                No jobs are linked to this service yet.
+              </p>
             </div>
           ) : (
             <>
-              {/* Today */}
-              {groupedJobs.today.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    TODAY
-                  </h3>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
-                    {groupedJobs.today.map(job => (
-                      <JobRow key={job.id} job={job} />
-                    ))}
-                  </div>
-                </div>
+              {grouped.today.length > 0 && (
+                <JobSection title="Today" jobs={grouped.today} />
               )}
-
-              {/* Tomorrow */}
-              {groupedJobs.tomorrow.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                    TOMORROW
-                  </h3>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
-                    {groupedJobs.tomorrow.map(job => (
-                      <JobRow key={job.id} job={job} />
-                    ))}
-                  </div>
-                </div>
+              {grouped.tomorrow.length > 0 && (
+                <JobSection title="Tomorrow" jobs={grouped.tomorrow} />
               )}
-
-              {/* Upcoming Dates */}
-              {groupedJobs.upcoming.map(({ date, jobs }) => (
-                <div key={date} className="space-y-2">
-                  <h3 className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                    {new Date(date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric'
-                    }).toUpperCase()}
-                  </h3>
-                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700">
-                    {jobs.map(job => (
-                      <JobRow key={job.id} job={job} />
-                    ))}
-                  </div>
-                </div>
+              {grouped.upcoming.map((entry) => (
+                <JobSection key={entry.date} title={formatDate(entry.date)} jobs={entry.jobs} />
               ))}
-
-              {/* Past bookings indicator if any */}
-              {bookedJobs.some(j => new Date(j.scheduled_start) < today) && (
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <p className="font-mono text-[10px] text-slate-400 text-center">
-                    Past bookings are shown in the jobs dashboard
-                  </p>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -470,66 +282,79 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
   )
 }
 
-// Job Row Component
-function JobRow({ job }: { job: Job }) {
-  const startTime = new Date(job.scheduled_start)
-  const timeStr = startTime.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: true 
-  })
-
-  const statusClass = statusColors[job.status] || statusColors.scheduled
-  const statusLabel = job.status === 'on_the_way' ? 'EN ROUTE' : job.status.replace('_', ' ').toUpperCase()
-
-  // Status icon
-  const StatusIcon = {
-    scheduled: Calendar,
-    on_the_way: Truck,
-    arrived: MapPin,
-    in_progress: PlayCircle,
-    completed: CheckCircle2,
-    cancelled: AlertCircle,
-  }[job.status] || Calendar
-
+function StatTile({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string
+  value: string
+  icon: React.ElementType
+}) {
   return (
-    <Link href={`/admin/jobs/${job.id}`}>
-      <div className="p-4 hover:bg-white dark:hover:bg-slate-800 transition-colors group flex items-center gap-4">
-        {/* Time */}
-        <div className="w-20 flex-shrink-0">
-          <span className="font-mono text-sm font-medium text-slate-900 dark:text-white">
-            {timeStr}
-          </span>
-        </div>
-
-        {/* Customer */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <span className="font-mono text-sm text-slate-900 dark:text-white truncate">
-              {job.customer?.name || 'Unknown Customer'}
-            </span>
-          </div>
-        </div>
-
-        {/* Technician */}
-        <div className="hidden sm:flex items-center gap-2 w-40 flex-shrink-0">
-          <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <span className="font-mono text-xs text-slate-500 dark:text-slate-400 truncate">
-            {job.technician?.full_name || 'Unassigned'}
-          </span>
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center gap-3">
-          <span className={`px-2 py-0.5 rounded font-mono text-[9px] ${statusClass}`}>
-            {statusLabel}
-          </span>
-          <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" />
-        </div>
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/70">
+      <div className="flex items-center justify-between">
+        <span className="font-sans text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-slate-400" />
       </div>
-    </Link>
+      <p className="mt-2 font-mono text-xl text-slate-900 dark:text-slate-100">{value}</p>
+    </div>
   )
 }
 
+function JobSection({ title, jobs }: { title: string; jobs: Job[] }) {
+  return (
+    <section className="space-y-2">
+      <h3 className="font-sans text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {title}
+      </h3>
+      <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+        {jobs.map((job) => {
+          const StatusIcon =
+            job.status === 'on_the_way'
+              ? Truck
+              : job.status === 'arrived'
+                ? MapPin
+                : job.status === 'in_progress'
+                  ? PlayCircle
+                  : job.status === 'completed'
+                    ? CheckCircle2
+                    : Calendar
 
+          return (
+            <Link
+              key={job.id}
+              href={`/admin/jobs/${job.id}`}
+              className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 last:border-b-0 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-900"
+            >
+              <div className="w-20 shrink-0">
+                <p className="font-mono text-sm text-slate-900 dark:text-slate-100">{formatTime(job.scheduled_start)}</p>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-sans text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {job.customer?.name || 'Unknown customer'}
+                </p>
+                <p className="mt-0.5 flex items-center gap-1.5 truncate font-sans text-xs text-slate-500 dark:text-slate-400">
+                  <User className="h-3.5 w-3.5" />
+                  {job.technician?.full_name || 'Unassigned technician'}
+                </p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1 rounded-sm border px-2 py-1 font-sans text-[11px] font-medium ${
+                  statusColors[job.status] || statusColors.scheduled
+                }`}
+              >
+                <StatusIcon className="h-3.5 w-3.5" />
+                {getStatusLabel(job.status)}
+              </span>
+              <ExternalLink className="h-4 w-4 text-slate-300" />
+              <ArrowRight className="h-4 w-4 text-slate-300" />
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}

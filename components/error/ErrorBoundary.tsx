@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import React from 'react'
-import { AlertTriangle, RefreshCw } from '@/components/ui/icons'
+import { AlertTriangle, RefreshCw } from '@/components/ui/lucide'
 import { Button } from '@/components/ui/Button'
 
 interface ErrorBoundaryProps {

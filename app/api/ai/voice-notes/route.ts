@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { compactLines, withTimeout } from '@/lib/ai/utils'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkCooldown, checkRateLimit } from '@/lib/rate-limit'
 import { trackAICost } from '@/lib/ai/cost-tracker'
 
 type VoiceMode = 'job_note' | 'transcript'
 
 const MAX_AUDIO_SIZE_BYTES = 15 * 1024 * 1024 // 15 MB
+const AI_VOICE_NOTES_COOLDOWN_MS = 10_000
 
 const toBoolean = (value: FormDataEntryValue | null) => {
   if (typeof value !== 'string') return false
@@ -60,6 +61,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
     }
 
+    if (profile.role !== 'admin' && profile.role !== 'tech') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const rateLimit = checkRateLimit(`${user.id}:ai:voice-notes`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -67,6 +72,17 @@ export async function POST(request: Request) {
         {
           status: 429,
           headers: { 'Retry-After': String(rateLimit.retryAfter) },
+        }
+      )
+    }
+
+    const cooldown = checkCooldown(`${user.id}:ai:voice-notes:${jobId}`, AI_VOICE_NOTES_COOLDOWN_MS)
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        { error: `Please wait ${cooldown.retryAfter}s before sending another voice note for this job.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(cooldown.retryAfter) },
         }
       )
     }
@@ -84,6 +100,13 @@ export async function POST(request: Request) {
 
     if (profile.role === 'tech' && job.technician_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (!String(job.description || '').trim()) {
+      return NextResponse.json(
+        { error: 'Add a job description before using AI voice notes.' },
+        { status: 400 }
+      )
     }
 
     if (!isOpenAIConfigured || !openai) {
@@ -115,6 +138,13 @@ export async function POST(request: Request) {
 
     if (!transcript) {
       return NextResponse.json({ error: 'No speech detected. Try again.' }, { status: 422 })
+    }
+
+    if (transcript.length < 8) {
+      return NextResponse.json(
+        { error: 'Voice input is too short. Please provide more detail.' },
+        { status: 422 }
+      )
     }
 
     if (mode === 'transcript') {

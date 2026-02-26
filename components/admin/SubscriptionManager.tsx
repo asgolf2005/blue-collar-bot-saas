@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { CreditCard, CheckCircle, AlertCircle, TrendingUp, TrendingDown, X } from '@/components/ui/icons'
 import { showToast } from '@/lib/utils/toast'
 
@@ -56,6 +57,7 @@ const TIER_INFO = {
 }
 
 export default function SubscriptionManager({ subscription, businessId }: SubscriptionManagerProps) {
+  const router = useRouter()
   const [isChangingTier, setIsChangingTier] = useState(false)
   const [selectedTier, setSelectedTier] = useState<keyof typeof TIER_INFO | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -86,8 +88,7 @@ export default function SubscriptionManager({ subscription, businessId }: Subscr
 
       showToast.success(data.message || 'Subscription updated successfully!')
       setIsChangingTier(false)
-      // Refresh the page to show updated subscription
-      window.location.reload()
+      router.refresh()
     } catch (error: any) {
       showToast.error(error.message || 'Failed to update subscription')
     } finally {

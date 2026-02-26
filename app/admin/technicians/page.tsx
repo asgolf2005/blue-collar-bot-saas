@@ -1,9 +1,10 @@
 ﻿import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getDateRange, type DateRangeKey } from '@/lib/analytics/dateUtils'
+import { ADMIN_RANGE_OPTIONS, getDateRange, type DateRangeKey } from '@/lib/analytics/dateUtils'
 import {
   Briefcase,
+  Filter,
   CalendarDays,
   ChevronDown,
   CheckCircle2,
@@ -18,11 +19,6 @@ import {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type RangeOption = {
-  key: DateRangeKey
-  label: string
-}
-
 type MetricStyleKey =
   | 'balanced'
   | 'minimal'
@@ -35,6 +31,10 @@ type MetricStyleOption = {
   key: MetricStyleKey
   label: string
 }
+
+type TechnicianActivityFilter = 'all' | 'active' | 'idle'
+type TechnicianSortKey = 'collectedRevenue' | 'completionRate' | 'assignedJobs' | 'hoursWorked' | 'name'
+type SortOrder = 'asc' | 'desc'
 
 type MetricStyleTokens = {
   statCard: string
@@ -54,14 +54,6 @@ type MetricStyleTokens = {
   compactLabel: string
   compactValue: string
 }
-
-const RANGE_OPTIONS: RangeOption[] = [
-  { key: '7d', label: '7 Days' },
-  { key: '30d', label: '30 Days' },
-  { key: '90d', label: '90 Days' },
-  { key: 'ytd', label: 'YTD' },
-  { key: 'all', label: 'All Time' },
-]
 
 const METRIC_STYLE_OPTIONS: MetricStyleOption[] = [
   { key: 'balanced', label: 'Balanced' },
@@ -95,7 +87,7 @@ const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
       'h-full rounded-full bg-gradient-to-r from-blue-500/80 to-cyan-500/80 transition-all duration-500',
     compactCard: 'rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3',
     compactLabel: 'font-sans text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400',
-    compactValue: 'mt-1 text-lg font-semibold text-slate-900 dark:text-white',
+    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-white',
   },
   minimal: {
     statCard:
@@ -104,20 +96,20 @@ const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
       'inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-200/80 dark:bg-slate-800/90',
     statIcon: 'text-slate-600 dark:text-slate-300',
     statLabel: 'text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400',
-    statValue: 'mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100',
+    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-slate-100',
     track: 'mt-2 h-1.5 rounded-full bg-slate-300/80 dark:bg-slate-700 overflow-hidden',
     utilizationBar: 'h-full rounded-full bg-slate-700 dark:bg-slate-300 transition-all duration-500',
     highlightCard:
       'rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900 p-3.5 shadow-none',
     highlightLabel: 'text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400',
-    highlightValue: 'mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100',
+    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-900 dark:text-slate-100',
     highlightSubtext: 'mt-1 text-xs text-slate-500 dark:text-slate-400',
     collectionBar: 'h-full rounded-full bg-slate-700 dark:bg-slate-200 transition-all duration-500',
     completionBar: 'h-full rounded-full bg-slate-700 dark:bg-slate-200 transition-all duration-500',
     compactCard:
       'rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900 p-3 shadow-none',
     compactLabel: 'text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400',
-    compactValue: 'mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100',
+    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-slate-100',
   },
   premium: {
     statCard:
@@ -142,7 +134,7 @@ const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
     compactCard:
       'rounded-xl border border-white/45 dark:border-cyan-500/20 bg-white/65 dark:bg-slate-900/55 backdrop-blur-md p-3 shadow-[0_10px_24px_rgba(15,23,42,0.12)]',
     compactLabel: 'text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300',
-    compactValue: 'mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100',
+    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-slate-100',
   },
   industrial: {
     statCard:
@@ -151,20 +143,20 @@ const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
       'inline-flex h-7 w-7 items-center justify-center rounded-sm border border-slate-500/50 dark:border-slate-600/70 bg-slate-700/90 dark:bg-slate-800',
     statIcon: 'text-slate-200 dark:text-slate-200',
     statLabel: 'text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300 dark:text-slate-300',
-    statValue: 'mt-2 text-2xl font-semibold text-slate-50 dark:text-slate-50',
+    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-50 dark:text-slate-50',
     track: 'mt-2 h-1.5 rounded-sm bg-slate-600/80 dark:bg-slate-700/90 overflow-hidden',
     utilizationBar: 'h-full rounded-sm bg-sky-400/80 transition-all duration-500',
     highlightCard:
       'rounded-lg border border-slate-500/35 dark:border-slate-600/55 bg-slate-800/95 dark:bg-slate-900 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
     highlightLabel: 'text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300 dark:text-slate-300',
-    highlightValue: 'mt-1 text-3xl font-semibold text-slate-50 dark:text-slate-50',
+    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-50 dark:text-slate-50',
     highlightSubtext: 'mt-1 text-xs text-slate-300/90 dark:text-slate-300/90',
     collectionBar: 'h-full rounded-sm bg-emerald-400/80 transition-all duration-500',
     completionBar: 'h-full rounded-sm bg-sky-400/80 transition-all duration-500',
     compactCard:
       'rounded-lg border border-slate-500/35 dark:border-slate-600/55 bg-slate-800/95 dark:bg-slate-900 p-3',
     compactLabel: 'text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300 dark:text-slate-300',
-    compactValue: 'mt-1 text-lg font-semibold text-slate-50 dark:text-slate-50',
+    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-50 dark:text-slate-50',
   },
   terminal: {
     statCard:
@@ -173,20 +165,20 @@ const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
       'inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-300 dark:border-cyan-900 bg-slate-100 dark:bg-slate-900',
     statIcon: 'text-cyan-700 dark:text-cyan-300',
     statLabel: 'font-sans text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-cyan-300',
-    statValue: 'mt-2 font-sans text-2xl font-semibold text-slate-900 dark:text-cyan-100',
+    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-cyan-100',
     track: 'mt-2 h-1.5 rounded-none bg-slate-200 dark:bg-slate-800 overflow-hidden',
     utilizationBar: 'h-full rounded-none bg-cyan-600 dark:bg-cyan-300 transition-all duration-500',
     highlightCard:
       'rounded-md border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 p-3.5 shadow-none',
     highlightLabel: 'font-sans text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-cyan-300',
-    highlightValue: 'mt-1 font-sans text-3xl font-semibold text-slate-900 dark:text-cyan-100',
+    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-900 dark:text-cyan-100',
     highlightSubtext: 'mt-1 font-sans text-[11px] text-slate-600 dark:text-cyan-200',
     collectionBar: 'h-full rounded-none bg-cyan-700 dark:bg-cyan-300 transition-all duration-500',
     completionBar: 'h-full rounded-none bg-cyan-700 dark:bg-cyan-300 transition-all duration-500',
     compactCard:
       'rounded-xl border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 p-3 shadow-none',
     compactLabel: 'font-sans text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-cyan-300',
-    compactValue: 'mt-1 font-sans text-lg font-semibold text-slate-900 dark:text-cyan-100',
+    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-cyan-100',
   },
   executive: {
     statCard:
@@ -210,7 +202,7 @@ const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
     compactCard:
       'rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/70 p-3 shadow-[0_8px_16px_rgba(15,23,42,0.08)]',
     compactLabel: 'text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
-    compactValue: 'mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100',
+    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-slate-100',
   },
 }
 
@@ -266,16 +258,51 @@ type TechnicianMetrics = {
   topServices: Array<{ name: string; count: number; share: number }>
 }
 
+function readParam(rawValue?: string | string[]): string | undefined {
+  if (Array.isArray(rawValue)) return rawValue[0]
+  return rawValue
+}
+
 function resolveRange(rawRange?: string | string[]): DateRangeKey {
   const value = Array.isArray(rawRange) ? rawRange[0] : rawRange
-  const valid = new Set(RANGE_OPTIONS.map((option) => option.key))
+  const valid = new Set(ADMIN_RANGE_OPTIONS.map((option) => option.key))
   return value && valid.has(value as DateRangeKey) ? (value as DateRangeKey) : '30d'
 }
 
 function resolveMetricStyle(rawStyle?: string | string[]): MetricStyleKey {
   const value = Array.isArray(rawStyle) ? rawStyle[0] : rawStyle
   const valid = new Set(METRIC_STYLE_OPTIONS.map((option) => option.key))
-  return value && valid.has(value as MetricStyleKey) ? (value as MetricStyleKey) : 'terminal'
+  return value && valid.has(value as MetricStyleKey) ? (value as MetricStyleKey) : 'balanced'
+}
+
+function resolveActivityFilter(rawValue?: string | string[]): TechnicianActivityFilter {
+  const value = readParam(rawValue)
+  return value === 'active' || value === 'idle' ? value : 'all'
+}
+
+function resolveSortKey(rawValue?: string | string[]): TechnicianSortKey {
+  const value = readParam(rawValue)
+  const valid = new Set<TechnicianSortKey>([
+    'collectedRevenue',
+    'completionRate',
+    'assignedJobs',
+    'hoursWorked',
+    'name',
+  ])
+  return value && valid.has(value as TechnicianSortKey)
+    ? (value as TechnicianSortKey)
+    : 'collectedRevenue'
+}
+
+function resolveSortOrder(rawValue?: string | string[]): SortOrder {
+  const value = readParam(rawValue)
+  return value === 'asc' ? 'asc' : 'desc'
+}
+
+function resolvePositiveNumber(rawValue?: string | string[]): number {
+  const value = Number(readParam(rawValue) || 0)
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, value)
 }
 
 function safeDivide(numerator: number, denominator: number): number {
@@ -358,6 +385,43 @@ async function fetchAllJobsForRange({
   return allRows
 }
 
+async function fetchFutureActiveJobs({
+  supabase,
+  businessId,
+  endIso,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  businessId: string
+  endIso: string
+}): Promise<JobRow[]> {
+  const pageSize = 1000
+  const allRows: JobRow[] = []
+  let from = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('id, technician_id, status, scheduled_start, scheduled_end, labor_hours, total_cost')
+      .eq('business_id', businessId)
+      .not('technician_id', 'is', null)
+      .gt('scheduled_start', endIso)
+      .in('status', Array.from(ACTIVE_STATUSES))
+      .order('scheduled_start', { ascending: true })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+
+    const batch = (data || []) as JobRow[]
+    allRows.push(...batch)
+    if (batch.length < pageSize) break
+
+    from += pageSize
+    if (from > 50000) break
+  }
+
+  return allRows
+}
+
 async function fetchInvoicesByJobIds({
   supabase,
   businessId,
@@ -413,12 +477,39 @@ async function fetchJobServicesByJobIds({
 
 export default async function TechniciansPage(props: {
   searchParams?:
-    | Promise<{ range?: string | string[]; style?: string | string[] }>
-    | { range?: string | string[]; style?: string | string[] }
+  | Promise<{
+    range?: string | string[]
+    style?: string | string[]
+    q?: string | string[]
+    activity?: string | string[]
+    minCompletion?: string | string[]
+    minAssigned?: string | string[]
+    minRevenue?: string | string[]
+    sort?: string | string[]
+    order?: string | string[]
+  }>
+  | {
+    range?: string | string[]
+    style?: string | string[]
+    q?: string | string[]
+    activity?: string | string[]
+    minCompletion?: string | string[]
+    minAssigned?: string | string[]
+    minRevenue?: string | string[]
+    sort?: string | string[]
+    order?: string | string[]
+  }
 }) {
   const searchParams = props.searchParams ? await Promise.resolve(props.searchParams) : {}
   const range = resolveRange(searchParams?.range)
   const metricStyle = resolveMetricStyle(searchParams?.style)
+  const searchQuery = (readParam(searchParams?.q) || '').trim()
+  const activityFilter = resolveActivityFilter(searchParams?.activity)
+  const minCompletionRate = resolvePositiveNumber(searchParams?.minCompletion)
+  const minAssignedJobs = Math.round(resolvePositiveNumber(searchParams?.minAssigned))
+  const minRevenue = resolvePositiveNumber(searchParams?.minRevenue)
+  const sortBy = resolveSortKey(searchParams?.sort)
+  const sortOrder = resolveSortOrder(searchParams?.order)
   const metricUi = METRIC_STYLE_TOKENS[metricStyle]
   const rangeWindow = getDateRange(range)
   const startIso = rangeWindow.start.toISOString()
@@ -455,12 +546,21 @@ export default async function TechniciansPage(props: {
   }
 
   const technicians = (techniciansData || []) as TechnicianRow[]
-  const jobs = await fetchAllJobsForRange({
-    supabase,
-    businessId: profile.business_id,
-    startIso,
-    endIso,
-  })
+  const [jobsInRange, futureActiveJobs] = await Promise.all([
+    fetchAllJobsForRange({
+      supabase,
+      businessId: profile.business_id,
+      startIso,
+      endIso,
+    }),
+    fetchFutureActiveJobs({
+      supabase,
+      businessId: profile.business_id,
+      endIso,
+    }),
+  ])
+  const jobs = [...jobsInRange, ...futureActiveJobs]
+  const futureActiveJobIds = new Set(futureActiveJobs.map((job) => job.id))
 
   const jobIds = jobs.map((job) => job.id)
   const [invoices, jobServices] = await Promise.all([
@@ -525,6 +625,7 @@ export default async function TechniciansPage(props: {
     if (!job.technician_id) continue
     const tech = metricsByTech.get(job.technician_id)
     if (!tech) continue
+    const isFutureActiveJob = futureActiveJobIds.has(job.id)
 
     tech.assignedJobs += 1
 
@@ -534,6 +635,11 @@ export default async function TechniciansPage(props: {
 
     if (job.status !== 'completed' && job.status !== 'cancelled') {
       tech.upcomingJobs += 1
+    }
+
+    // Future pipeline jobs should affect capacity metrics, but not historical productivity/revenue.
+    if (isFutureActiveJob) {
+      continue
     }
 
     if (job.status === 'completed') {
@@ -636,6 +742,82 @@ export default async function TechniciansPage(props: {
     })
     .sort((a, b) => b.collectedRevenue - a.collectedRevenue || b.billedRevenue - a.billedRevenue)
 
+  const normalizedSearchQuery = searchQuery.toLowerCase()
+  const filteredTechnicianMetrics = technicianMetrics
+    .filter((tech) => {
+      if (normalizedSearchQuery) {
+        const matchesName = tech.name.toLowerCase().includes(normalizedSearchQuery)
+        const matchesEmail = (tech.email || '').toLowerCase().includes(normalizedSearchQuery)
+        if (!matchesName && !matchesEmail) return false
+      }
+
+      if (tech.completionRate < minCompletionRate) return false
+      if (tech.assignedJobs < minAssignedJobs) return false
+      if (tech.collectedRevenue < minRevenue) return false
+
+      if (activityFilter === 'active' && tech.upcomingJobs + tech.activeJobs === 0) return false
+      if (activityFilter === 'idle' && tech.upcomingJobs + tech.activeJobs > 0) return false
+
+      return true
+    })
+    .sort((a, b) => {
+      const direction = sortOrder === 'asc' ? 1 : -1
+
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name) * direction
+      }
+
+      const valueA = a[sortBy]
+      const valueB = b[sortBy]
+      const safeA = typeof valueA === 'number' ? valueA : 0
+      const safeB = typeof valueB === 'number' ? valueB : 0
+      if (safeA === safeB) return a.name.localeCompare(b.name)
+      return (safeA - safeB) * direction
+    })
+
+  const hasActiveFilters =
+    Boolean(searchQuery) ||
+    activityFilter !== 'all' ||
+    minCompletionRate > 0 ||
+    minAssignedJobs > 0 ||
+    minRevenue > 0 ||
+    sortBy !== 'collectedRevenue' ||
+    sortOrder !== 'desc'
+
+  const activeFilterCount =
+    (searchQuery ? 1 : 0) +
+    (activityFilter !== 'all' ? 1 : 0) +
+    (minCompletionRate > 0 ? 1 : 0) +
+    (minAssignedJobs > 0 ? 1 : 0) +
+    (minRevenue > 0 ? 1 : 0) +
+    (sortBy !== 'collectedRevenue' ? 1 : 0) +
+    (sortOrder !== 'desc' ? 1 : 0)
+
+  const baseQueryParams = new URLSearchParams()
+  if (metricStyle !== 'balanced') baseQueryParams.set('style', metricStyle)
+  if (searchQuery) baseQueryParams.set('q', searchQuery)
+  if (activityFilter !== 'all') baseQueryParams.set('activity', activityFilter)
+  if (minCompletionRate > 0) baseQueryParams.set('minCompletion', String(minCompletionRate))
+  if (minAssignedJobs > 0) baseQueryParams.set('minAssigned', String(minAssignedJobs))
+  if (minRevenue > 0) baseQueryParams.set('minRevenue', String(minRevenue))
+  if (sortBy !== 'collectedRevenue') baseQueryParams.set('sort', sortBy)
+  if (sortOrder !== 'desc') baseQueryParams.set('order', sortOrder)
+
+  const getRangeHref = (nextRange: DateRangeKey) => {
+    const params = new URLSearchParams(baseQueryParams)
+    params.set('range', nextRange)
+    return `/admin/technicians?${params.toString()}`
+  }
+  const selectedRangeOption =
+    ADMIN_RANGE_OPTIONS.find((option) => option.key === range) ?? ADMIN_RANGE_OPTIONS[2]
+
+  const clearFiltersHref = (() => {
+    const params = new URLSearchParams()
+    params.set('range', range)
+    if (metricStyle !== 'balanced') params.set('style', metricStyle)
+    return `/admin/technicians?${params.toString()}`
+  })()
+
   const totals = {
     technicians: technicianMetrics.length,
     jobsAssigned: sum(technicianMetrics.map((tech) => tech.assignedJobs)),
@@ -653,7 +835,7 @@ export default async function TechniciansPage(props: {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-5xl sm:text-6xl text-slate-900 dark:text-white tracking-wide">
+          <h1 className="admin-page-header">
             TECHNICIANS
           </h1>
           <p className="font-sans text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
@@ -662,77 +844,224 @@ export default async function TechniciansPage(props: {
         </div>
 
         <div className="flex flex-col items-start sm:items-end gap-2">
-          <div className="flex flex-wrap gap-2">
-            {RANGE_OPTIONS.map((option) => {
-              const active = option.key === range
-              return (
-                <Link
-                  key={option.key}
-                  href={`/admin/technicians?range=${option.key}`}
-                  className={`px-3 py-2 rounded-lg font-sans text-xs tracking-wide transition ${
-                    active
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-cyan-400/60'
-                  }`}
-                >
-                  {option.label}
-                </Link>
-              )
-            })}
-          </div>
+          <details className="relative w-full sm:w-auto group/range z-20">
+            <summary
+              title="Select report period"
+              aria-label="Select report period"
+              className="list-none cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl px-4 py-2.5 shadow-lg shadow-slate-200/20 dark:shadow-cyan-500/10 transition-colors hover:border-cyan-400/40"
+            >
+              <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Period
+              </span>
+              <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-slate-800 dark:text-cyan-200">
+                {selectedRangeOption.label}
+              </span>
+              <ChevronDown className="h-4 w-4 text-slate-500 dark:text-cyan-300 transition-transform duration-300 group-open/range:rotate-180" />
+            </summary>
+            <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl p-1.5 shadow-xl shadow-slate-200/30 dark:shadow-cyan-500/10">
+              {ADMIN_RANGE_OPTIONS.map((option) => {
+                const active = option.key === range
+                return (
+                  <Link
+                    key={option.key}
+                    href={getRangeHref(option.key)}
+                    className={`flex items-center justify-between rounded-xl px-3 py-2 font-sans text-xs font-semibold transition-colors ${
+                      active
+                        ? 'bg-cyan-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.32)]'
+                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{option.label}</span>
+                    {active ? <span className="font-mono text-[9px] uppercase tracking-widest">Current</span> : null}
+                  </Link>
+                )
+              })}
+            </div>
+          </details>
+
+          <details
+            className="w-full sm:w-auto"
+            open={hasActiveFilters}
+          >
+            <summary
+              title="Filter and sort technicians"
+              aria-label="Filter and sort technicians"
+              className="cursor-pointer list-none inline-flex items-center justify-center h-9 w-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-cyan-400/60 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors relative"
+            >
+              <Filter className="w-4 h-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-600 px-1 font-mono text-[9px] text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </summary>
+            <form method="get" className="mt-2 w-full sm:w-[560px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
+              <input type="hidden" name="range" value={range} />
+              {metricStyle !== 'balanced' && <input type="hidden" name="style" value={metricStyle} />}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Search tech</span>
+                  <input
+                    type="text"
+                    name="q"
+                    defaultValue={searchQuery}
+                    placeholder="Name or email"
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Activity</span>
+                  <select
+                    name="activity"
+                    defaultValue={activityFilter}
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="all">All</option>
+                    <option value="active">Active pipeline only</option>
+                    <option value="idle">No active jobs</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Min completion %</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    name="minCompletion"
+                    defaultValue={minCompletionRate || ''}
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Min assigned jobs</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    name="minAssigned"
+                    defaultValue={minAssignedJobs || ''}
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Min collected revenue</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    name="minRevenue"
+                    defaultValue={minRevenue || ''}
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Sort by</span>
+                  <select
+                    name="sort"
+                    defaultValue={sortBy}
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="collectedRevenue">Collected revenue</option>
+                    <option value="completionRate">Completion rate</option>
+                    <option value="assignedJobs">Assigned jobs</option>
+                    <option value="hoursWorked">Hours worked</option>
+                    <option value="name">Name</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Sort order</span>
+                  <select
+                    name="order"
+                    defaultValue={sortOrder}
+                    className="admin-input px-3 py-2 text-xs font-sans text-slate-900 dark:text-slate-100"
+                  >
+                    <option value="desc">High to low</option>
+                    <option value="asc">Low to high</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="font-sans text-[11px] text-slate-500 dark:text-slate-400">
+                  Showing {filteredTechnicianMetrics.length} of {technicianMetrics.length} technicians
+                </p>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={clearFiltersHref}
+                    className="px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 font-sans text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    Clear
+                  </Link>
+                  <button
+                    type="submit"
+                    className="admin-btn-primary px-3 py-2 text-xs rounded-md"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </form>
+          </details>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <div className="admin-card p-5">
           <div className="flex items-center justify-between">
             <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Technicians
             </p>
             <HardHat className="w-4 h-4 text-cyan-500" />
           </div>
-          <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{totals.technicians}</p>
+          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">{totals.technicians}</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <div className="admin-card p-5">
           <div className="flex items-center justify-between">
             <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Assigned Jobs
             </p>
             <Briefcase className="w-4 h-4 text-blue-500" />
           </div>
-          <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{totals.jobsAssigned}</p>
+          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">{totals.jobsAssigned}</p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <div className="admin-card p-5">
           <div className="flex items-center justify-between">
             <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Hours Worked
             </p>
             <Clock3 className="w-4 h-4 text-purple-500" />
           </div>
-          <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">
             {totals.hoursWorked.toFixed(1)}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+        <div className="admin-card p-5">
           <div className="flex items-center justify-between">
             <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Collected Revenue
             </p>
             <DollarSign className="w-4 h-4 text-emerald-500" />
           </div>
-          <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">
             {asMoney(totals.collectedRevenue)}
           </p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
+      <div className="admin-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-          <h2 className="font-display text-xl text-slate-900 dark:text-white">Team Completion Rate</h2>
+          <h2 className="admin-section-title">Team Completion Rate</h2>
         </div>
         <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
           <div
@@ -745,284 +1074,240 @@ export default async function TechniciansPage(props: {
         </p>
       </div>
 
-      {technicianMetrics.length === 0 ? (
+      {filteredTechnicianMetrics.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50 p-10 text-center">
-          <p className="font-display text-2xl text-slate-900 dark:text-white">No technician data yet</p>
+          <p className="font-display text-2xl text-slate-900 dark:text-white">
+            {technicianMetrics.length === 0 ? 'No technician data yet' : 'No technicians match these filters'}
+          </p>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Add technician users and assign jobs to start tracking performance metrics.
+            {technicianMetrics.length === 0
+              ? 'Add technician users and assign jobs to start tracking performance metrics.'
+              : 'Adjust filters or clear them to see more technician stats.'}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
-          {technicianMetrics.map((tech) => {
+          {filteredTechnicianMetrics.map((tech) => {
             const completionMeter = clampPercent(tech.completionRate)
             const utilizationMeter = clampPercent(tech.utilizationRate)
             const collectionRate = clampPercent(
               safeDivide(tech.collectedRevenue, tech.billedRevenue) * 100
             )
-            const isTerminal = metricStyle === 'terminal'
-            const shellClass = isTerminal
-              ? 'group rounded-2xl border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 overflow-hidden transition-all duration-300 ease-out xl:col-span-1 open:xl:col-span-2 open:-translate-y-1 hover:border-cyan-500/50 hover:shadow-[0_8px_28px_rgba(8,145,178,0.12)]'
-              : 'group rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden transition-all duration-300 ease-out xl:col-span-1 open:xl:col-span-2 open:-translate-y-1 hover:border-cyan-300/50 dark:hover:border-cyan-500/40 hover:shadow-[0_8px_30px_rgba(8,145,178,0.08)]'
-            const summaryClass = isTerminal
-              ? 'list-none cursor-pointer p-5 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden transition-colors duration-200 hover:bg-slate-100 dark:hover:bg-slate-900'
-              : 'list-none cursor-pointer p-5 flex items-center justify-between gap-3 [&::-webkit-details-marker]:hidden transition-colors duration-200 hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
-            const bodyDividerClass = isTerminal
-              ? 'px-5 pb-5 border-t border-slate-200 dark:border-cyan-900'
-              : 'px-5 pb-5 border-t border-slate-100 dark:border-slate-800'
-            const emailClass = isTerminal
-              ? 'font-sans text-xs text-slate-600 dark:text-cyan-300 tracking-wide'
-              : 'font-sans text-xs text-slate-500 dark:text-slate-400 tracking-wide'
+            const pipelineLoad = tech.activeJobs + tech.upcomingJobs
+            const cancellationRate = clampPercent(safeDivide(tech.cancelledJobs, tech.assignedJobs) * 100)
+            const utilizationTone =
+              utilizationMeter >= 85
+                ? 'from-emerald-500 to-teal-500'
+                : utilizationMeter >= 60
+                  ? 'from-amber-500 to-orange-500'
+                  : 'from-slate-400 to-slate-500'
+            const collectionTone =
+              collectionRate >= 85
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : collectionRate >= 60
+                  ? 'text-amber-700 dark:text-amber-300'
+                  : 'text-rose-700 dark:text-rose-300'
+            const shellClass = 'group relative overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/65 dark:bg-slate-900/45 backdrop-blur-3xl shadow-xl shadow-slate-200/20 dark:shadow-indigo-500/5 hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500 ease-out xl:col-span-1 open:xl:col-span-2 open:-translate-y-1'
+            const summaryClass = 'relative z-10 list-none cursor-pointer px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 [&::-webkit-details-marker]:hidden transition-all duration-300 hover:bg-white/45 dark:hover:bg-white/5 before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/45 before:via-white/0 before:to-cyan-50/30 dark:before:from-indigo-500/5 dark:before:via-transparent dark:before:to-cyan-500/10 before:pointer-events-none'
+            const bodyDividerClass = 'relative z-10 px-6 pb-6 pt-5 border-t border-slate-200/50 dark:border-white/10 bg-white/30 dark:bg-slate-900/20'
+            const emailClass = 'font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-cyan-400/80 drop-shadow-sm'
             return (
               <details
                 key={tech.id}
                 className={shellClass}
+                data-metric-theme={metricUi.statCard.includes('dark:') ? 'dark-aware' : 'light-only'}
               >
                 <summary className={summaryClass}>
-                  <h3 className="font-display-soft text-[1.65rem] text-slate-900 dark:text-white">{tech.name}</h3>
-                  <ChevronDown className="w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" />
+                  <h3 className="font-display text-xl tracking-wider text-slate-900 dark:text-white uppercase drop-shadow-sm flex items-center gap-3 min-w-0">
+                    <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-cyan-400" />
+                    <span className="truncate">{tech.name}</span>
+                  </h3>
+                  <ChevronDown className="w-5 h-5 text-slate-400 dark:text-cyan-300 transition-transform duration-300 group-open:rotate-180 drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]" />
                 </summary>
 
                 <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
                   <div className="overflow-hidden">
                     <div className={bodyDividerClass}>
-                      <div
-                        className="mt-4 flex items-start gap-3 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '40ms' }}
-                      >
+                      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className={emailClass}>
                           {tech.email || 'No email on file'}
                         </p>
-                      </div>
-
-                      <div
-                        className="mt-3 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '65ms' }}
-                      >
                         <Link
                           href={`/admin/jobs?view=all&technician=${encodeURIComponent(tech.id)}`}
-                          className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-medium transition-colors ${
-                            isTerminal
-                              ? 'border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 text-slate-700 dark:text-cyan-100 hover:bg-slate-50 dark:hover:bg-slate-900'
-                              : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                          }`}
+                          className="inline-flex items-center justify-center rounded-2xl border border-slate-300/70 dark:border-slate-600/70 bg-white/80 dark:bg-slate-800/70 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest font-semibold text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
-                          View Jobs
+                          Open Job Queue
                         </Link>
                       </div>
 
                       <div
-                        className="mt-4 grid grid-cols-2 gap-3 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '90ms' }}
+                        className="mt-4 space-y-4 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
+                        style={{ transitionDelay: '45ms' }}
                       >
-                        <div className={metricUi.statCard}>
-                          <div className="flex items-center gap-2">
-                            <span className={metricUi.statIconChip}>
-                              <CalendarDays className={`h-3.5 w-3.5 ${metricUi.statIcon}`} />
-                            </span>
-                            <p className={metricUi.statLabel}>
-                              Unique Workdays
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                          <section className="xl:col-span-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                              Workload & Capacity
                             </p>
-                          </div>
-                          <p className={metricUi.statValue}>
-                            {tech.daysWorked}
-                          </p>
-                        </div>
+                            <div className="mt-3 flex items-end justify-between">
+                              <div>
+                                <p className="font-display text-4xl leading-none text-slate-900 dark:text-white">{pipelineLoad}</p>
+                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Total pipeline load</p>
+                              </div>
+                              <span className={`rounded-full px-3 py-1 font-mono text-[9px] uppercase tracking-widest ${
+                                tech.activeJobs > 0
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700/70 dark:text-slate-300'
+                              }`}>
+                                {tech.activeJobs > 0 ? 'Live Shift' : 'Standby'}
+                              </span>
+                            </div>
+                            <div className="mt-4 grid grid-cols-2 gap-2">
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Active</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{tech.activeJobs}</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Queued</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{tech.upcomingJobs}</p>
+                              </div>
+                            </div>
+                            <div className="mt-4">
+                              <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                <span>Utilization</span>
+                                <span>{utilizationMeter.toFixed(1)}%</span>
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700/70 overflow-hidden">
+                                <div className={`h-full rounded-full bg-gradient-to-r ${utilizationTone}`} style={{ width: `${utilizationMeter}%` }} />
+                              </div>
+                              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                                {asHours(tech.hoursWorked)} worked across {tech.daysWorked} active days.
+                              </p>
+                            </div>
+                          </section>
 
-                        <div className={metricUi.statCard}>
-                          <div className="flex items-center gap-2">
-                            <span className={metricUi.statIconChip}>
-                              <Hourglass className={`h-3.5 w-3.5 ${metricUi.statIcon}`} />
-                            </span>
-                            <p className={metricUi.statLabel}>
-                              Total Hours Worked
+                          <section className="xl:col-span-7 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                              Quality & Throughput
                             </p>
-                          </div>
-                          <p className={metricUi.statValue}>
-                            {asHours(tech.hoursWorked)}
-                          </p>
-                        </div>
+                            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2">
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Completion</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{completionMeter.toFixed(1)}%</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Cancellation</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{cancellationRate.toFixed(1)}%</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Avg Job Time</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asHours(tech.avgServiceHours)}</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Jobs / Day</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{tech.avgJobsPerDay.toFixed(1)}</p>
+                              </div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/70 dark:bg-slate-900/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Assigned</p>
+                                <p className="mt-1 font-display text-xl text-slate-900 dark:text-white">{tech.assignedJobs}</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/70 dark:bg-slate-900/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Completed</p>
+                                <p className="mt-1 font-display text-xl text-slate-900 dark:text-white">{tech.completedJobs}</p>
+                              </div>
+                            </div>
+                          </section>
 
-                        <div className={metricUi.statCard}>
-                          <div className="flex items-center gap-2">
-                            <span className={metricUi.statIconChip}>
-                              <Timer className={`h-3.5 w-3.5 ${metricUi.statIcon}`} />
-                            </span>
-                            <p className={metricUi.statLabel}>
-                              Avg Hours per Completed Job
+                          <section className="xl:col-span-12 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
+                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                              Commercial Impact
                             </p>
-                          </div>
-                          <p className={metricUi.statValue}>
-                            {asHours(tech.avgServiceHours)}
-                          </p>
-                        </div>
-
-                        <div className={metricUi.statCard}>
-                          <div className="flex items-center gap-2">
-                            <span className={metricUi.statIconChip}>
-                              <Gauge className={`h-3.5 w-3.5 ${metricUi.statIcon}`} />
-                            </span>
-                            <p className={metricUi.statLabel}>
-                              Daily Capacity Used (8h/day)
-                            </p>
-                          </div>
-                          <p className={metricUi.statValue}>
-                            {tech.utilizationRate.toFixed(1)}%
-                          </p>
-                          <div className={metricUi.track}>
-                            <div
-                              className={metricUi.utilizationBar}
-                              style={{ width: `${utilizationMeter}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className="mt-4 grid grid-cols-2 gap-3 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '140ms' }}
-                      >
-                        <div className={metricUi.highlightCard}>
-                          <p className={metricUi.highlightLabel}>
-                            Revenue Collected
-                          </p>
-                          <p className={metricUi.highlightValue}>
-                            {asMoney(tech.collectedRevenue || tech.billedRevenue)}
-                          </p>
-                          <p className={metricUi.highlightSubtext}>
-                            Collected {asMoney(tech.collectedRevenue)} | Billed fallback {asMoney(tech.billedRevenue)}
-                          </p>
-                          <div className={metricUi.track}>
-                            <div
-                              className={metricUi.collectionBar}
-                              style={{ width: `${collectionRate}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className={metricUi.highlightCard}>
-                          <p className={metricUi.highlightLabel}>
-                            Job Completion Rate
-                          </p>
-                          <p className={metricUi.highlightValue}>
-                            {tech.completionRate.toFixed(1)}%
-                          </p>
-                          <p className={metricUi.highlightSubtext}>
-                            {tech.completedJobs} completed / {tech.assignedJobs} assigned
-                          </p>
-                          <div className={metricUi.track}>
-                            <div
-                              className={metricUi.completionBar}
-                              style={{ width: `${completionMeter}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div
-                        className="mt-4 grid grid-cols-3 gap-3 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '190ms' }}
-                      >
-                        <div className={metricUi.compactCard}>
-                          <p className={metricUi.compactLabel}>
-                            Total Completed Jobs
-                          </p>
-                          <p className={metricUi.compactValue}>
-                            {tech.completedJobs}
-                          </p>
-                        </div>
-                        <div className={metricUi.compactCard}>
-                          <p className={metricUi.compactLabel}>
-                            Upcoming Jobs
-                          </p>
-                          <p className={metricUi.compactValue}>
-                            {tech.upcomingJobs}
-                          </p>
-                        </div>
-                        <div className={metricUi.compactCard}>
-                          <p className={metricUi.compactLabel}>
-                            Total Cancelled Jobs
-                          </p>
-                          <p className={metricUi.compactValue}>
-                            {tech.cancelledJobs}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div
-                        className="mt-4 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '240ms' }}
-                      >
-                        <p
-                          className={`font-sans text-[11px] uppercase tracking-wide mb-2 ${
-                            isTerminal
-                              ? 'text-slate-600 dark:text-cyan-300'
-                              : 'text-slate-500 dark:text-slate-400'
-                          }`}
-                        >
-                          Most Frequent Services
-                        </p>
-                        {tech.topServices.length === 0 ? (
-                          <p
-                            className={`text-sm ${
-                              isTerminal
-                                ? 'text-slate-600 dark:text-cyan-300/80'
-                                : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          >
-                            No service history in this range.
-                          </p>
-                        ) : (
-                          <div className="space-y-2.5">
-                            {tech.topServices.map((service, index) => {
-                              const share = clampPercent(service.share)
-                              const rankLabel =
-                                index === 0
-                                  ? 'Top performer'
-                                  : index === 1
-                                    ? 'High demand'
-                                    : 'Steady demand'
-                              const tone =
-                                index === 0
-                                  ? 'from-cyan-500 to-blue-600'
-                                  : index === 1
-                                    ? 'from-sky-500 to-cyan-600'
-                                    : 'from-slate-500 to-slate-600'
-
-                              return (
+                            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2">
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Collected</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.collectedRevenue)}</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Billed</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.billedRevenue)}</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Revenue / Hour</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.revenuePerHour)}</p>
+                              </div>
+                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
+                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Revenue / Completed</p>
+                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.revenuePerCompletedJob)}</p>
+                              </div>
+                            </div>
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                <span>Collection Realization</span>
+                                <span className={collectionTone}>{collectionRate.toFixed(1)}%</span>
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700/70 overflow-hidden">
                                 <div
-                                  key={`${tech.id}-${service.name}`}
-                                  className="rounded-xl border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 p-3 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                                  style={{ transitionDelay: `${280 + index * 45}ms` }}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="font-sans text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-cyan-400">
-                                        #{index + 1}
-                                      </p>
-                                      <p className="mt-0.5 truncate text-sm font-semibold text-slate-900 dark:text-cyan-100">
-                                        {service.name}
-                                      </p>
-                                      <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-cyan-300">
-                                        {rankLabel}
-                                      </p>
+                                  className={`h-full rounded-full bg-gradient-to-r ${
+                                    collectionRate >= 85
+                                      ? 'from-emerald-500 to-teal-500'
+                                      : collectionRate >= 60
+                                        ? 'from-amber-500 to-orange-500'
+                                        : 'from-rose-500 to-red-500'
+                                  }`}
+                                  style={{ width: `${collectionRate}%` }}
+                                />
+                              </div>
+                            </div>
+                          </section>
+                        </div>
+
+                        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                            Service Mix
+                          </p>
+                          {tech.topServices.length === 0 ? (
+                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No service history in this range.</p>
+                          ) : (
+                            <div className="mt-3 space-y-2.5">
+                              {tech.topServices.map((service, index) => {
+                                const share = clampPercent(service.share)
+                                const tone =
+                                  index === 0
+                                    ? 'from-emerald-500 to-teal-500'
+                                    : index === 1
+                                      ? 'from-indigo-500 to-blue-500'
+                                      : 'from-slate-500 to-slate-600'
+
+                                return (
+                                  <div
+                                    key={`${tech.id}-${service.name}`}
+                                    className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                                          Rank #{index + 1}
+                                        </p>
+                                        <p className="mt-0.5 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                          {service.name}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="font-sans text-xs text-slate-700 dark:text-slate-200">{service.count} jobs</p>
+                                        <p className="font-sans text-[10px] text-slate-500 dark:text-slate-400">{share.toFixed(1)}% of non-cancelled jobs</p>
+                                      </div>
                                     </div>
-                                    <div className="text-right">
-                                      <p className="font-sans text-xs text-slate-700 dark:text-cyan-100">{service.count} jobs</p>
-                                      <p className="font-sans text-[10px] text-slate-500 dark:text-cyan-300">{share.toFixed(1)}% of non-cancelled jobs</p>
+                                    <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700/70 overflow-hidden">
+                                      <div className={`h-full rounded-full bg-gradient-to-r ${tone} transition-all duration-500`} style={{ width: `${share}%` }} />
                                     </div>
                                   </div>
-                                  <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-cyan-950/70 overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full bg-gradient-to-r ${tone} transition-all duration-500`}
-                                      style={{ width: `${share}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
+                                )
+                              })}
+                            </div>
+                          )}
+                        </section>
                       </div>
                     </div>
                   </div>
@@ -1035,5 +1320,3 @@ export default async function TechniciansPage(props: {
     </div>
   )
 }
-
-

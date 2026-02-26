@@ -94,6 +94,9 @@ export const iconRegistry = {
   sort: LucideIcons.ArrowUpDown,
   more: LucideIcons.MoreHorizontal,
   moreVertical: LucideIcons.MoreVertical,
+  sparkles: LucideIcons.Sparkles,
+  sliders: LucideIcons.SlidersHorizontal,
+  funnel: LucideIcons.Funnel,
   
   // Communication
   email: LucideIcons.Mail,
@@ -128,6 +131,9 @@ export const iconRegistry = {
   building: LucideIcons.Building2,
   business: LucideIcons.Building2,
   company: LucideIcons.Building2,
+  route: LucideIcons.Route,
+  dispatch: LucideIcons.Route,
+  database: LucideIcons.Database,
   
   // Services & Work
   service: LucideIcons.Wrench,
@@ -166,6 +172,10 @@ export const iconRegistry = {
   question: LucideIcons.HelpCircle,
   loading: LucideIcons.Loader2,
   spinner: LucideIcons.Loader2,
+  wifi: LucideIcons.Wifi,
+  wifiOff: LucideIcons.WifiOff,
+  shield: LucideIcons.Shield,
+  bot: LucideIcons.Bot,
   
   // Files & Media
   file: LucideIcons.File,

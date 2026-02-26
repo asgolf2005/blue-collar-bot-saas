@@ -43,7 +43,8 @@ export default async function TechDashboard() {
       description,
       urgency,
       total_cost,
-      customer:customers(id, name, phone, address)
+      customer:customers(id, name, phone, address),
+      services:job_services(service:services(name, category))
     `
 
   const todayJobsQuery = supabase

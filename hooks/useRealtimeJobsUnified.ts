@@ -19,6 +19,60 @@ interface UseRealtimeJobsUnifiedReturn {
   lastUpdate: Date | null
 }
 
+const JOBS_LIST_SELECT = `
+  id,
+  business_id,
+  customer_id,
+  technician_id,
+  status,
+  scheduled_start,
+  scheduled_end,
+  description,
+  urgency,
+  updated_at,
+  customer:customers(id,name),
+  technician:users(id,full_name),
+  services:job_services(service:services(id,name))
+`
+
+function hasJobChanged(prev: Job, next: Job): boolean {
+  if (
+    prev.status !== next.status ||
+    prev.technician_id !== next.technician_id ||
+    prev.customer_id !== next.customer_id ||
+    prev.scheduled_start !== next.scheduled_start ||
+    prev.scheduled_end !== next.scheduled_end ||
+    prev.updated_at !== next.updated_at ||
+    prev.description !== next.description ||
+    prev.urgency !== next.urgency
+  ) {
+    return true
+  }
+
+  if (prev.customer?.id !== next.customer?.id || prev.customer?.name !== next.customer?.name) {
+    return true
+  }
+  if (prev.technician?.id !== next.technician?.id || prev.technician?.full_name !== next.technician?.full_name) {
+    return true
+  }
+
+  const prevServices = prev.services || []
+  const nextServices = next.services || []
+  if (prevServices.length !== nextServices.length) {
+    return true
+  }
+
+  for (let i = 0; i < prevServices.length; i += 1) {
+    const prevName = prevServices[i]?.service?.name
+    const nextName = nextServices[i]?.service?.name
+    if (prevName !== nextName) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export function useRealtimeJobsUnified({
   businessId,
   initialJobs = [],
@@ -57,7 +111,7 @@ export function useRealtimeJobsUnified({
         services: updatedJob.services || existing.services,
       }
 
-      if (JSON.stringify(existing) === JSON.stringify(merged)) {
+      if (!hasJobChanged(existing, merged)) {
         return current
       }
 
@@ -85,20 +139,15 @@ export function useRealtimeJobsUnified({
     try {
       const { data, error: fetchError } = await supabase
         .from('jobs')
-        .select(`
-          *,
-          customer:customers(*),
-          technician:users(*),
-          services:job_services(service:services(*))
-        `)
+        .select(JOBS_LIST_SELECT)
         .eq('business_id', businessId)
         .order('scheduled_start', { ascending: true })
-        .limit(500)
+        .limit(1000)
 
       if (fetchError) throw fetchError
 
       if (isMountedRef.current) {
-        setJobs((data as Job[]) || [])
+        setJobs((data as unknown as Job[]) || [])
         setError(null)
         setLastUpdate(new Date())
       }

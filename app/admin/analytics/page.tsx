@@ -1,20 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AnalyticsClient from './components/AnalyticsClient'
-import { 
-  InvoiceWithRelations, 
-  JobWithRelations
+import {
+  InvoiceWithRelations,
+  JobWithRelations,
+  OpsHealthData,
 } from '@/lib/analytics/types'
-import { getDateRange } from '@/lib/analytics/dateUtils'
-import { 
+import { getDateRange, resolveDateRangeKey, type DateRangeKey } from '@/lib/analytics/dateUtils'
+import {
   calculateMetrics,
-  calculateStatusData,
   calculateTechnicianData,
   calculateServiceData,
-  generateDailyRevenueData
+  generateDailyRevenueData,
 } from '@/lib/analytics/calculations'
+import {
+  fetchCustomerNames,
+  fetchInvoicesInWindow,
+  fetchJobsInWindow,
+  fetchServiceNamesByJob,
+  fetchUserNames,
+} from '@/lib/analytics/server-queries'
 
-// Prevent caching to ensure fresh data
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -23,6 +29,14 @@ function isWithinRange(value: string | null | undefined, start: Date, end: Date)
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return false
   return date >= start && date <= end
+}
+
+function hoursBetween(start: string | null, end: string | null): number {
+  if (!start || !end) return 2
+  const startMs = new Date(start).getTime()
+  const endMs = new Date(end).getTime()
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return 2
+  return (endMs - startMs) / (1000 * 60 * 60)
 }
 
 export default async function AnalyticsPage({
@@ -34,160 +48,181 @@ export default async function AnalyticsPage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+  if (!user) redirect('/login')
 
-  // Get user profile with business_id
   const { data: profile } = await supabase
     .from('users')
     .select('business_id, role')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !profile.business_id) {
-    redirect('/login')
-  }
+  if (!profile || !profile.business_id) redirect('/login')
 
   const businessId = profile.business_id
-  const rawRange = Array.isArray(params?.range) ? params?.range[0] : params?.range
-  const validRanges = new Set(['7d', '30d', '90d', 'ytd'])
-  const range = validRanges.has(rawRange || '') ? (rawRange as '7d' | '30d' | '90d' | 'ytd') : '30d'
-  const dateRange = getDateRange(range as any)
+  const range: DateRangeKey = resolveDateRangeKey(params?.range)
+  const dateRange = getDateRange(range)
 
-  // Fetch business data and apply range in memory for current + previous period
-  const { data: jobsData = [] } = await supabase
-    .from('jobs')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: false })
-
-  const { data: invoicesData = [] } = await supabase
-    .from('invoices')
-    .select('*')
-    .eq('business_id', businessId)
-    .order('created_at', { ascending: false })
-
-  // Fetch related data separately
-  const { data: customersData = [] } = await supabase
-    .from('customers')
-    .select('id, name')
-    .eq('business_id', businessId)
-
-  const { data: usersData = [] } = await supabase
+  const [jobsData, invoicesData] = await Promise.all([
+    fetchJobsInWindow({
+      supabase,
+      businessId,
+      start: dateRange.prevStart,
+      end: dateRange.end,
+    }),
+    fetchInvoicesInWindow({
+      supabase,
+      businessId,
+      start: dateRange.prevStart,
+      end: dateRange.end,
+    }),
+  ])
+  const { data: usersData, error: usersError } = await supabase
     .from('users')
-    .select('id, full_name')
+    .select('id, full_name, role')
     .eq('business_id', businessId)
+  if (usersError) throw usersError
+  const users = usersData ?? []
 
-  const { data: servicesData = [] } = await supabase
-    .from('services')
-    .select('id, name')
-    .eq('business_id', businessId)
+  const customerIds = Array.from(
+    new Set([
+      ...jobsData.map((job) => job.customer_id).filter((value): value is string => Boolean(value)),
+      ...invoicesData.map((invoice) => invoice.customer_id).filter((value): value is string => Boolean(value)),
+    ])
+  )
+  const technicianIds = Array.from(
+    new Set(jobsData.map((job) => job.technician_id).filter((value): value is string => Boolean(value)))
+  )
+  const jobIds = jobsData.map((job) => job.id)
 
-  const jobIds = (jobsData || []).map(job => job.id)
-  const { data: jobServicesData = [] } = jobIds.length
-    ? await supabase
-        .from('job_services')
-        .select('job_id, service_id')
-        .in('job_id', jobIds)
-    : { data: [] as Array<{ job_id: string; service_id: string }> }
+  const [customerMap, technicianMap, jobServiceNames] = await Promise.all([
+    fetchCustomerNames({ supabase, businessId, customerIds }),
+    fetchUserNames({ supabase, businessId, userIds: technicianIds }),
+    fetchServiceNamesByJob({ supabase, businessId, jobIds }),
+  ])
 
-  // Build lookup maps
-  const customerMap = new Map((customersData || []).map(c => [c.id, c.name]))
-  const userMap = new Map((usersData || []).map(u => [u.id, u.full_name]))
-  const serviceMap = new Map((servicesData || []).map(s => [s.id, s.name]))
-  const jobMap = new Map((jobsData || []).map(job => [job.id, job]))
-  const jobServiceNames = new Map<string, string[]>()
+  const jobMap = new Map(jobsData.map((job) => [job.id, job]))
 
-  ;(jobServicesData || []).forEach((row) => {
-    const serviceName = row.service_id ? serviceMap.get(row.service_id) : null
-    if (!serviceName) return
-    const existing = jobServiceNames.get(row.job_id) || []
-    existing.push(serviceName)
-    jobServiceNames.set(row.job_id, existing)
-  })
-
-  // Transform to proper types with related data
-  const allJobs: JobWithRelations[] = (jobsData || []).map((j: any) => ({
-    id: j.id,
-    status: j.status,
-    total_cost: j.total_cost,
-    created_at: j.created_at,
-    scheduled_start: j.scheduled_start,
-    scheduled_end: j.scheduled_end,
+  const allJobs: JobWithRelations[] = jobsData.map((job) => ({
+    id: job.id,
+    status: (job.status || 'scheduled') as JobWithRelations['status'],
+    total_cost: job.total_cost,
+    created_at: job.created_at,
+    scheduled_start: job.scheduled_start,
+    scheduled_end: job.scheduled_end,
     completed_at: null,
-    description: j.description,
-    customer: j.customer_id ? { name: customerMap.get(j.customer_id) || 'Unknown' } : null,
-    technician: j.technician_id ? { 
-      id: j.technician_id,
-      full_name: userMap.get(j.technician_id) || 'Unknown'
-    } : null,
-    service: (jobServiceNames.get(j.id) || [])[0]
-      ? { name: (jobServiceNames.get(j.id) || [])[0] }
-      : null
+    description: job.description,
+    customer: job.customer_id ? { name: customerMap.get(job.customer_id) || 'Unknown' } : null,
+    technician: job.technician_id
+      ? {
+          id: job.technician_id,
+          full_name: technicianMap.get(job.technician_id) || 'Unknown',
+        }
+      : null,
+    service: (jobServiceNames.get(job.id) || [])[0]
+      ? { name: (jobServiceNames.get(job.id) || [])[0] }
+      : null,
   }))
 
-  const allInvoices: InvoiceWithRelations[] = (invoicesData || []).map((i: any) => {
-    const relatedJob = i.job_id ? jobMap.get(i.job_id) : null
-    const serviceName = i.job_id ? (jobServiceNames.get(i.job_id) || [])[0] : null
-
+  const allInvoices: InvoiceWithRelations[] = invoicesData.map((invoice) => {
+    const relatedJob = invoice.job_id ? jobMap.get(invoice.job_id) : null
+    const serviceName = invoice.job_id ? (jobServiceNames.get(invoice.job_id) || [])[0] : null
+    const techId = relatedJob?.technician_id || null
     return {
-    id: i.id,
-    status: i.status,
-    total: i.total,
-    subtotal: i.subtotal,
-    tax: i.tax,
-    created_at: i.created_at,
-    paid_at: i.paid_at,
-    issue_date: i.issue_date,
-    due_date: i.due_date,
-    customer: i.customer_id ? { name: customerMap.get(i.customer_id) || 'Unknown' } : null,
-    job: i.job_id ? {
-      id: i.job_id,
-      status: relatedJob?.status || '',
-      technician: relatedJob?.technician_id
+      id: invoice.id,
+      status: (invoice.status || 'draft') as InvoiceWithRelations['status'],
+      total: invoice.total || 0,
+      subtotal: invoice.subtotal || 0,
+      tax: invoice.tax || 0,
+      created_at: invoice.created_at,
+      paid_at: invoice.paid_at,
+      issue_date: invoice.issue_date,
+      due_date: invoice.due_date,
+      customer: invoice.customer_id ? { name: customerMap.get(invoice.customer_id) || 'Unknown' } : null,
+      job: invoice.job_id
         ? {
-            id: relatedJob.technician_id,
-            full_name: userMap.get(relatedJob.technician_id) || 'Unknown'
+            id: invoice.job_id,
+            status: relatedJob?.status || '',
+            technician: techId
+              ? {
+                  id: techId,
+                  full_name: technicianMap.get(techId) || 'Unknown',
+                }
+              : null,
+            service: serviceName ? { name: serviceName } : null,
           }
         : null,
-      service: serviceName ? { name: serviceName } : null
-    } : null
-  }})
+    }
+  })
 
-  const currentJobs = allJobs.filter(job =>
+  const currentJobs = allJobs.filter((job) =>
     isWithinRange(job.scheduled_start || job.created_at, dateRange.start, dateRange.end)
   )
-  const prevJobs = allJobs.filter(job =>
+  const prevJobs = allJobs.filter((job) =>
     isWithinRange(job.scheduled_start || job.created_at, dateRange.prevStart, dateRange.prevEnd)
   )
-  const currentInvoices = allInvoices.filter(invoice =>
+  const currentInvoices = allInvoices.filter((invoice) =>
     isWithinRange(invoice.paid_at || invoice.created_at, dateRange.start, dateRange.end)
   )
-  const prevInvoices = allInvoices.filter(invoice =>
+  const prevInvoices = allInvoices.filter((invoice) =>
     isWithinRange(invoice.paid_at || invoice.created_at, dateRange.prevStart, dateRange.prevEnd)
   )
 
-  // Calculate all metrics
   const metrics = calculateMetrics({
     currentJobs,
     currentInvoices,
     prevJobs,
-    prevInvoices
+    prevInvoices,
   })
-
-  // Generate chart data
   const revenueData = generateDailyRevenueData(currentInvoices, currentJobs, dateRange)
-  const statusData = calculateStatusData(currentJobs)
   const technicianData = calculateTechnicianData(currentJobs, currentInvoices)
   const serviceData = calculateServiceData(currentJobs, currentInvoices)
+
+  const techCount = users.filter((user) => user?.role === 'tech').length
+  const activeStatuses = new Set(['scheduled', 'on_the_way', 'arrived', 'in_progress'])
+  const now = new Date()
+
+  const demandJobs = currentJobs.filter((job) => job.status !== 'cancelled').length
+  const unassignedJobs = currentJobs.filter((job) => job.status !== 'cancelled' && !job.technician?.id).length
+  const scheduledHours = currentJobs
+    .filter((job) => job.status !== 'cancelled')
+    .reduce((sum, job) => sum + hoursBetween(job.scheduled_start, job.scheduled_end), 0)
+
+  const daysInRange = Math.max(1, Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)))
+  const capacityHours = Math.max(0, techCount * daysInRange * 8)
+  const capacityUtilizationPct = capacityHours > 0 ? (scheduledHours / capacityHours) * 100 : 0
+
+  const activeWindowJobs = currentJobs.filter((job) => activeStatuses.has(job.status)).length
+  const lateStartJobs = currentJobs.filter((job) => {
+    if (!job.scheduled_start) return false
+    if (!['scheduled', 'on_the_way', 'arrived'].includes(job.status)) return false
+    return new Date(job.scheduled_start) < now
+  }).length
+  const overdueInProgressJobs = currentJobs.filter((job) => {
+    if (job.status !== 'in_progress' || !job.scheduled_end) return false
+    return new Date(job.scheduled_end) < now
+  }).length
+  const onTrackJobs = Math.max(0, activeWindowJobs - lateStartJobs - overdueInProgressJobs)
+  const onTimeRate = activeWindowJobs > 0 ? (onTrackJobs / activeWindowJobs) * 100 : 100
+
+  const opsHealth: OpsHealthData = {
+    demandJobs,
+    unassignedJobs,
+    activeTechnicians: techCount,
+    scheduledHours,
+    capacityHours,
+    capacityUtilizationPct,
+    onTimeRate,
+    lateStartJobs,
+    overdueInProgressJobs,
+    activeWindowJobs,
+  }
 
   return (
     <AnalyticsClient
       initialRange={range}
       metrics={metrics}
       revenueData={revenueData}
-      statusData={statusData}
+      opsHealth={opsHealth}
       technicianData={technicianData}
       serviceData={serviceData}
     />

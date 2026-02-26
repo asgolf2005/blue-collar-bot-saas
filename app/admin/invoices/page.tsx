@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/Button'
+import { ActionButton } from '@/components/ui/ActionSystem'
 import { Icon } from '@/components/ui/icons'
 import { 
   Download,
@@ -19,7 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Invoice, InvoiceStatus, Customer } from '@/lib/types'
 
 type StatusFilter = 'all' | 'outstanding' | InvoiceStatus
-type DateRangeFilter = 'all' | '7d' | '30d' | '90d' | 'ytd'
+type DateRangeFilter = 'all' | '7d' | '14d' | '30d' | '6m' | '1y'
 type AmountFilter = 'all' | 'under_500' | '500_2000' | 'over_2000'
 type SortField = 'date' | 'amount' | 'customer' | 'number'
 type SortOrder = 'asc' | 'desc'
@@ -29,6 +29,17 @@ interface InvoiceWithCustomer extends Invoice {
 }
 
 const STATUS_FILTER_OPTIONS: InvoiceStatus[] = ['draft', 'sent', 'overdue', 'paid']
+const DATE_RANGE_OPTIONS: Array<{ value: DateRangeFilter; label: string }> = [
+  { value: 'all', label: 'All Time' },
+  { value: '7d', label: '7 Days' },
+  { value: '14d', label: '14 Days' },
+  { value: '30d', label: '30 Days' },
+  { value: '6m', label: '6 Months' },
+  { value: '1y', label: '1 Year' },
+]
+const DATE_RANGE_LABELS: Record<DateRangeFilter, string> = Object.fromEntries(
+  DATE_RANGE_OPTIONS.map((option) => [option.value, option.label])
+) as Record<DateRangeFilter, string>
 const isInvoiceOverdue = (invoice: Invoice) => {
   if (invoice.status === 'overdue') return true
   if (invoice.status !== 'sent' || !invoice.due_date) return false
@@ -147,7 +158,12 @@ export default function InvoicesPage() {
       ) {
         setStatusFilter(parsed.statusFilter)
       }
-      if (parsed.dateRangeFilter) setDateRangeFilter(parsed.dateRangeFilter)
+      if (
+        parsed.dateRangeFilter &&
+        ['all', '7d', '14d', '30d', '6m', '1y'].includes(parsed.dateRangeFilter)
+      ) {
+        setDateRangeFilter(parsed.dateRangeFilter as DateRangeFilter)
+      }
       if (parsed.amountFilter) setAmountFilter(parsed.amountFilter)
       if (parsed.preset) setActivePreset(parsed.preset)
     } catch (storageError) {
@@ -188,12 +204,26 @@ export default function InvoicesPage() {
     const nowDate = new Date()
     const rangeStart = (() => {
       if (dateRangeFilter === 'all') return null
-      if (dateRangeFilter === 'ytd') return new Date(nowDate.getFullYear(), 0, 1)
-
-      const days = dateRangeFilter === '7d' ? 7 : dateRangeFilter === '30d' ? 30 : 90
       const start = new Date(nowDate)
-      start.setDate(start.getDate() - days)
-      return start
+      switch (dateRangeFilter) {
+        case '7d':
+          start.setDate(start.getDate() - 7)
+          return start
+        case '14d':
+          start.setDate(start.getDate() - 14)
+          return start
+        case '30d':
+          start.setDate(start.getDate() - 30)
+          return start
+        case '6m':
+          start.setMonth(start.getMonth() - 6)
+          return start
+        case '1y':
+          start.setFullYear(start.getFullYear() - 1)
+          return start
+        default:
+          return null
+      }
     })()
     
     // Search filter
@@ -455,7 +485,7 @@ export default function InvoicesPage() {
   if (!isHydrated) {
     return (
       <div className="space-y-6">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
+        <div className="admin-card shadow-sm p-12">
           <div className="flex flex-col items-center justify-center">
             <Loader2 className="w-8 h-8 text-blue-600 dark:text-cyan-400 animate-spin mb-4" />
             <p className="font-mono text-sm text-slate-500 dark:text-slate-400">
@@ -472,7 +502,7 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-5xl sm:text-6xl text-slate-900 dark:text-white tracking-wide">
+          <h1 className="admin-page-header">
             BILLING
           </h1>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
@@ -481,9 +511,14 @@ export default function InvoicesPage() {
         </div>
         <div className="flex gap-2">
           <Link href="/admin/invoices/new">
-            <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all whitespace-nowrap flex-nowrap">
-              <span className="whitespace-nowrap">NEW INVOICE</span>
-            </Button>
+            <ActionButton
+              stylePreset="industrial"
+              intent="primary"
+              size="md"
+              className="uppercase tracking-[0.1em] whitespace-nowrap"
+            >
+              NEW INVOICE
+            </ActionButton>
           </Link>
         </div>
       </div>
@@ -533,7 +568,7 @@ export default function InvoicesPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="admin-card shadow-sm">
         <div className="p-5 space-y-4">
           {/* Search Bar */}
           <div className="relative">
@@ -546,7 +581,7 @@ export default function InvoicesPage() {
                 setActivePreset('custom')
               }}
               placeholder="Search by invoice # or customer name..."
-              className="w-full px-4 pr-12 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400 focus:ring-1 focus:ring-blue-500 dark:focus:ring-cyan-400 transition-all"
+              className="w-full px-4 pr-12 py-3 rounded-xl admin-input text-slate-900 dark:text-white font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
             />
             {searchQuery && (
               <button type="button"
@@ -587,11 +622,11 @@ export default function InvoicesPage() {
               }}
               className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 font-mono text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-cyan-400"
             >
-              <option value="all">All Dates</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-              <option value="ytd">Year to date</option>
+              {DATE_RANGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
 
             <select
@@ -655,7 +690,7 @@ export default function InvoicesPage() {
               )}
               {dateRangeFilter !== 'all' && (
                 <span className="rounded-full border border-violet-300/80 bg-violet-100/75 px-3 py-1 font-mono text-[10px] text-violet-800 shadow-[0_0_0_1px_rgba(139,92,246,0.1),0_0_14px_rgba(139,92,246,0.15)] dark:border-violet-500/45 dark:bg-violet-500/15 dark:text-violet-200 dark:shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_0_16px_rgba(139,92,246,0.22)]">
-                  Window: {dateRangeFilter.toUpperCase()}
+                  Window: {DATE_RANGE_LABELS[dateRangeFilter]}
                 </span>
               )}
               {amountFilter !== 'all' && (
@@ -676,7 +711,10 @@ export default function InvoicesPage() {
 
       {/* Bulk Actions Bar */}
       {selectedInvoices.size > 0 && (
-        <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50 dark:bg-blue-400/10 border border-blue-200 dark:border-blue-400/20 animate-fade-in">
+        <div
+          data-test="send-modal"
+          className="flex items-center justify-between p-4 rounded-xl bg-blue-50 dark:bg-blue-400/10 border border-blue-200 dark:border-blue-400/20 animate-fade-in"
+        >
           <div className="flex items-center gap-3">
             <span
               className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400"
@@ -698,6 +736,7 @@ export default function InvoicesPage() {
             <button type="button"
               onClick={() => handleBulkAction('send-reminder')}
               disabled={bulkActionLoading !== null}
+              data-test="confirm-send"
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-100 dark:bg-blue-400/20 text-blue-700 dark:text-blue-300 font-mono text-xs hover:bg-blue-200 dark:hover:bg-blue-400/30 transition-colors disabled:opacity-60"
             >
               {bulkActionLoading === 'send-reminder' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -724,24 +763,27 @@ export default function InvoicesPage() {
       {/* Results Count */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">INVOICES</h2>
+          <h2 className="admin-section-title">INVOICES</h2>
           <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 mt-1 tracking-wider">
             {filteredInvoices.length} {filteredInvoices.length === 1 ? 'RECORD' : 'RECORDS'} FOUND
           </p>
         </div>
         {!loading && filteredInvoices.length > 0 && (
-          <button type="button"
+          <ActionButton
             onClick={toggleSelectAll}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-mono text-xs text-slate-700 dark:text-slate-300 transition-colors"
+            stylePreset="industrial"
+            intent={selectedInvoices.size === filteredInvoices.length ? 'primary' : 'secondary'}
+            size="md"
+            className="uppercase tracking-[0.08em]"
           >
             {selectedInvoices.size === filteredInvoices.length ? 'Deselect All' : 'Select All'}
-          </button>
+          </ActionButton>
         )}
       </div>
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
+        <div className="admin-card shadow-sm p-12">
           <div className="flex flex-col items-center justify-center">
             <Loader2 className="w-8 h-8 text-blue-600 dark:text-cyan-400 animate-spin mb-4" />
             <p className="font-mono text-sm text-slate-500 dark:text-slate-400">
@@ -753,7 +795,7 @@ export default function InvoicesPage() {
 
       {/* Error State */}
       {error && !loading && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
+        <div className="admin-card shadow-sm p-12">
           <div className="text-center">
             <div className="w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-400/10 flex items-center justify-center mx-auto mb-4">
               <span className="font-mono text-xs font-semibold text-rose-700 dark:text-rose-300">ERR</span>
@@ -762,7 +804,7 @@ export default function InvoicesPage() {
               {error}
             </p>
             <button type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => void fetchInvoices()}
               className="mt-4 font-mono text-xs text-blue-600 dark:text-cyan-400 hover:underline"
             >
               Retry
@@ -773,9 +815,9 @@ export default function InvoicesPage() {
 
       {/* Invoices List */}
       {!loading && !error && (
-        <div className="space-y-3">
+        <div className="space-y-3" data-test="invoice-list">
           {filteredInvoices.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12">
+            <div className="admin-card shadow-sm p-12">
               <div className="text-center">
                 <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
                   <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-300">0</span>
@@ -825,14 +867,18 @@ function InvoiceRow({
   onQuickAction: (invoiceId: string, action: 'mark-paid' | 'send-reminder') => void
   actionLoading: boolean
 }) {
+  const router = useRouter()
   const isOverdue = isInvoiceOverdue(invoice)
   
   return (
-    <div className={`group relative overflow-hidden bg-white dark:bg-slate-900 rounded-xl border transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
+    <div
+      data-test="invoice-item"
+      className={`group relative overflow-hidden bg-white dark:bg-slate-900 rounded-xl border transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${
       isSelected 
         ? 'border-blue-500 dark:border-cyan-400 ring-1 ring-blue-500 dark:ring-cyan-400' 
         : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-cyan-400/50'
-    }`}>
+    }`}
+    >
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-blue-500/0 dark:via-cyan-400/10" />
       <Link 
         href={`/admin/invoices/${invoice.id}`}
@@ -895,6 +941,7 @@ function InvoiceRow({
           >
             {invoice.status === 'draft' && (
               <button type="button"
+                data-test="send-invoice"
                 className="p-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-400/20 text-blue-600 dark:text-blue-300 transition-colors disabled:opacity-60"
                 onClick={(e) => {
                   e.preventDefault()
@@ -929,7 +976,7 @@ function InvoiceRow({
               onClick={(e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                window.location.href = `/admin/invoices/${invoice.id}`
+                router.push(`/admin/invoices/${invoice.id}`)
               }}
               className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
@@ -1020,7 +1067,7 @@ function MetricCard({
           <Icon name={iconName} size={18} className="opacity-80" />
         </div>
       </div>
-      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
+      <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">{value}</p>
     </div>
   )
 
@@ -1056,4 +1103,11 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+
+
+
+
+
+
+
 

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import {
@@ -65,14 +65,14 @@ export default function TopTechniciansChart({ data, onTechnicianClick }: TopTech
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
+    <div className="admin-card p-5">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="font-display text-2xl text-slate-900 dark:text-white tracking-wide">
+          <h2 className="admin-section-title">
             TOP TECHNICIANS
           </h2>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Ranked by jobs completed
+            Ranked by completed jobs in selected period
           </p>
         </div>
       </div>
@@ -168,3 +168,5 @@ export default function TopTechniciansChart({ data, onTechnicianClick }: TopTech
     </div>
   )
 }
+
+

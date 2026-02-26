@@ -85,9 +85,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = (await request.json().catch(() => ({}))) as { mode?: Mode; horizonDays?: number }
+    const body = (await request.json().catch(() => ({}))) as { mode?: Mode; horizonDays?: number; targetDate?: string }
     const mode: Mode = body.mode === 'apply' ? 'apply' : 'preview'
     const horizonDays = Math.max(1, Math.min(30, Number(body.horizonDays) || 14))
+    const targetDate = typeof body.targetDate === 'string' && body.targetDate.trim().length > 0 ? body.targetDate.trim() : null
 
     const { data: profile } = await supabase
       .from('users')
@@ -100,8 +101,21 @@ export async function POST(request: Request) {
     }
 
     const now = new Date()
-    const horizonEnd = addMinutes(now, horizonDays * 24 * 60)
-    const historicalStart = addMinutes(now, -120 * 24 * 60)
+    let windowStart = now
+    let windowEnd = addMinutes(now, horizonDays * 24 * 60)
+
+    if (targetDate) {
+      const parsed = new Date(`${targetDate}T00:00:00`)
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: 'Invalid targetDate. Expected YYYY-MM-DD.' }, { status: 400 })
+      }
+      windowStart = new Date(parsed)
+      windowStart.setHours(0, 0, 0, 0)
+      windowEnd = new Date(parsed)
+      windowEnd.setHours(23, 59, 59, 999)
+    }
+
+    const historicalStart = addMinutes(windowStart, -120 * 24 * 60)
 
     const [techRes, upcomingRes, completedRes] = await Promise.all([
       supabase
@@ -114,8 +128,8 @@ export async function POST(request: Request) {
         .from('jobs')
         .select('id, customer_id, technician_id, status, scheduled_start, scheduled_end, urgency')
         .eq('business_id', profile.business_id)
-        .gte('scheduled_start', now.toISOString())
-        .lte('scheduled_start', horizonEnd.toISOString())
+        .gte('scheduled_start', windowStart.toISOString())
+        .lte('scheduled_start', windowEnd.toISOString())
         .order('scheduled_start', { ascending: true }),
       supabase
         .from('jobs')
@@ -130,7 +144,7 @@ export async function POST(request: Request) {
     if (upcomingRes.error) throw upcomingRes.error
     if (completedRes.error) throw completedRes.error
 
-    const technicians = (techRes.data || []) as Technician[]
+    let technicians = (techRes.data || []) as Technician[]
     const upcomingJobs = (upcomingRes.data || []) as JobRecord[]
     const completedJobs = (completedRes.data || []) as Array<{
       id: string
@@ -139,14 +153,31 @@ export async function POST(request: Request) {
       scheduled_start: string | null
     }>
 
+    if (targetDate) {
+      const { data: availabilityRows, error: availabilityError } = await supabase
+        .from('technician_daily_availability')
+        .select('technician_id, is_working')
+        .eq('business_id', profile.business_id)
+        .eq('work_date', targetDate)
+
+      if (availabilityError) throw availabilityError
+
+      const availabilityByTech = new Map<string, boolean>(
+        (availabilityRows || []).map((row) => [row.technician_id as string, Boolean(row.is_working)])
+      )
+
+      technicians = technicians.filter((tech) => availabilityByTech.has(tech.id) ? availabilityByTech.get(tech.id) !== false : true)
+    }
+
     if (technicians.length === 0) {
       return NextResponse.json({
         summary: {
           mode,
           horizonDays,
+          targetDate,
           unassignedJobs: 0,
           recommendations: 0,
-          message: 'No technicians available',
+          message: targetDate ? 'No technicians are marked as working for selected day' : 'No technicians available',
         },
         recommendations: [] as Recommendation[],
       })
@@ -159,9 +190,10 @@ export async function POST(request: Request) {
         summary: {
           mode,
           horizonDays,
+          targetDate,
           unassignedJobs: 0,
           recommendations: 0,
-          message: 'No unassigned upcoming jobs in range',
+          message: targetDate ? 'No unassigned jobs in selected day' : 'No unassigned upcoming jobs in range',
         },
         recommendations: [] as Recommendation[],
       })
@@ -334,32 +366,39 @@ export async function POST(request: Request) {
 
     let appliedCount = 0
     let skippedCount = 0
+    const appliedRecommendations: Recommendation[] = []
+    const APPLY_BATCH_SIZE = 20
 
     if (mode === 'apply' && recommendations.length > 0) {
-      for (const rec of recommendations) {
-        const { data, error } = await supabase
-          .from('jobs')
-          .update({ technician_id: rec.suggestedTechnicianId })
-          .eq('id', rec.jobId)
-          .eq('business_id', profile.business_id)
-          .is('technician_id', null)
-          .select('id')
+      for (let i = 0; i < recommendations.length; i += APPLY_BATCH_SIZE) {
+        const batch = recommendations.slice(i, i + APPLY_BATCH_SIZE)
+        const results = await Promise.all(
+          batch.map(async (rec) => {
+            const { data, error } = await supabase
+              .from('jobs')
+              .update({ technician_id: rec.suggestedTechnicianId })
+              .eq('id', rec.jobId)
+              .eq('business_id', profile.business_id)
+              .is('technician_id', null)
+              .select('id')
 
-        if (error) {
-          skippedCount += 1
-          continue
-        }
+            if (error) return { rec, applied: false }
+            return { rec, applied: (data || []).length > 0 }
+          })
+        )
 
-        if ((data || []).length > 0) {
-          appliedCount += 1
-        } else {
-          skippedCount += 1
+        for (const result of results) {
+          if (result.applied) {
+            appliedCount += 1
+            appliedRecommendations.push(result.rec)
+          } else {
+            skippedCount += 1
+          }
         }
       }
 
-      if (appliedCount > 0) {
-        const assigned = recommendations.slice(0, appliedCount)
-        const notifications = assigned.map((rec) => ({
+      if (appliedRecommendations.length > 0) {
+        const notifications = appliedRecommendations.map((rec) => ({
           user_id: rec.suggestedTechnicianId,
           type: 'job_assigned' as const,
           title: 'New job auto-assigned',
@@ -374,6 +413,7 @@ export async function POST(request: Request) {
       summary: {
         mode,
         horizonDays,
+        targetDate,
         unassignedJobs: candidateJobs.length,
         recommendations: recommendations.length,
         appliedCount,

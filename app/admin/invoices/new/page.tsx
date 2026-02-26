@@ -7,7 +7,7 @@ import Link from 'next/link'
 export default async function NewInvoicePage({
   searchParams,
 }: {
-  searchParams: Promise<{ showAll?: string; job?: string; debug?: string }>
+  searchParams: Promise<{ showAll?: string; job?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -38,7 +38,6 @@ export default async function NewInvoicePage({
 
   const showAll = params.showAll === 'true'
   const preSelectedJobId = params.job || null
-  const showDebug = params.debug === 'true'
 
   const { data: jobs, error: jobsError } = await supabase
     .from('jobs')
@@ -106,7 +105,7 @@ export default async function NewInvoicePage({
             <Sparkles className="h-3.5 w-3.5" />
             Invoice Builder
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">Create invoice</h1>
+          <h1 className="admin-page-header">Create invoice</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300 sm:text-base">
             Generate polished invoices from completed field work with a faster, cleaner builder flow.
           </p>
@@ -142,18 +141,6 @@ export default async function NewInvoicePage({
         <div className="rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300">
           Data loading issue: {dataErrorMessage}
         </div>
-      )}
-
-      {showDebug && (
-        <details className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          <summary className="cursor-pointer font-semibold uppercase tracking-wide">Debug Snapshot</summary>
-          <div className="mt-3 space-y-1">
-            <p>Total eligible jobs: {totalEligibleJobs}</p>
-            <p>Already invoiced jobs: {alreadyInvoicedCount}</p>
-            <p>Visible in builder: {availableCount}</p>
-            <p>showAll=true: {showAll ? 'yes' : 'no'}</p>
-          </div>
-        </details>
       )}
 
       <CreateInvoiceForm

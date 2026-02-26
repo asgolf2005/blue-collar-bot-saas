@@ -209,7 +209,7 @@ export default function EditCustomerPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="font-display text-3xl sm:text-4xl text-slate-900 dark:text-white tracking-wide">
+          <h1 className="admin-page-header">
             EDIT CLIENT
           </h1>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
@@ -219,7 +219,7 @@ export default function EditCustomerPage() {
       </div>
 
       {/* Form Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="admin-card shadow-sm">
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           
           {/* Error Message */}
@@ -357,7 +357,7 @@ export default function EditCustomerPage() {
               type="button"
               variant="secondary"
               onClick={handleDelete}
-              className="font-mono text-xs px-4 py-2.5 rounded-full border-red-200 dark:border-red-800 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 w-full sm:w-auto"
+              className="font-mono text-xs px-4 py-2.5 rounded-full admin-btn-danger w-full sm:w-auto"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               DELETE
@@ -376,7 +376,7 @@ export default function EditCustomerPage() {
               <Button 
                 type="submit"
                 disabled={saving || success}
-                className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-6 py-2.5 rounded-full transition-all disabled:opacity-50"
+                className="flex-1 sm:flex-none admin-btn-primary font-sans text-xs px-6 py-2.5 rounded-md transition-all disabled:opacity-50"
               >
                 {saving ? (
                   <>
@@ -402,4 +402,9 @@ export default function EditCustomerPage() {
     </div>
   )
 }
+
+
+
+
+
 

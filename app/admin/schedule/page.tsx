@@ -1,10 +1,12 @@
-﻿'use client'
+'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
   format,
   startOfWeek,
+  startOfDay,
+  endOfDay,
   addDays,
   isSameDay,
   parseISO,
@@ -14,7 +16,6 @@ import {
   subMonths,
   eachDayOfInterval,
   differenceInMinutes,
-  addHours,
   addMinutes,
   isToday,
   isPast,
@@ -22,17 +23,17 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
+  CalendarDays,
   Plus,
   Search,
   MapPin,
-  Clock3,
-  Users2,
-  Filter,
   X,
 } from '@/components/ui/icons'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
+import { ActionButton, ActionFilterChip, ActionIconButton } from '@/components/ui/ActionSystem'
+import { motion, AnimatePresence } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
 // ========================================
 // TYPES
@@ -40,6 +41,7 @@ import { Button } from '@/components/ui/Button'
 interface Job {
   id: string
   status: string
+  invoice_status?: string | null
   scheduled_start: string
   scheduled_end: string | null
   description: string | null
@@ -66,29 +68,60 @@ type ScheduleDesign =
   | 'planner_minimal'
   | 'agenda'
   | 'tech_board'
+type ScheduleJobCardVariant = 'v8'
+
+interface ScheduleCardStyle {
+  frame: string
+  hover: string
+  accent: string
+  customer: string
+  description: string
+  address: string
+  techPill: string
+  techName: string
+  alert: string
+  useStatusSurface: boolean
+  useTechGlow: boolean
+}
+
+const SCHEDULE_CARD_STYLES: Record<ScheduleJobCardVariant, ScheduleCardStyle> = {
+  v8: {
+    frame: 'rounded-[1rem] border-indigo-200/80 bg-gradient-to-br from-white via-indigo-50/55 to-cyan-50/55 dark:border-indigo-500/35 dark:from-slate-900 dark:via-indigo-950/30 dark:to-cyan-950/20',
+    hover: 'hover:-translate-y-1 hover:border-indigo-300 dark:hover:border-indigo-500/65 hover:shadow-[0_18px_34px_-20px_rgba(79,70,229,0.45)]',
+    accent: 'w-[3px] opacity-100',
+    customer: 'font-display uppercase tracking-[0.025em] text-slate-900 dark:text-slate-100',
+    description: 'text-slate-700 dark:text-slate-200/85',
+    address: 'text-slate-600 dark:text-slate-300/85',
+    techPill: 'rounded-full border border-indigo-300/70 dark:border-indigo-500/50',
+    techName: 'text-indigo-700 dark:text-indigo-200',
+    alert: 'font-mono text-[9px] uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200',
+    useStatusSurface: false,
+    useTechGlow: true,
+  },
+}
 
 // ========================================
 // DESIGN SYSTEM - Apple/Google Calendar Aesthetic
 // ========================================
 
 const TECH_COLORS = [
-  { name: 'cyan', bg: 'bg-cyan-500', light: 'bg-cyan-50 dark:bg-cyan-400/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-200 dark:border-cyan-800' },
-  { name: 'purple', bg: 'bg-purple-500', light: 'bg-purple-50 dark:bg-purple-400/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800' },
-  { name: 'emerald', bg: 'bg-emerald-500', light: 'bg-emerald-50 dark:bg-emerald-400/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
-  { name: 'amber', bg: 'bg-amber-500', light: 'bg-amber-50 dark:bg-amber-400/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
-  { name: 'rose', bg: 'bg-rose-500', light: 'bg-rose-50 dark:bg-rose-400/10', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800' },
-  { name: 'teal', bg: 'bg-teal-500', light: 'bg-teal-50 dark:bg-teal-400/10', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-200 dark:border-teal-800' },
-  { name: 'indigo', bg: 'bg-indigo-500', light: 'bg-indigo-50 dark:bg-indigo-400/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-800' },
-  { name: 'orange', bg: 'bg-orange-500', light: 'bg-orange-50 dark:bg-orange-400/10', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800' },
+  { name: 'cyan', bg: 'bg-cyan-500/20 backdrop-blur-md', light: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-300/50 dark:border-cyan-500/30', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-cyan-400/30' },
+  { name: 'purple', bg: 'bg-purple-500/20 backdrop-blur-md', light: 'bg-purple-50 dark:bg-purple-500/10', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300/50 dark:border-purple-500/30', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.15)] ring-purple-400/30' },
+  { name: 'emerald', bg: 'bg-emerald-500/20 backdrop-blur-md', light: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-300/50 dark:border-emerald-500/30', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-emerald-400/30' },
+  { name: 'amber', bg: 'bg-amber-500/20 backdrop-blur-md', light: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-300/50 dark:border-amber-500/30', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.15)] ring-amber-400/30' },
+  { name: 'rose', bg: 'bg-rose-500/20 backdrop-blur-md', light: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-300/50 dark:border-rose-500/30', glow: 'shadow-[0_0_15px_rgba(244,63,94,0.15)] ring-rose-400/30' },
+  { name: 'teal', bg: 'bg-teal-500/20 backdrop-blur-md', light: 'bg-teal-50 dark:bg-teal-500/10', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-300/50 dark:border-teal-500/30', glow: 'shadow-[0_0_15px_rgba(20,184,166,0.15)] ring-teal-400/30' },
+  { name: 'indigo', bg: 'bg-indigo-500/20 backdrop-blur-md', light: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-300/50 dark:border-indigo-500/30', glow: 'shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-indigo-400/30' },
+  { name: 'orange', bg: 'bg-orange-500/20 backdrop-blur-md', light: 'bg-orange-50 dark:bg-orange-500/10', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300/50 dark:border-orange-500/30', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.15)] ring-orange-400/30' },
 ]
 
 const STATUS_CONFIG: Record<string, { dot: string; label: string; bg: string }> = {
-  scheduled: { dot: 'bg-slate-400', label: 'Scheduled', bg: 'bg-slate-50 dark:bg-slate-700/70' },
-  on_the_way: { dot: 'bg-amber-400', label: 'En Route', bg: 'bg-amber-50 dark:bg-amber-400/10' },
-  arrived: { dot: 'bg-orange-400', label: 'Arrived', bg: 'bg-orange-50 dark:bg-orange-400/10' },
-  in_progress: { dot: 'bg-cyan-400', label: 'In Progress', bg: 'bg-cyan-50 dark:bg-cyan-400/10' },
-  completed: { dot: 'bg-emerald-400', label: 'Completed', bg: 'bg-emerald-50 dark:bg-emerald-400/10' },
-  cancelled: { dot: 'bg-rose-400', label: 'Cancelled', bg: 'bg-rose-50 dark:bg-rose-400/10' },
+  scheduled: { dot: 'bg-slate-400', label: 'Scheduled', bg: 'bg-slate-100/40 dark:bg-slate-800/60 backdrop-blur-md' },
+  on_the_way: { dot: 'bg-amber-400', label: 'En Route', bg: 'bg-amber-50/40 dark:bg-amber-900/30 backdrop-blur-md' },
+  arrived: { dot: 'bg-orange-400', label: 'Arrived', bg: 'bg-orange-50/40 dark:bg-orange-900/30 backdrop-blur-md' },
+  in_progress: { dot: 'bg-cyan-400', label: 'In Progress', bg: 'bg-cyan-50/40 dark:bg-cyan-900/30 backdrop-blur-md' },
+  completed: { dot: 'bg-emerald-400', label: 'Completed', bg: 'bg-emerald-50/40 dark:bg-emerald-900/30 backdrop-blur-md' },
+  cancelled: { dot: 'bg-rose-400', label: 'Cancelled', bg: 'bg-rose-50/40 dark:bg-rose-900/30 backdrop-blur-md' },
 }
 
 const HOUR_HEIGHT = 48
@@ -97,6 +130,34 @@ const END_HOUR = 23
 const TOTAL_HOURS = END_HOUR - START_HOUR
 const WEEK_DAYS = 7
 const WEEK_LAST_DAY_OFFSET = WEEK_DAYS - 1
+const DEFAULT_JOB_DURATION_MINUTES = 120
+const MAX_VISIBLE_OVERLAP_LANES = 3
+const DEFAULT_WEEK_DAY_SHARE = 1 / WEEK_DAYS
+const MIN_OTHER_DAY_SHARE = 0.08
+const MIN_FOCUSED_DAY_SHARE = 0.1
+const MAX_FOCUSED_DAY_SHARE = 1 - MIN_OTHER_DAY_SHARE * (WEEK_DAYS - 1)
+
+type JobIntervalEntry = {
+  job: Job
+  start: Date
+  end: Date
+  top: number
+  height: number
+}
+
+type DayJobPlacement = JobIntervalEntry & {
+  lane: number
+  laneCount: number
+  clusterId: string
+  hiddenByDensity: boolean
+  hasTechConflict: boolean
+}
+
+type DenseClusterIndicator = {
+  clusterId: string
+  top: number
+  hiddenCount: number
+}
 
 // ========================================
 // UTILITY FUNCTIONS
@@ -105,6 +166,29 @@ function getTechColor(techId: string | null, index: number) {
   if (!techId) return TECH_COLORS[0]
   const hash = techId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   return TECH_COLORS[hash % TECH_COLORS.length]
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function buildWeekGridTemplateColumns(focusedDayIndex: number | null, focusedDayShare: number) {
+  if (focusedDayIndex === null) {
+    return 'repeat(7, minmax(0, 1fr))'
+  }
+
+  const clampedFocusShare = clamp(
+    focusedDayShare,
+    MIN_FOCUSED_DAY_SHARE,
+    MAX_FOCUSED_DAY_SHARE
+  )
+  const otherShare = (1 - clampedFocusShare) / (WEEK_DAYS - 1)
+
+  return Array.from({ length: WEEK_DAYS }, (_, index) =>
+    index === focusedDayIndex
+      ? `${(clampedFocusShare * 100).toFixed(4)}%`
+      : `${(otherShare * 100).toFixed(4)}%`
+  ).join(' ')
 }
 
 // Parse timestamps with timezone awareness so drag/drop renders at the correct local slot.
@@ -134,6 +218,232 @@ function parseJobDate(dateStr: string): Date {
     0,
     0
   )
+}
+
+function getScheduleWindow(view: ScheduleView, anchor: Date): { start: Date; end: Date } {
+  if (view === 'day') {
+    return {
+      start: startOfDay(addDays(anchor, -2)),
+      end: endOfDay(addDays(anchor, 2)),
+    }
+  }
+
+  if (view === 'month') {
+    return {
+      start: startOfDay(addDays(startOfMonth(anchor), -7)),
+      end: endOfDay(addDays(endOfMonth(anchor), 7)),
+    }
+  }
+
+  const weekStart = startOfWeek(anchor, { weekStartsOn: 0 })
+  return {
+    start: startOfDay(addDays(weekStart, -2)),
+    end: endOfDay(addDays(weekStart, 8)),
+  }
+}
+
+function buildScheduleWindowFilter(start: Date, end: Date): string {
+  const startIso = start.toISOString()
+  const endIso = end.toISOString()
+  return [
+    `and(scheduled_start.gte.${startIso},scheduled_start.lte.${endIso})`,
+    `and(scheduled_start.is.null,created_at.gte.${startIso},created_at.lte.${endIso})`,
+  ].join(',')
+}
+
+function isDateInWindow(value: string | null | undefined, start: Date, end: Date): boolean {
+  if (!value) return false
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return false
+  return parsed >= start && parsed <= end
+}
+
+function getJobInterval(job: Pick<Job, 'scheduled_start' | 'scheduled_end'>): { start: Date; end: Date; durationMinutes: number } {
+  const start = parseJobDate(job.scheduled_start)
+  const defaultEnd = addMinutes(start, DEFAULT_JOB_DURATION_MINUTES)
+  const parsedEnd = job.scheduled_end ? parseJobDate(job.scheduled_end) : defaultEnd
+  const end = parsedEnd > start ? parsedEnd : defaultEnd
+  const durationMinutes = Math.max(30, differenceInMinutes(end, start))
+  return { start, end, durationMinutes }
+}
+
+function intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date) {
+  return startA < endB && startB < endA
+}
+
+function getJobPositionFromInterval(start: Date, end: Date) {
+  const hour = start.getHours()
+  const minute = start.getMinutes()
+
+  // Allow hours before START_HOUR to show at top
+  const effectiveHour = Math.max(START_HOUR, hour)
+  const top = ((effectiveHour - START_HOUR) * HOUR_HEIGHT) + ((minute / 60) * HOUR_HEIGHT)
+
+  const duration = Math.max(30, differenceInMinutes(end, start))
+  const height = Math.max(42, Math.min((duration / 60) * HOUR_HEIGHT, HOUR_HEIGHT * 5))
+
+  return { top: Math.max(0, top), height }
+}
+
+function getTechnicianConflictJobIds(entries: JobIntervalEntry[]) {
+  const conflicts = new Set<string>()
+  const byTech = new Map<string, JobIntervalEntry[]>()
+
+  for (const entry of entries) {
+    if (!entry.job.technician_id) continue
+    const techJobs = byTech.get(entry.job.technician_id) || []
+    techJobs.push(entry)
+    byTech.set(entry.job.technician_id, techJobs)
+  }
+
+  for (const techJobs of byTech.values()) {
+    const sorted = [...techJobs].sort((a, b) => a.start.getTime() - b.start.getTime())
+    const active: JobIntervalEntry[] = []
+
+    for (const entry of sorted) {
+      for (let i = active.length - 1; i >= 0; i -= 1) {
+        if (active[i].end <= entry.start) {
+          active.splice(i, 1)
+        }
+      }
+
+      if (active.length > 0) {
+        conflicts.add(entry.job.id)
+        for (const open of active) {
+          conflicts.add(open.job.id)
+        }
+      }
+
+      active.push(entry)
+    }
+  }
+
+  return conflicts
+}
+
+function buildDayJobLayout(dayJobs: Job[]): { placements: DayJobPlacement[]; denseIndicators: DenseClusterIndicator[] } {
+  const entries = dayJobs
+    .map((job) => {
+      const { start, end } = getJobInterval(job)
+      const { top, height } = getJobPositionFromInterval(start, end)
+      return { job, start, end, top, height }
+    })
+    .sort((a, b) => {
+      const startDiff = a.start.getTime() - b.start.getTime()
+      if (startDiff !== 0) return startDiff
+      return a.end.getTime() - b.end.getTime()
+    })
+
+  const conflictIds = getTechnicianConflictJobIds(entries)
+  const placements: DayJobPlacement[] = []
+  const denseIndicators: DenseClusterIndicator[] = []
+
+  let clusterIndex = 0
+  let clusterEntries: JobIntervalEntry[] = []
+  let clusterEnd: Date | null = null
+
+  const flushCluster = () => {
+    if (clusterEntries.length === 0) return
+
+    const laneByJob = new Map<string, number>()
+    const active: Array<{ lane: number; end: Date }> = []
+    let laneCount = 1
+
+    for (const entry of clusterEntries) {
+      for (let i = active.length - 1; i >= 0; i -= 1) {
+        if (active[i].end <= entry.start) {
+          active.splice(i, 1)
+        }
+      }
+
+      const used = new Set(active.map((item) => item.lane))
+      let lane = 0
+      while (used.has(lane)) {
+        lane += 1
+      }
+
+      laneByJob.set(entry.job.id, lane)
+      active.push({ lane, end: entry.end })
+      laneCount = Math.max(laneCount, lane + 1)
+    }
+
+    const clusterId = `cluster-${clusterIndex}`
+    clusterIndex += 1
+    let hiddenCount = 0
+    let top = Number.POSITIVE_INFINITY
+
+    for (const entry of clusterEntries) {
+      const lane = laneByJob.get(entry.job.id) || 0
+      const hiddenByDensity = lane >= MAX_VISIBLE_OVERLAP_LANES
+      if (hiddenByDensity) hiddenCount += 1
+      top = Math.min(top, entry.top)
+
+      placements.push({
+        ...entry,
+        lane,
+        laneCount,
+        clusterId,
+        hiddenByDensity,
+        hasTechConflict: conflictIds.has(entry.job.id),
+      })
+    }
+
+    if (hiddenCount > 0) {
+      denseIndicators.push({
+        clusterId,
+        top: Number.isFinite(top) ? top : 0,
+        hiddenCount,
+      })
+    }
+
+    clusterEntries = []
+    clusterEnd = null
+  }
+
+  for (const entry of entries) {
+    if (clusterEntries.length === 0) {
+      clusterEntries = [entry]
+      clusterEnd = entry.end
+      continue
+    }
+
+    if (clusterEnd && entry.start < clusterEnd) {
+      clusterEntries.push(entry)
+      if (entry.end > clusterEnd) clusterEnd = entry.end
+      continue
+    }
+
+    flushCluster()
+    clusterEntries = [entry]
+    clusterEnd = entry.end
+  }
+
+  flushCluster()
+
+  return { placements, denseIndicators }
+}
+
+function findTechnicianOverlapsForWindow({
+  jobs,
+  movingJobId,
+  technicianId,
+  start,
+  end,
+}: {
+  jobs: Job[]
+  movingJobId: string
+  technicianId: string | null
+  start: Date
+  end: Date
+}) {
+  if (!technicianId) return []
+
+  return jobs.filter((job) => {
+    if (job.id === movingJobId) return false
+    if (job.technician_id !== technicianId) return false
+    const { start: jobStart, end: jobEnd } = getJobInterval(job)
+    return intervalsOverlap(start, end, jobStart, jobEnd)
+  })
 }
 
 function buildLocalDateAtHour(dayAnchor: Date, hour: number, minute = 0): Date {
@@ -180,47 +490,66 @@ function getScheduleDays(currentDate: Date, view: ScheduleView): Date[] {
   return eachDayOfInterval({ start: monthStart, end: monthEnd })
 }
 
+function getDefaultSummaryDateRange(anchorDate: Date = new Date()) {
+  const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 })
+  return {
+    from: format(weekStart, 'yyyy-MM-dd'),
+    to: format(addDays(weekStart, WEEK_LAST_DAY_OFFSET), 'yyyy-MM-dd'),
+  }
+}
+
 function getJobPosition(startTime: string, endTime: string | null) {
   const start = parseJobDate(startTime)
-  const hour = start.getHours()
-  const minute = start.getMinutes()
-  
-  // Allow hours before START_HOUR to show at top
-  const effectiveHour = Math.max(START_HOUR, hour)
-  const top = ((effectiveHour - START_HOUR) * HOUR_HEIGHT) + ((minute / 60) * HOUR_HEIGHT)
-  
-  const end = endTime ? parseJobDate(endTime) : addHours(start, 2)
-  const duration = Math.max(30, differenceInMinutes(end, start))
-  const height = Math.max(42, Math.min((duration / 60) * HOUR_HEIGHT, HOUR_HEIGHT * 5))
-  
-  return { top: Math.max(0, top), height, start }
+  const fallbackEnd = addMinutes(start, DEFAULT_JOB_DURATION_MINUTES)
+  const end = endTime ? parseJobDate(endTime) : fallbackEnd
+  const validEnd = end > start ? end : fallbackEnd
+  const { top, height } = getJobPositionFromInterval(start, validEnd)
+
+  return { top, height, start }
 }
 
 // ========================================
 // COMPONENTS
 // ========================================
 
-function JobCard({ 
-  job, 
-  techColor, 
+function JobCard({
+  job,
+  techColor,
   variant,
+  cardVariant,
   isOverdue,
+  lane = 0,
+  laneCount = 1,
+  hasTechConflict = false,
+  positionTop,
+  positionHeight,
+  isFocused = false,
   isDragging,
   isDropMode,
   onDragStart,
   onDragEnd,
-}: { 
+}: {
   job: Job
   techColor: typeof TECH_COLORS[0]
   variant: PlannerVariant
+  cardVariant: ScheduleJobCardVariant
   isOverdue: boolean
+  lane?: number
+  laneCount?: number
+  hasTechConflict?: boolean
+  positionTop?: number
+  positionHeight?: number
+  isFocused?: boolean
   isDragging?: boolean
   isDropMode?: boolean
   onDragStart?: (e: React.DragEvent, job: Job) => void
   onDragEnd?: () => void
 }) {
-  const { top, height, start } = getJobPosition(job.scheduled_start, job.scheduled_end)
+  const { top: fallbackTop, height: fallbackHeight, start } = getJobPosition(job.scheduled_start, job.scheduled_end)
+  const top = positionTop ?? fallbackTop
+  const height = positionHeight ?? fallbackHeight
   const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.scheduled
+  const cardStyle = SCHEDULE_CARD_STYLES[cardVariant] || SCHEDULE_CARD_STYLES.v8
   const techDisplayName = job.technician_name || 'Unassigned'
   const techFirstName = techDisplayName.split(' ')[0] || techDisplayName
   const isBalanced = variant === 'balanced'
@@ -232,51 +561,76 @@ function JobCard({
   const cardYPadding = isMinimal ? 'py-1.5' : isBalanced ? 'py-2.5' : 'py-2'
   const customerTextSize = isBalanced ? 'text-[15px]' : isMinimal ? 'text-[13px]' : 'text-sm'
   const cardRadius = isBalanced ? 'rounded-xl' : 'rounded-lg'
+  const visibleLaneCount = Math.max(1, Math.min(laneCount, MAX_VISIBLE_OVERLAP_LANES))
+  const laneWidthPercent = 100 / visibleLaneCount
+  const laneLeftPercent = lane * laneWidthPercent
+  const laneInlineStyle =
+    visibleLaneCount > 1
+      ? {
+        left: `calc(${laneLeftPercent}% + 2px)`,
+        width: `calc(${laneWidthPercent}% - 4px)`,
+      }
+      : {}
   const [isHovered, setIsHovered] = useState(false)
-  
+
   // Don't render if job is outside visible hours (except show at boundaries)
   if (start.getHours() < START_HOUR - 2 || start.getHours() > END_HOUR + 2) {
     return null
   }
-  
+
   return (
-    <div
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      data-schedule-job-id={job.id}
+      data-test="event-block"
       draggable={!!onDragStart}
-      onDragStart={(e) => onDragStart?.(e, job)}
+      onDragStart={(e: any) => onDragStart?.(e, job)}
       onDragEnd={onDragEnd}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`
-        absolute ${isBalanced ? 'left-1.5 right-1.5' : 'left-1 right-1'}
-        ${cardRadius} overflow-hidden
-        ${isBalanced ? 'border border-slate-200/90 dark:border-slate-700/70 shadow-sm' : ''}
-        ${status.bg}
-        transition-all duration-200
-        hover:shadow-lg hover:scale-[1.01]
-        ${onDragStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}
-        ${isDragging ? 'opacity-50' : ''}
-        ${isDropMode && !isDragging ? 'pointer-events-none' : ''}
-      `}
-      style={{ 
-        top: `${top}px`, 
-        height: `${height}px`, 
-        zIndex: isHovered ? 100 : 10,
+      className={cn(
+        'absolute overflow-hidden border group transition-all duration-300 ease-out',
+        visibleLaneCount > 1 ? '' : isBalanced ? 'left-1.5 right-1.5' : 'left-1 right-1',
+        cardRadius,
+        cardStyle.frame,
+        cardStyle.hover,
+        hasTechConflict ? 'ring-1 ring-inset ring-rose-400/60 border-rose-200/80 dark:border-rose-500/40' : techColor.border,
+        isFocused ? 'ring-2 ring-cyan-400/80 dark:ring-cyan-300/80 shadow-[0_0_0_1px_rgba(34,211,238,0.55)]' : '',
+        cardStyle.useStatusSurface ? status.bg : '',
+        cardStyle.useTechGlow ? techColor.glow : '',
+        onDragStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+        isDragging ? 'opacity-50 blur-[1px] grayscale-[0.5]' : '',
+        isDropMode && !isDragging ? 'pointer-events-none' : ''
+      )}
+      style={{
+        top: `${top}px`,
+        height: `${height}px`,
+        zIndex: isHovered ? 100 : 10 + lane,
+        ...laneInlineStyle,
       }}
     >
-      <Link href={`/admin/jobs/${job.id}`} className="block h-full" draggable={false}>
+      {hasTechConflict && (
+        <span className="absolute right-1.5 top-1.5 z-20 inline-flex h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_0_2px_rgba(255,255,255,0.75)] dark:shadow-[0_0_0_2px_rgba(15,23,42,0.9)]" />
+      )}
+      <div className={cn('absolute left-0 top-0 bottom-0 group-hover:opacity-100 transition-opacity', cardStyle.accent, techColor.bg.replace('/20 backdrop-blur-md', ''))} />
+      <Link href={`/admin/jobs/${job.id}`} className="block h-full relative z-10" draggable={false}>
         <div className={`h-full ${cardXPadding} ${cardYPadding} flex flex-col`}>
-          <p className={`${customerTextSize} font-semibold text-slate-900 dark:text-slate-100 leading-tight truncate`}>
+          <p className={cn(customerTextSize, 'leading-tight truncate', cardStyle.customer)}>
             {job.customer_name}
           </p>
 
           {showDescription && job.description && (
-            <p className={`mt-1 ${isMinimal ? 'text-[10px]' : 'text-[11px]'} text-slate-600 dark:text-slate-300 truncate`}>
+            <p className={cn('mt-1 truncate', isMinimal ? 'text-[10px]' : 'text-[11px]', cardStyle.description)}>
               {job.description.length > 40 ? `${job.description.slice(0, 40)}...` : job.description}
             </p>
           )}
 
           {showAddress && job.address && (
-            <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-300 truncate flex items-center gap-1">
+            <p className={cn('mt-1 text-[10px] truncate flex items-center gap-1', cardStyle.address)}>
               <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
               {job.address.length > 30 ? `${job.address.slice(0, 30)}...` : job.address}
             </p>
@@ -285,60 +639,212 @@ function JobCard({
           {!compactCard && (
             <div className="mt-auto pt-1.5 flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5 min-w-0">
-                <div className={`w-5 h-5 rounded-full ${techColor.bg} flex items-center justify-center flex-shrink-0`}>
+                <div className={cn('w-5 h-5 flex items-center justify-center flex-shrink-0', cardStyle.techPill, techColor.bg)}>
                   <span className="text-[9px] text-white font-bold">
                     {techDisplayName.charAt(0) || '?'}
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-600 dark:text-slate-300 truncate">
+                <span className={cn('text-[10px] truncate', cardStyle.techName)}>
                   {isBalanced ? techDisplayName : techFirstName}
                 </span>
               </div>
               {isOverdue && (
-                <span className="text-[9px] font-medium text-rose-600 dark:text-rose-300">Late</span>
+                <span className={cardStyle.alert}>Late</span>
+              )}
+              {!isOverdue && hasTechConflict && (
+                <span className={cardStyle.alert}>Overlap</span>
               )}
             </div>
           )}
         </div>
       </Link>
-    </div>
+    </motion.div>
   )
 }
 
-function WeekView({ 
-  currentDate, 
-  jobs, 
+function WeekView({
+  currentDate,
+  jobs,
   technicians,
   variant,
+  cardVariant,
+  focusedJobId,
   onJobMove,
-}: { 
+}: {
   currentDate: Date
   jobs: Job[]
   technicians: Technician[]
   variant: PlannerVariant
+  cardVariant: ScheduleJobCardVariant
+  focusedJobId?: string | null
   onJobMove?: (jobId: string, newDate: Date, newHour: number) => void
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const days = Array.from({ length: WEEK_DAYS }, (_, i) => addDays(weekStart, i))
   const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => START_HOUR + i)
   const [draggingJob, setDraggingJob] = useState<Job | null>(null)
-  const [dragOverDayHour, setDragOverDayHour] = useState<{dayIndex: number, hour: number} | null>(null)
+  const [dragOverDayHour, setDragOverDayHour] = useState<{ dayIndex: number, hour: number, hasConflict: boolean } | null>(null)
+  const [focusedDayIndex, setFocusedDayIndex] = useState<number | null>(null)
+  const [focusedDayShare, setFocusedDayShare] = useState<number>(DEFAULT_WEEK_DAY_SHARE)
+  const [isResizingDay, setIsResizingDay] = useState(false)
+  const weekGridRef = useRef<HTMLDivElement | null>(null)
+  const liveFocusedShareRef = useRef<number>(DEFAULT_WEEK_DAY_SHARE)
+  const resizeRafRef = useRef<number | null>(null)
+  const resizeSessionRef = useRef<{
+    dayIndex: number
+    startX: number
+    startShare: number
+    containerWidth: number
+  } | null>(null)
   const timeColumnClass =
     variant === 'minimal' ? 'w-10' : variant === 'balanced' ? 'w-14' : 'w-12'
   const dayHeaderPadding = variant === 'minimal' ? 'px-1.5 py-2.5' : variant === 'balanced' ? 'px-3 py-3.5' : 'px-2 py-3'
   const dayNumberSize = variant === 'minimal' ? 'text-base' : variant === 'balanced' ? 'text-xl' : 'text-lg'
-  
+  const hasFocusedDay = focusedDayIndex !== null
+  const weekGridTemplateColumns = useMemo(() => {
+    return buildWeekGridTemplateColumns(focusedDayIndex, focusedDayShare)
+  }, [focusedDayIndex, focusedDayShare])
+
+  useEffect(() => {
+    liveFocusedShareRef.current = focusedDayShare
+  }, [focusedDayShare])
+
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      const session = resizeSessionRef.current
+      if (!session) return
+
+      const deltaShare = (event.clientX - session.startX) / Math.max(1, session.containerWidth)
+      const nextShare = clamp(
+        session.startShare + deltaShare,
+        MIN_FOCUSED_DAY_SHARE,
+        MAX_FOCUSED_DAY_SHARE
+      )
+      liveFocusedShareRef.current = nextShare
+
+      if (resizeRafRef.current !== null) return
+      resizeRafRef.current = window.requestAnimationFrame(() => {
+        resizeRafRef.current = null
+        if (!weekGridRef.current) return
+        weekGridRef.current.style.gridTemplateColumns = buildWeekGridTemplateColumns(
+          session.dayIndex,
+          liveFocusedShareRef.current
+        )
+      })
+    }
+
+    const onPointerUp = () => {
+      const session = resizeSessionRef.current
+      if (!session) return
+
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current)
+        resizeRafRef.current = null
+      }
+
+      resizeSessionRef.current = null
+      setIsResizingDay(false)
+      setFocusedDayIndex(session.dayIndex)
+      setFocusedDayShare(liveFocusedShareRef.current)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
+
+      if (resizeRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeRafRef.current)
+        resizeRafRef.current = null
+      }
+    }
+  }, [])
+
+  const startDayResize = useCallback((event: React.PointerEvent, dayIndex: number) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const containerWidth = weekGridRef.current?.clientWidth ?? 0
+    if (!containerWidth) return
+
+    const activeFocusShare = clamp(
+      focusedDayShare,
+      MIN_FOCUSED_DAY_SHARE,
+      MAX_FOCUSED_DAY_SHARE
+    )
+    const activeOtherShare = (1 - activeFocusShare) / (WEEK_DAYS - 1)
+    const baseShare =
+      focusedDayIndex === null
+        ? DEFAULT_WEEK_DAY_SHARE
+        : focusedDayIndex === dayIndex
+          ? activeFocusShare
+          : activeOtherShare
+    const startShare = clamp(baseShare, MIN_FOCUSED_DAY_SHARE, MAX_FOCUSED_DAY_SHARE)
+    resizeSessionRef.current = {
+      dayIndex,
+      startX: event.clientX,
+      startShare,
+      containerWidth,
+    }
+
+    setFocusedDayIndex(dayIndex)
+    setFocusedDayShare(startShare)
+    liveFocusedShareRef.current = startShare
+    if (weekGridRef.current) {
+      weekGridRef.current.style.gridTemplateColumns = buildWeekGridTemplateColumns(
+        dayIndex,
+        startShare
+      )
+    }
+    setIsResizingDay(true)
+  }, [focusedDayIndex, focusedDayShare])
+
+  const resetDayColumnWidths = useCallback(() => {
+    if (resizeRafRef.current !== null) {
+      window.cancelAnimationFrame(resizeRafRef.current)
+      resizeRafRef.current = null
+    }
+    resizeSessionRef.current = null
+    setIsResizingDay(false)
+    setFocusedDayIndex(null)
+    setFocusedDayShare(DEFAULT_WEEK_DAY_SHARE)
+    liveFocusedShareRef.current = DEFAULT_WEEK_DAY_SHARE
+    if (weekGridRef.current) {
+      weekGridRef.current.style.gridTemplateColumns = buildWeekGridTemplateColumns(
+        null,
+        DEFAULT_WEEK_DAY_SHARE
+      )
+    }
+  }, [])
+
   const handleDragStart = (e: React.DragEvent, job: Job) => {
     setDraggingJob(job)
     e.dataTransfer.setData('text/plain', job.id)
     e.dataTransfer.effectAllowed = 'move'
   }
-  
+
   const handleDragEnd = () => {
     setDraggingJob(null)
     setDragOverDayHour(null)
   }
-  
+
+  const getDropConflicts = useCallback((job: Job, dayAnchor: Date, hour: number) => {
+    const { durationMinutes } = getJobInterval(job)
+    const newStart = buildLocalDateAtHour(dayAnchor, hour, 0)
+    const newEnd = addMinutes(newStart, durationMinutes)
+    return findTechnicianOverlapsForWindow({
+      jobs,
+      movingJobId: job.id,
+      technicianId: job.technician_id,
+      start: newStart,
+      end: newEnd,
+    })
+  }, [jobs])
+
   const handleDrop = (dayIndex: number, hour: number, draggedJobId?: string) => {
     const nextJobId = draggedJobId || draggingJob?.id
     if (nextJobId) {
@@ -347,7 +853,7 @@ function WeekView({
     setDraggingJob(null)
     setDragOverDayHour(null)
   }
-  
+
   return (
     <div className="flex min-w-0 overflow-hidden">
       {/* Time column */}
@@ -355,7 +861,7 @@ function WeekView({
         <div className="h-[70px] border-b border-slate-100 dark:border-slate-800" />
         <div className="relative" style={{ height: `${TOTAL_HOURS * HOUR_HEIGHT}px` }}>
           {hours.map((hour, i) => (
-            <div 
+            <div
               key={hour}
               className="absolute right-1 text-[10px] text-slate-400 dark:text-slate-400 font-medium tabular-nums"
               style={{ top: `${i * HOUR_HEIGHT - 5}px` }}
@@ -365,41 +871,78 @@ function WeekView({
           ))}
         </div>
       </div>
-      
+
       {/* Days */}
-      <div className="flex-1 grid grid-cols-7 min-w-0 bg-white dark:bg-slate-900">
+      <div
+        ref={weekGridRef}
+        className={`flex-1 grid min-w-0 bg-white dark:bg-slate-900 ${isResizingDay ? '' : '[transition:grid-template-columns_320ms_cubic-bezier(0.22,1,0.36,1)]'}`}
+        style={{ gridTemplateColumns: weekGridTemplateColumns }}
+      >
         {days.map((day, dayIndex) => {
           const dayJobs = jobs.filter(job => {
             const jobDate = parseJobDate(job.scheduled_start)
             return isSameDay(jobDate, day)
           })
+          const { placements, denseIndicators } = buildDayJobLayout(dayJobs)
           const isTodayDate = isToday(day)
-          
+          const isFocused = focusedDayIndex === dayIndex
+          const isCompressed = hasFocusedDay && !isFocused
+
           return (
-            <div key={day.toISOString()} className={`min-w-0 border-r border-slate-100 dark:border-slate-800 last:border-r-0 ${isTodayDate ? 'bg-cyan-50/35 dark:bg-cyan-500/[0.08] ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30' : ''}`}>
+            <div
+              key={day.toISOString()}
+              className={`min-w-0 border-r border-slate-100 dark:border-slate-800 last:border-r-0 transition-colors duration-300 ${isFocused
+                ? 'bg-cyan-50/45 dark:bg-cyan-500/[0.12]'
+                : isCompressed
+                  ? 'bg-slate-50/50 dark:bg-slate-900/70'
+                  : ''
+                } ${isTodayDate ? 'ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30' : ''}`}
+            >
               {/* Header */}
-              <div className={`${dayHeaderPadding} text-center border-b border-slate-100 dark:border-slate-800 ${isTodayDate ? 'bg-cyan-100/70 dark:bg-cyan-500/15 shadow-[inset_0_-1px_0_0_rgba(8,145,178,0.35)] dark:shadow-[inset_0_-1px_0_0_rgba(34,211,238,0.35)]' : ''}`}>
+              <div className={`relative ${dayHeaderPadding} text-center border-b border-slate-100 dark:border-slate-800 ${isTodayDate ? 'bg-cyan-100/70 dark:bg-cyan-500/15 shadow-[inset_0_-1px_0_0_rgba(8,145,178,0.35)] dark:shadow-[inset_0_-1px_0_0_rgba(34,211,238,0.35)]' : ''}`}>
                 <p className="text-[10px] font-medium text-slate-400 dark:text-slate-300 uppercase tracking-wide">{format(day, 'EEE')}</p>
                 <p className={`${dayNumberSize} font-semibold mt-1 ${isTodayDate ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-800 dark:text-slate-100'}`}>
                   {format(day, 'd')}
                 </p>
+                <button
+                  type="button"
+                  onPointerDown={(event) => startDayResize(event, dayIndex)}
+                  onDoubleClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    resetDayColumnWidths()
+                  }}
+                  className={`absolute inset-y-0 right-0 w-2 translate-x-1/2 cursor-col-resize rounded-full border border-slate-300/80 bg-white/85 text-[9px] text-slate-500 opacity-30 transition-opacity hover:opacity-100 focus:opacity-100 dark:border-slate-600 dark:bg-slate-900/85 dark:text-slate-300 ${isResizingDay && isFocused ? 'opacity-100 border-cyan-400/80 bg-cyan-100/80 dark:border-cyan-500/80 dark:bg-cyan-900/60' : ''
+                    }`}
+                  title="Drag to resize day column. Double-click to reset all day widths."
+                  aria-label={`Resize ${format(day, 'EEEE')} column`}
+                >
+                  <span className="pointer-events-none absolute inset-y-2 left-1/2 w-px -translate-x-1/2 bg-current/80" />
+                </button>
               </div>
-              
+
               {/* Timeline */}
               <div className="relative" style={{ height: `${TOTAL_HOURS * HOUR_HEIGHT}px` }}>
                 {/* Hour drop zones */}
                 {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
-                  <div 
+                  <div
                     key={i}
                     className={`
                       absolute left-0 right-0 border-t border-slate-50 dark:border-slate-800/70 transition-colors
                       ${draggingJob ? 'z-20' : ''}
-                      ${dragOverDayHour?.dayIndex === dayIndex && dragOverDayHour?.hour === START_HOUR + i ? 'bg-cyan-100/60 dark:bg-cyan-400/20' : ''}
+                      ${dragOverDayHour?.dayIndex === dayIndex && dragOverDayHour?.hour === START_HOUR + i
+                        ? dragOverDayHour.hasConflict
+                          ? 'bg-rose-100/70 dark:bg-rose-500/25'
+                          : 'bg-cyan-100/60 dark:bg-cyan-400/20'
+                        : ''}
                     `}
                     style={{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
                     onDragOver={(e) => {
                       e.preventDefault()
-                      setDragOverDayHour({ dayIndex, hour: START_HOUR + i })
+                      const hasConflict = draggingJob
+                        ? getDropConflicts(draggingJob, day, START_HOUR + i).length > 0
+                        : false
+                      setDragOverDayHour({ dayIndex, hour: START_HOUR + i, hasConflict })
                     }}
                     onDragLeave={() => setDragOverDayHour(null)}
                     onDrop={(e) => {
@@ -409,26 +952,49 @@ function WeekView({
                     }}
                   />
                 ))}
-                
+
                 {/* Jobs */}
-                {dayJobs.map(job => {
-                  const techIndex = technicians.findIndex(t => t.id === job.technician_id)
-                  const techColor = getTechColor(job.technician_id, techIndex)
-                  const isOverdue = isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
-                  return (
-                      <JobCard 
-                        key={job.id} 
-                        job={job} 
-                        techColor={techColor} 
-                        variant={variant}
-                        isOverdue={isOverdue}
-                        isDragging={draggingJob?.id === job.id}
-                        isDropMode={Boolean(draggingJob)}
-                      onDragStart={handleDragStart}
-                      onDragEnd={handleDragEnd}
-                    />
-                  )
-                })}
+                <AnimatePresence>
+                  {placements
+                    .filter((placement) => !placement.hiddenByDensity)
+                    .map((placement) => {
+                      const job = placement.job
+                      const techIndex = technicians.findIndex(t => t.id === job.technician_id)
+                      const techColor = getTechColor(job.technician_id, techIndex)
+                      const isOverdue = isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
+                      return (
+                        <JobCard
+                          key={job.id}
+                          job={job}
+                          techColor={techColor}
+                          variant={variant}
+                          cardVariant={cardVariant}
+                          isOverdue={isOverdue}
+                          lane={placement.lane}
+                          laneCount={placement.laneCount}
+                          hasTechConflict={placement.hasTechConflict}
+                          positionTop={placement.top}
+                          positionHeight={placement.height}
+                          isFocused={focusedJobId === job.id}
+                          isDragging={draggingJob?.id === job.id}
+                          isDropMode={Boolean(draggingJob)}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                        />
+                      )
+                    })}
+                </AnimatePresence>
+
+                {denseIndicators.map((indicator) => (
+                  <div
+                    key={indicator.clusterId}
+                    className="absolute right-1 z-30 rounded-md border border-cyan-300/80 bg-cyan-50/95 px-1.5 py-0.5 text-[9px] font-medium text-cyan-700 shadow-sm dark:border-cyan-500/40 dark:bg-cyan-900/70 dark:text-cyan-200"
+                    style={{ top: `${Math.max(0, indicator.top)}px` }}
+                    title={`${indicator.hiddenCount} overlapping jobs hidden`}
+                  >
+                    +{indicator.hiddenCount} more
+                  </div>
+                ))}
               </div>
             </div>
           )
@@ -438,17 +1004,21 @@ function WeekView({
   )
 }
 
-function DayView({ 
-  currentDate, 
-  jobs, 
+function DayView({
+  currentDate,
+  jobs,
   technicians,
   variant,
+  cardVariant,
+  focusedJobId,
   onJobMove,
-}: { 
+}: {
   currentDate: Date
   jobs: Job[]
   technicians: Technician[]
   variant: PlannerVariant
+  cardVariant: ScheduleJobCardVariant
+  focusedJobId?: string | null
   onJobMove?: (jobId: string, newDate: Date, newHour: number) => void
 }) {
   const dayJobs = useMemo(() => {
@@ -456,14 +1026,18 @@ function DayView({
       .filter(job => isSameDay(parseJobDate(job.scheduled_start), currentDate))
       .sort((a, b) => parseJobDate(a.scheduled_start).getTime() - parseJobDate(b.scheduled_start).getTime())
   }, [jobs, currentDate])
-  
+  const { placements: dayPlacements, denseIndicators } = useMemo(
+    () => buildDayJobLayout(dayJobs),
+    [dayJobs]
+  )
+
   const hours = Array.from({ length: TOTAL_HOURS + 1 }, (_, i) => START_HOUR + i)
   const isTodayDate = isToday(currentDate)
   const [draggingJob, setDraggingJob] = useState<Job | null>(null)
-  const [dragOverHour, setDragOverHour] = useState<number | null>(null)
+  const [dragOverHour, setDragOverHour] = useState<{ hour: number; hasConflict: boolean } | null>(null)
   const timeColumnClass =
     variant === 'minimal' ? 'w-10' : variant === 'balanced' ? 'w-16' : 'w-14'
-  
+
   const currentTimePos = useMemo(() => {
     if (!isTodayDate) return null
     const now = new Date()
@@ -472,17 +1046,31 @@ function DayView({
     if (hour < START_HOUR || hour > END_HOUR) return null
     return ((hour - START_HOUR) * HOUR_HEIGHT) + ((minute / 60) * HOUR_HEIGHT)
   }, [isTodayDate])
-  
+
   const handleDragStart = (e: React.DragEvent, job: Job) => {
     setDraggingJob(job)
     e.dataTransfer.setData('text/plain', job.id)
     e.dataTransfer.effectAllowed = 'move'
   }
-  
+
   const handleDragEnd = () => {
     setDraggingJob(null)
+    setDragOverHour(null)
   }
-  
+
+  const getDropConflicts = useCallback((job: Job, dayAnchor: Date, hour: number) => {
+    const { durationMinutes } = getJobInterval(job)
+    const newStart = buildLocalDateAtHour(dayAnchor, hour, 0)
+    const newEnd = addMinutes(newStart, durationMinutes)
+    return findTechnicianOverlapsForWindow({
+      jobs,
+      movingJobId: job.id,
+      technicianId: job.technician_id,
+      start: newStart,
+      end: newEnd,
+    })
+  }, [jobs])
+
   const handleDrop = (hour: number, draggedJobId?: string) => {
     const nextJobId = draggedJobId || draggingJob?.id
     if (nextJobId) {
@@ -491,7 +1079,7 @@ function DayView({
     setDraggingJob(null)
     setDragOverHour(null)
   }
-  
+
   return (
     <div className="flex h-[calc(100vh-280px)] min-h-[500px]">
       {/* Timeline */}
@@ -500,7 +1088,7 @@ function DayView({
         <div className={`${timeColumnClass} flex-shrink-0 border-r border-slate-100 dark:border-slate-800`}>
           <div className="relative" style={{ height: `${TOTAL_HOURS * HOUR_HEIGHT}px` }}>
             {hours.map((hour, i) => (
-              <div 
+              <div
                 key={hour}
                 className="absolute right-2 text-[10px] text-slate-400 dark:text-slate-400 font-medium tabular-nums"
                 style={{ top: `${i * HOUR_HEIGHT - 5}px` }}
@@ -510,22 +1098,29 @@ function DayView({
             ))}
           </div>
         </div>
-        
+
         {/* Day column */}
         <div className="flex-1 relative" style={{ height: `${TOTAL_HOURS * HOUR_HEIGHT}px` }}>
           {/* Hour drop zones */}
           {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
-            <div 
+            <div
               key={i}
               className={`
                 absolute left-0 right-0 border-t border-slate-50 dark:border-slate-800/70 transition-colors
                 ${draggingJob ? 'z-20' : ''}
-                ${dragOverHour === START_HOUR + i ? 'bg-cyan-100/60 dark:bg-cyan-400/20' : ''}
+                ${dragOverHour?.hour === START_HOUR + i
+                  ? dragOverHour.hasConflict
+                    ? 'bg-rose-100/70 dark:bg-rose-500/25'
+                    : 'bg-cyan-100/60 dark:bg-cyan-400/20'
+                  : ''}
               `}
               style={{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
               onDragOver={(e) => {
                 e.preventDefault()
-                setDragOverHour(START_HOUR + i)
+                const hasConflict = draggingJob
+                  ? getDropConflicts(draggingJob, currentDate, START_HOUR + i).length > 0
+                  : false
+                setDragOverHour({ hour: START_HOUR + i, hasConflict })
               }}
               onDragLeave={() => setDragOverHour(null)}
               onDrop={(e) => {
@@ -535,7 +1130,7 @@ function DayView({
               }}
             />
           ))}
-          
+
           {/* Current time */}
           {currentTimePos && (
             <div
@@ -546,26 +1141,49 @@ function DayView({
               <div className="absolute left-0 -top-1 w-2 h-2 rounded-full bg-red-400" />
             </div>
           )}
-          
+
           {/* Jobs */}
-          {dayJobs.map(job => {
-            const techIndex = technicians.findIndex(t => t.id === job.technician_id)
-            const techColor = getTechColor(job.technician_id, techIndex)
-            const isOverdue = isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
-            return (
-              <JobCard 
-                key={job.id} 
-                job={job} 
-                techColor={techColor} 
-                variant={variant}
-                isOverdue={isOverdue}
-                isDragging={draggingJob?.id === job.id}
-                isDropMode={Boolean(draggingJob)}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              />
-            )
-          })}
+          <AnimatePresence>
+            {dayPlacements
+              .filter((placement) => !placement.hiddenByDensity)
+              .map((placement) => {
+                const job = placement.job
+                const techIndex = technicians.findIndex(t => t.id === job.technician_id)
+                const techColor = getTechColor(job.technician_id, techIndex)
+                const isOverdue = isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
+                return (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    techColor={techColor}
+                    variant={variant}
+                    cardVariant={cardVariant}
+                    isOverdue={isOverdue}
+                    lane={placement.lane}
+                    laneCount={placement.laneCount}
+                    hasTechConflict={placement.hasTechConflict}
+                    positionTop={placement.top}
+                    positionHeight={placement.height}
+                    isFocused={focusedJobId === job.id}
+                    isDragging={draggingJob?.id === job.id}
+                    isDropMode={Boolean(draggingJob)}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  />
+                )
+              })}
+          </AnimatePresence>
+
+          {denseIndicators.map((indicator) => (
+            <div
+              key={indicator.clusterId}
+              className="absolute right-1 z-30 rounded-md border border-cyan-300/80 bg-cyan-50/95 px-1.5 py-0.5 text-[9px] font-medium text-cyan-700 shadow-sm dark:border-cyan-500/40 dark:bg-cyan-900/70 dark:text-cyan-200"
+              style={{ top: `${Math.max(0, indicator.top)}px` }}
+              title={`${indicator.hiddenCount} overlapping jobs hidden`}
+            >
+              +{indicator.hiddenCount} more
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -576,17 +1194,19 @@ function MonthView({
   currentDate,
   jobs,
   variant,
+  onSelectDay,
 }: {
   currentDate: Date
   jobs: Job[]
   variant: PlannerVariant
+  onSelectDay: (day: Date) => void
 }) {
   const monthStart = startOfMonth(currentDate)
   const startDay = startOfWeek(monthStart, { weekStartsOn: 0 })
   const days = Array.from({ length: 42 }, (_, i) => addDays(startDay, i))
   const cellMinHeight =
     variant === 'minimal' ? 'min-h-[96px] md:min-h-[116px]' : variant === 'balanced' ? 'min-h-[132px] md:min-h-[152px]' : 'min-h-[112px] md:min-h-[136px]'
-  
+
   return (
     <div className="grid grid-cols-7 bg-white dark:bg-slate-900">
       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -594,29 +1214,36 @@ function MonthView({
           {d}
         </div>
       ))}
-      
+
       {days.map(day => {
         const dayJobs = jobs.filter(job => isSameDay(parseJobDate(job.scheduled_start), day))
         const isCurrentMonth = day.getMonth() === currentDate.getMonth()
-        
+
         return (
-          <div 
+          <div
             key={day.toISOString()}
             className={`
-              ${cellMinHeight} p-1.5 border-b border-r border-slate-50 dark:border-slate-800/70
+              ${cellMinHeight} cursor-pointer p-1.5 border-b border-r border-slate-50 transition-colors hover:bg-slate-50 dark:border-slate-800/70 dark:hover:bg-slate-800/70
               ${isToday(day) ? 'bg-cyan-50/35 dark:bg-cyan-500/[0.08] ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30' : ''}
               ${!isCurrentMonth ? 'opacity-40 bg-slate-50 dark:bg-slate-800/60' : ''}
             `}
+            onClick={() => onSelectDay(day)}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className={`text-xs font-medium ${isToday(day) ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-700 dark:text-slate-200'}`}>
+            <div className="mb-1 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => onSelectDay(day)}
+                className={`rounded px-1 text-xs font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/70 ${isToday(day) ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-700 dark:text-slate-200'
+                  }`}
+                title={`Open ${format(day, 'MMM d')} day view`}
+              >
                 {format(day, 'd')}
-              </span>
+              </button>
               {dayJobs.length > 0 && (
                 <span className="text-[9px] text-slate-400 dark:text-slate-400">{dayJobs.length}</span>
               )}
             </div>
-            
+
             <div className="space-y-0.5">
               {dayJobs.slice(0, 3).map((job, i) => {
                 const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.scheduled
@@ -625,6 +1252,7 @@ function MonthView({
                   <Link
                     key={job.id}
                     href={`/admin/jobs/${job.id}`}
+                    onClick={(event) => event.stopPropagation()}
                     className="flex items-center gap-1 text-[9px] truncate px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
                   >
                     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status.dot}`} />
@@ -649,76 +1277,169 @@ function MonthView({
 export default function SchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<ScheduleView>('week')
-  const [scheduleDesign] = useState<ScheduleDesign>('planner_minimal')
+  const scheduleDesign: ScheduleDesign = 'planner_minimal'
+  const scheduleCardVariant: ScheduleJobCardVariant = 'v8'
   const [jobs, setJobs] = useState<Job[]>([])
   const [technicians, setTechnicians] = useState<Technician[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>('all')
   const [technicianFilter, setTechnicianFilter] = useState<string>('all')
   const [serviceFilter, setServiceFilter] = useState<string>('all')
-  const [dateFromFilter, setDateFromFilter] = useState<string>('')
-  const [dateToFilter, setDateToFilter] = useState<string>('')
   const [timeFromFilter, setTimeFromFilter] = useState<string>('')
   const [timeToFilter, setTimeToFilter] = useState<string>('')
-  const [summaryScope, setSummaryScope] = useState<ScheduleView>('day')
+  const [summaryDateFrom, setSummaryDateFrom] = useState<string>(() => getDefaultSummaryDateRange().from)
+  const [summaryDateTo, setSummaryDateTo] = useState<string>(() => getDefaultSummaryDateRange().to)
+  const [isMatchesPanelOpen, setIsMatchesPanelOpen] = useState(false)
+  const [isMiniCalendarOpen, setIsMiniCalendarOpen] = useState(false)
+  const [miniCalendarMonth, setMiniCalendarMonth] = useState<Date>(() => startOfMonth(new Date()))
+  const [openContextMenu, setOpenContextMenu] = useState<null | 'tech' | 'status' | 'service' | 'invoice'>(null)
+  const [focusedScheduleJobId, setFocusedScheduleJobId] = useState<string | null>(null)
+  const [focusJumpKey, setFocusJumpKey] = useState(0)
   const [businessId, setBusinessId] = useState('')
-  
+  const contextMenuRef = useRef<HTMLDivElement | null>(null)
+  const miniCalendarRef = useRef<HTMLDivElement | null>(null)
+  const fetchDebounceRef = useRef<number | null>(null)
+  const activeWindowRef = useRef<{ start: Date; end: Date } | null>(null)
+
   const supabase = useMemo(() => createClient(), [])
 
+  useEffect(() => {
+    let mounted = true
+
+    const initializeBusiness = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          if (!mounted) return
+          setJobs([])
+          setTechnicians([])
+          setLoading(false)
+          return
+        }
+
+        const { data: profile } = await supabase
+          .from('users')
+          .select('business_id')
+          .eq('id', user.id)
+          .single()
+
+        if (!mounted) return
+        if (!profile?.business_id) {
+          setJobs([])
+          setTechnicians([])
+          setLoading(false)
+          return
+        }
+
+        setBusinessId(profile.business_id)
+      } catch (error) {
+        console.error('Failed to initialize schedule business context:', error)
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void initializeBusiness()
+
+    return () => {
+      mounted = false
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    if (!businessId) return
+
+    let mounted = true
+    const fetchTechnicians = async () => {
+      try {
+        const { data: techRows, error } = await supabase
+          .from('users')
+          .select('id, full_name')
+          .eq('business_id', businessId)
+          .eq('role', 'tech')
+
+        if (error) throw error
+        if (!mounted) return
+        setTechnicians((techRows || []).map((tech) => ({ ...tech, color: '' })))
+      } catch (error) {
+        console.error('Failed to fetch technicians for schedule:', error)
+      }
+    }
+
+    void fetchTechnicians()
+    return () => {
+      mounted = false
+    }
+  }, [businessId, supabase])
+
   const fetchData = useCallback(async () => {
+    if (!businessId) {
+      setJobs([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setJobs([])
-        setTechnicians([])
-        return
-      }
+      const baseWindow = getScheduleWindow(view, currentDate)
+      const parsedSummaryFrom = summaryDateFrom ? new Date(`${summaryDateFrom}T00:00:00`) : null
+      const parsedSummaryTo = summaryDateTo ? new Date(`${summaryDateTo}T23:59:59.999`) : null
+      const summaryFromValid = parsedSummaryFrom && !Number.isNaN(parsedSummaryFrom.getTime()) ? parsedSummaryFrom : null
+      const summaryToValid = parsedSummaryTo && !Number.isNaN(parsedSummaryTo.getTime()) ? parsedSummaryTo : null
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('business_id')
-        .eq('id', user.id)
-        .single()
-
-      if (!profile?.business_id) {
-        setJobs([])
-        setTechnicians([])
-        return
-      }
-
-      setBusinessId(profile.business_id)
-
-      const { data: techsData } = await supabase
-        .from('users')
-        .select('id, full_name')
-        .eq('business_id', profile.business_id)
-        .eq('role', 'tech')
-
-      setTechnicians((techsData || []).map(t => ({ ...t, color: '' })))
+      const fetchWindowStart = summaryFromValid && summaryFromValid < baseWindow.start
+        ? summaryFromValid
+        : baseWindow.start
+      const fetchWindowEnd = summaryToValid && summaryToValid > baseWindow.end
+        ? summaryToValid
+        : baseWindow.end
+      activeWindowRef.current = { start: fetchWindowStart, end: fetchWindowEnd }
 
       const { data: jobsData } = await supabase
         .from('jobs')
         .select('*')
-        .eq('business_id', profile.business_id)
+        .eq('business_id', businessId)
+        .or(buildScheduleWindowFilter(fetchWindowStart, fetchWindowEnd))
         .order('scheduled_start', { ascending: true })
 
-      const { data: customersData } = await supabase
-        .from('customers')
-        .select('id, name')
-        .eq('business_id', profile.business_id)
+      const customerIds = Array.from(
+        new Set((jobsData || []).map((job) => job.customer_id).filter(Boolean))
+      ) as string[]
+      const { data: customersData = [] } = customerIds.length
+        ? await supabase
+          .from('customers')
+          .select('id, name')
+          .eq('business_id', businessId)
+          .in('id', customerIds)
+        : { data: [] as Array<{ id: string; name: string }> }
+      const customers = customersData ?? []
 
-      const customerMap = new Map(customersData?.map(c => [c.id, c.name]))
-      const techMap = new Map(techsData?.map(t => [t.id, t.full_name]))
+      const customerMap = new Map(customers.map((customer) => [customer.id, customer.name]))
+      const techMap = new Map(technicians.map((tech) => [tech.id, tech.full_name]))
 
       const jobIds = (jobsData || []).map((job) => job.id as string)
+      const { data: invoiceRows = [] } = jobIds.length
+        ? await supabase
+          .from('invoices')
+          .select('job_id, status, created_at')
+          .in('job_id', jobIds)
+          .order('created_at', { ascending: false })
+        : { data: [] as Array<{ job_id: string; status: string; created_at: string }> }
       const { data: jobServicesData = [] } = jobIds.length
         ? await supabase
-            .from('job_services')
-            .select('job_id, service_id')
-            .in('job_id', jobIds)
+          .from('job_services')
+          .select('job_id, service_id')
+          .in('job_id', jobIds)
         : { data: [] as Array<{ job_id: string; service_id: string }> }
+
+      const invoiceStatusByJob = new Map<string, string>()
+      for (const invoice of invoiceRows || []) {
+        if (!invoice.job_id || invoiceStatusByJob.has(invoice.job_id)) continue
+        invoiceStatusByJob.set(invoice.job_id, invoice.status || 'none')
+      }
 
       const serviceIds = Array.from(
         new Set((jobServicesData || []).map((row) => row.service_id).filter(Boolean))
@@ -726,10 +1447,10 @@ export default function SchedulePage() {
 
       const { data: servicesData = [] } = serviceIds.length
         ? await supabase
-            .from('services')
-            .select('id, name')
-            .eq('business_id', profile.business_id)
-            .in('id', serviceIds)
+          .from('services')
+          .select('id, name')
+          .eq('business_id', businessId)
+          .in('id', serviceIds)
         : { data: [] as Array<{ id: string; name: string }> }
 
       const serviceMap = new Map((servicesData || []).map((s) => [s.id, s.name]))
@@ -744,6 +1465,7 @@ export default function SchedulePage() {
 
       const enrichedJobs = (jobsData || []).map(job => ({
         ...job,
+        invoice_status: invoiceStatusByJob.get(job.id) || 'none',
         customer_name: customerMap.get(job.customer_id) || 'Unknown',
         technician_name: job.technician_id ? techMap.get(job.technician_id) || 'Unknown' : null,
         service_names: servicesByJob.get(job.id) || [],
@@ -755,11 +1477,21 @@ export default function SchedulePage() {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [businessId, currentDate, view, summaryDateFrom, summaryDateTo, supabase, technicians])
+
+  const queueFetchData = useCallback(() => {
+    if (fetchDebounceRef.current) {
+      window.clearTimeout(fetchDebounceRef.current)
+    }
+    fetchDebounceRef.current = window.setTimeout(() => {
+      void fetchData()
+    }, 260)
+  }, [fetchData])
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (!businessId) return
+    void fetchData()
+  }, [businessId, fetchData])
 
   useEffect(() => {
     if (!businessId) return
@@ -774,21 +1506,39 @@ export default function SchedulePage() {
           table: 'jobs',
           filter: `business_id=eq.${businessId}`,
         },
-        () => {
-          fetchData()
+        (payload) => {
+          const windowState = activeWindowRef.current
+          if (!windowState) {
+            queueFetchData()
+            return
+          }
+
+          const nextStart = (payload.new as { scheduled_start?: string | null } | null)?.scheduled_start
+          const prevStart = (payload.old as { scheduled_start?: string | null } | null)?.scheduled_start
+          const touchesActiveWindow =
+            isDateInWindow(nextStart, windowState.start, windowState.end) ||
+            isDateInWindow(prevStart, windowState.start, windowState.end)
+
+          if (touchesActiveWindow || payload.eventType === 'DELETE') {
+            queueFetchData()
+          }
         }
       )
       .subscribe()
 
     return () => {
+      if (fetchDebounceRef.current) {
+        window.clearTimeout(fetchDebounceRef.current)
+        fetchDebounceRef.current = null
+      }
       supabase.removeChannel(channel)
     }
-  }, [businessId, fetchData, supabase])
-  
+  }, [businessId, queueFetchData, supabase])
+
   const filteredJobs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    const dateFrom = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`) : null
-    const dateTo = dateToFilter ? new Date(`${dateToFilter}T23:59:59`) : null
+    const dateFrom = summaryDateFrom ? new Date(`${summaryDateFrom}T00:00:00`) : null
+    const dateTo = summaryDateTo ? new Date(`${summaryDateTo}T23:59:59.999`) : null
 
     const parseMinutes = (value: string): number | null => {
       const v = value.trim()
@@ -806,6 +1556,7 @@ export default function SchedulePage() {
     return jobs.filter((job) => {
       if (q && !job.customer_name.toLowerCase().includes(q)) return false
       if (statusFilter !== 'all' && job.status !== statusFilter) return false
+      if (invoiceStatusFilter !== 'all' && (job.invoice_status || 'none') !== invoiceStatusFilter) return false
 
       if (technicianFilter !== 'all') {
         const jobTech = job.technician_id || 'unassigned'
@@ -844,10 +1595,11 @@ export default function SchedulePage() {
     jobs,
     searchQuery,
     statusFilter,
+    invoiceStatusFilter,
     technicianFilter,
     serviceFilter,
-    dateFromFilter,
-    dateToFilter,
+    summaryDateFrom,
+    summaryDateTo,
     timeFromFilter,
     timeToFilter,
   ])
@@ -860,24 +1612,53 @@ export default function SchedulePage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [jobs])
 
+  const selectedTechnicianLabel = useMemo(() => {
+    if (technicianFilter === 'all') return 'All Techs'
+    if (technicianFilter === 'unassigned') return 'Unassigned'
+    return technicians.find((tech) => tech.id === technicianFilter)?.full_name || 'Technician'
+  }, [technicianFilter, technicians])
+
+  const selectedStatusLabel = useMemo(() => {
+    if (statusFilter === 'all') return 'All Statuses'
+    return (STATUS_CONFIG[statusFilter] || STATUS_CONFIG.scheduled).label
+  }, [statusFilter])
+
+  const selectedInvoiceStatusLabel = useMemo(() => {
+    if (invoiceStatusFilter === 'all') return 'All Invoices'
+    if (invoiceStatusFilter === 'none') return 'No Invoice'
+    return invoiceStatusFilter.charAt(0).toUpperCase() + invoiceStatusFilter.slice(1)
+  }, [invoiceStatusFilter])
+
+  const selectedServiceLabel = useMemo(() => {
+    if (serviceFilter === 'all') return 'All Services'
+    return serviceFilter
+  }, [serviceFilter])
+
+  const defaultSummaryRange = useMemo(
+    () => getDefaultSummaryDateRange(currentDate),
+    [currentDate]
+  )
+
   const activeFiltersCount = useMemo(() => {
     let count = 0
     if (searchQuery.trim()) count += 1
     if (statusFilter !== 'all') count += 1
+    if (invoiceStatusFilter !== 'all') count += 1
     if (technicianFilter !== 'all') count += 1
     if (serviceFilter !== 'all') count += 1
-    if (dateFromFilter) count += 1
-    if (dateToFilter) count += 1
+    if (summaryDateFrom !== defaultSummaryRange.from || summaryDateTo !== defaultSummaryRange.to) count += 1
     if (timeFromFilter) count += 1
     if (timeToFilter) count += 1
     return count
   }, [
     searchQuery,
     statusFilter,
+    invoiceStatusFilter,
     technicianFilter,
     serviceFilter,
-    dateFromFilter,
-    dateToFilter,
+    summaryDateFrom,
+    summaryDateTo,
+    defaultSummaryRange,
     timeFromFilter,
     timeToFilter,
   ])
@@ -902,6 +1683,17 @@ export default function SchedulePage() {
       })
     }
 
+    if (invoiceStatusFilter !== 'all') {
+      chips.push({
+        key: 'invoice',
+        label: `Invoice: ${invoiceStatusFilter === 'none'
+          ? 'No Invoice'
+          : invoiceStatusFilter.charAt(0).toUpperCase() + invoiceStatusFilter.slice(1)
+          }`,
+        onClear: () => setInvoiceStatusFilter('all'),
+      })
+    }
+
     if (technicianFilter !== 'all') {
       const techName =
         technicianFilter === 'unassigned'
@@ -922,14 +1714,14 @@ export default function SchedulePage() {
       })
     }
 
-    if (dateFromFilter || dateToFilter) {
-      const range = [dateFromFilter || '...', dateToFilter || '...'].join(' to ')
+    if (summaryDateFrom !== defaultSummaryRange.from || summaryDateTo !== defaultSummaryRange.to) {
+      const range = [summaryDateFrom || '...', summaryDateTo || '...'].join(' to ')
       chips.push({
-        key: 'date',
+        key: 'range',
         label: `Date: ${range}`,
         onClear: () => {
-          setDateFromFilter('')
-          setDateToFilter('')
+          setSummaryDateFrom(defaultSummaryRange.from)
+          setSummaryDateTo(defaultSummaryRange.to)
         },
       })
     }
@@ -950,43 +1742,134 @@ export default function SchedulePage() {
   }, [
     searchQuery,
     statusFilter,
+    invoiceStatusFilter,
     technicianFilter,
     technicians,
     serviceFilter,
-    dateFromFilter,
-    dateToFilter,
+    summaryDateFrom,
+    summaryDateTo,
+    defaultSummaryRange,
     timeFromFilter,
     timeToFilter,
   ])
 
+  const filteredJobsPreview = useMemo(
+    () => filteredJobs,
+    [filteredJobs]
+  )
+
+  const jumpToJobOnSchedule = useCallback((job: Job) => {
+    const scheduledAt = parseJobDate(job.scheduled_start)
+    setCurrentDate(scheduledAt)
+    if (view === 'month') {
+      setView('week')
+    }
+    setFocusedScheduleJobId(job.id)
+    setFocusJumpKey((prev) => prev + 1)
+  }, [view])
+
+  useEffect(() => {
+    if (!focusedScheduleJobId) return
+
+    const timer = window.setTimeout(() => {
+      const node = document.querySelector(`[data-schedule-job-id="${focusedScheduleJobId}"]`) as HTMLElement | null
+      if (!node) return
+
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      node.animate(
+        [
+          { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(34,211,238,0.0)' },
+          { transform: 'scale(1.01)', boxShadow: '0 0 0 4px rgba(34,211,238,0.28)' },
+          { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(34,211,238,0.0)' },
+        ],
+        { duration: 850, easing: 'ease-out' }
+      )
+    }, 90)
+
+    return () => window.clearTimeout(timer)
+  }, [focusedScheduleJobId, currentDate, view, focusJumpKey])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenContextMenu(null)
+        setIsMiniCalendarOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (contextMenuRef.current && target && !contextMenuRef.current.contains(target)) {
+        setOpenContextMenu(null)
+      }
+      if (miniCalendarRef.current && target && !miniCalendarRef.current.contains(target)) {
+        setIsMiniCalendarOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
+
   const clearFilters = () => {
+    const defaults = getDefaultSummaryDateRange(currentDate)
     setSearchQuery('')
     setStatusFilter('all')
+    setInvoiceStatusFilter('all')
     setTechnicianFilter('all')
     setServiceFilter('all')
-    setDateFromFilter('')
-    setDateToFilter('')
+    setSummaryDateFrom(defaults.from)
+    setSummaryDateTo(defaults.to)
     setTimeFromFilter('')
     setTimeToFilter('')
+    setOpenContextMenu(null)
   }
-  
+
   const handleJobMove = async (jobId: string, newDate: Date, newHour: number) => {
     const job = jobs.find(j => j.id === jobId)
     if (!job) return
-    
+
     // Snap to dropped slot for predictable drag-and-drop placement.
-    const oldStart = parseJobDate(job.scheduled_start)
+    const { start: oldStart } = getJobInterval(job)
     const newStart = buildLocalDateAtHour(newDate, newHour, 0)
-    
+
     // Preserve exact duration in minutes (including non-hour boundaries).
     const rawDuration = job.scheduled_end
       ? differenceInMinutes(parseJobDate(job.scheduled_end), oldStart)
-      : 120
-    const duration = rawDuration > 0 ? rawDuration : 120
+      : DEFAULT_JOB_DURATION_MINUTES
+    const duration = rawDuration > 0 ? rawDuration : DEFAULT_JOB_DURATION_MINUTES
     const newEnd = addMinutes(newStart, duration)
+
+    const conflicts = findTechnicianOverlapsForWindow({
+      jobs,
+      movingJobId: job.id,
+      technicianId: job.technician_id,
+      start: newStart,
+      end: newEnd,
+    })
+    if (conflicts.length > 0) {
+      const topConflicts = conflicts
+        .slice(0, 3)
+        .map((conflict) => `${format(parseJobDate(conflict.scheduled_start), 'MMM d h:mm a')} - ${conflict.customer_name}`)
+      const more = conflicts.length > 3 ? `\n- +${conflicts.length - 3} more` : ''
+      const proceed = window.confirm(
+        `This creates an overlapping assignment for ${job.technician_name || 'this technician'}.\n\n` +
+        `Conflicts:\n- ${topConflicts.join('\n- ')}${more}\n\n` +
+        'Move this job anyway?'
+      )
+      if (!proceed) {
+        return
+      }
+    }
+
     const scheduledStartIso = newStart.toISOString()
     const scheduledEndIso = newEnd.toISOString()
-    
+
     // Update in Supabase and use returned values to avoid client/server time drift.
     const { data: updated, error } = await supabase
       .from('jobs')
@@ -997,7 +1880,7 @@ export default function SchedulePage() {
       .eq('id', jobId)
       .select('scheduled_start, scheduled_end')
       .single()
-    
+
     if (error) {
       console.error('Failed to move job:', error)
       return
@@ -1005,10 +1888,10 @@ export default function SchedulePage() {
 
     const nextStart = updated?.scheduled_start || scheduledStartIso
     const nextEnd = updated?.scheduled_end || scheduledEndIso
-    
+
     // Update local state
-    setJobs(prev => prev.map(j => 
-      j.id === jobId 
+    setJobs(prev => prev.map(j =>
+      j.id === jobId
         ? { ...j, scheduled_start: nextStart, scheduled_end: nextEnd }
         : j
     ))
@@ -1044,30 +1927,44 @@ export default function SchedulePage() {
 
   const goToToday = () => setCurrentDate(new Date())
 
-  const summaryJobs = useMemo(() => {
-    const dayStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
-    const weekEndExclusive = addDays(weekStart, WEEK_DAYS)
-    const monthStart = startOfMonth(currentDate)
-    const monthEndExclusive = addMonths(monthStart, 1)
+  const handleMiniCalendarSelect = useCallback((selectedDay: Date) => {
+    setCurrentDate(selectedDay)
+    setView('day')
+    setIsMiniCalendarOpen(false)
+  }, [])
 
-    const matchesScope = (jobDate: Date) => {
-      if (summaryScope === 'day') {
-        return isSameDay(jobDate, dayStart)
-      }
-      if (summaryScope === 'week') {
-        return jobDate >= weekStart && jobDate < weekEndExclusive
-      }
-      return jobDate >= monthStart && jobDate < monthEndExclusive
+  const summaryRange = useMemo(() => {
+    const fallbackStart = startOfWeek(currentDate, { weekStartsOn: 1 })
+    const fallbackEnd = addDays(fallbackStart, WEEK_LAST_DAY_OFFSET)
+
+    const parsedStart = summaryDateFrom ? parseISO(`${summaryDateFrom}T00:00:00`) : fallbackStart
+    const parsedEnd = summaryDateTo ? parseISO(`${summaryDateTo}T23:59:59.999`) : fallbackEnd
+
+    const initialStart = Number.isNaN(parsedStart.getTime())
+      ? new Date(fallbackStart.getFullYear(), fallbackStart.getMonth(), fallbackStart.getDate(), 0, 0, 0, 0)
+      : new Date(parsedStart.getFullYear(), parsedStart.getMonth(), parsedStart.getDate(), 0, 0, 0, 0)
+    const initialEnd = Number.isNaN(parsedEnd.getTime())
+      ? new Date(fallbackEnd.getFullYear(), fallbackEnd.getMonth(), fallbackEnd.getDate(), 23, 59, 59, 999)
+      : new Date(parsedEnd.getFullYear(), parsedEnd.getMonth(), parsedEnd.getDate(), 23, 59, 59, 999)
+
+    if (initialStart <= initialEnd) {
+      return { start: initialStart, end: initialEnd }
     }
 
+    return { start: initialEnd, end: initialStart }
+  }, [summaryDateFrom, summaryDateTo, currentDate])
+
+  const summaryJobs = useMemo(() => {
     return filteredJobs
-      .filter((job) => matchesScope(parseJobDate(job.scheduled_start)))
+      .filter((job) => {
+        const jobDate = parseJobDate(job.scheduled_start)
+        return jobDate >= summaryRange.start && jobDate <= summaryRange.end
+      })
       .sort(
         (a, b) =>
           parseJobDate(a.scheduled_start).getTime() - parseJobDate(b.scheduled_start).getTime()
       )
-  }, [filteredJobs, currentDate, summaryScope])
+  }, [filteredJobs, summaryRange])
 
   const completedSummaryCount = useMemo(
     () => summaryJobs.filter((job) => job.status === 'completed').length,
@@ -1095,21 +1992,26 @@ export default function SchedulePage() {
       .slice(0, 4)
   }, [summaryJobs])
 
-  const summaryHeading = summaryScope === 'day' ? "Day Summary" : summaryScope === 'week' ? 'Week Summary' : 'Month Summary'
-  const summaryDateLabel = summaryScope === 'day'
-    ? format(currentDate, 'MMM d, EEEE')
-    : summaryScope === 'week'
-      ? `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), WEEK_LAST_DAY_OFFSET), 'MMM d')}`
-      : format(currentDate, 'MMMM yyyy')
-  const summaryJobLabel = `${summaryJobs.length} ${summaryJobs.length === 1 ? 'job' : 'jobs'}`
-  const maxTechLoad = technicianLoadSummary.reduce((max, tech) => Math.max(max, tech.count), 0) || 1
-  const plannerVariant: PlannerVariant =
-    scheduleDesign === 'planner_balanced'
-      ? 'balanced'
-      : scheduleDesign === 'planner_minimal'
-        ? 'minimal'
-        : 'classic'
-  
+  const plannerVariant: PlannerVariant = 'minimal'
+
+  const miniCalendarDays = useMemo(() => {
+    const monthStart = startOfMonth(miniCalendarMonth)
+    const monthEnd = endOfMonth(miniCalendarMonth)
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 })
+    const gridEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 0 }), 6)
+    return eachDayOfInterval({ start: gridStart, end: gridEnd })
+  }, [miniCalendarMonth])
+
+  useEffect(() => {
+    const nextMonth = startOfMonth(currentDate)
+    setMiniCalendarMonth((prev) =>
+      prev.getFullYear() === nextMonth.getFullYear() &&
+        prev.getMonth() === nextMonth.getMonth()
+        ? prev
+        : nextMonth
+    )
+  }, [currentDate])
+
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -1130,22 +2032,23 @@ export default function SchedulePage() {
       </div>
     )
   }
-  
+
   return (
     <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-cyan-50/30 p-4 shadow-[0_18px_50px_-30px_rgba(2,132,199,0.35)] dark:border-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/20 dark:shadow-[0_24px_60px_-35px_rgba(34,211,238,0.35)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_48%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_48%)]" />
+      <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl dark:border-white/5 dark:bg-slate-900/40">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-cyan-500/5" />
+        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-cyan-500/10 blur-[100px] mix-blend-screen" />
 
         <div className="relative z-20 flex flex-col gap-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
-                Schedule
+              <h1 className="text-2xl font-display font-medium text-slate-900 dark:text-white pb-1 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
+                Dispatch Reality
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-500 dark:text-cyan-400/80 mt-0.5 font-bold">
                 {activeFiltersCount
-                  ? `${filteredJobs.length} of ${jobs.length} jobs shown`
-                  : `${jobs.length} jobs across operations`}
+                  ? `${filteredJobs.length} OF ${jobs.length} JOBS SHOWN`
+                  : `${jobs.length} JOBS ACROSS OPERATIONS`}
               </p>
             </div>
 
@@ -1158,6 +2061,82 @@ export default function SchedulePage() {
               >
                 Today
               </Button>
+
+              <div ref={miniCalendarRef} className="relative">
+                <Button
+                  variant="glass"
+                  size="sm"
+                  className="rounded-full text-xs"
+                  onClick={() => setIsMiniCalendarOpen((prev) => !prev)}
+                  icon={<CalendarDays className="w-3.5 h-3.5" />}
+                >
+                  Jump
+                </Button>
+
+                {isMiniCalendarOpen && (
+                  <div className="absolute right-0 top-full z-[130] mt-2 w-[280px] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                    <div className="mb-2 flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setMiniCalendarMonth((prev) => subMonths(prev, 1))}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                        aria-label="Previous month"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
+                        {format(miniCalendarMonth, 'MMMM yyyy')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setMiniCalendarMonth((prev) => addMonths(prev, 1))}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                        aria-label="Next month"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="mb-1 grid grid-cols-7 gap-1">
+                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, idx) => (
+                        <div
+                          key={`mini-day-label-${label}-${idx}`}
+                          className="text-center font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500"
+                        >
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {miniCalendarDays.map((day) => {
+                        const inCurrentMonth = day.getMonth() === miniCalendarMonth.getMonth()
+                        const selected = isSameDay(day, currentDate)
+                        const today = isToday(day)
+
+                        return (
+                          <button
+                            key={`mini-day-${day.toISOString()}`}
+                            type="button"
+                            onClick={() => handleMiniCalendarSelect(day)}
+                            className={`h-8 rounded-md text-xs font-medium transition-colors ${selected
+                              ? 'bg-cyan-500 text-slate-950'
+                              : today
+                                ? 'border border-cyan-300 text-cyan-700 dark:border-cyan-500/40 dark:text-cyan-300'
+                                : inCurrentMonth
+                                  ? 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/70'
+                                  : 'text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-800/50'
+                              }`}
+                            title={`Open ${format(day, 'MMM d, yyyy')}`}
+                          >
+                            {format(day, 'd')}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-visible">
                 <div className="relative group">
@@ -1222,25 +2201,23 @@ export default function SchedulePage() {
                     variant={view === v ? 'glassPrimary' : 'ghost'}
                     size="sm"
                     onClick={() => setView(v)}
-                    className={`h-8 rounded-none px-3 text-xs font-medium capitalize shadow-none ${
-                      index === 0 ? 'rounded-l-full' : ''
-                    } ${index === 2 ? 'rounded-r-full' : ''} ${
-                      index > 0 ? 'border-l border-slate-100 dark:border-slate-800' : ''
-                    } ${
-                      view === v
+                    className={`h-8 rounded-none px-3 text-xs font-medium capitalize shadow-none ${index === 0 ? 'rounded-l-full' : ''
+                      } ${index === 2 ? 'rounded-r-full' : ''} ${index > 0 ? 'border-l border-slate-100 dark:border-slate-800' : ''
+                      } ${view === v
                         ? '!bg-cyan-600 dark:!bg-cyan-500 !text-white'
                         : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                    }`}
+                      }`}
                   >
                     {v}
                   </Button>
                 ))}
               </div>
 
-              <Link href="/admin/jobs/new">
+              <Link href="/admin/jobs/new" data-test="add-appointment">
                 <Button
                   variant="glassPrimary"
                   size="sm"
+                  data-test="add-appointment"
                   className="rounded-full text-xs"
                   icon={<Plus className="w-3.5 h-3.5" />}
                 >
@@ -1250,401 +2227,348 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[276px_minmax(0,1fr)] gap-4">
-            <aside className="space-y-3">
-              <details className="group rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
-                <summary className="flex items-center justify-between gap-3 p-4 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                      {summaryHeading}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 truncate">{summaryDateLabel}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono rounded-full px-2 py-1 bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300 whitespace-nowrap">
-                      {summaryJobLabel}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" />
-                  </div>
-                </summary>
-
-                <div className="border-t border-slate-200/70 dark:border-slate-800 px-4 pb-4">
-
-              <div className="pt-3 mb-3 flex items-center gap-1 rounded-full border border-slate-200/80 bg-slate-100/70 p-1 dark:border-slate-700/70 dark:bg-slate-800/70">
-                {(['day', 'week', 'month'] as const).map((scope) => (
-                  <button type="button"
-                    key={scope}
-                    onClick={() => setSummaryScope(scope)}
-                    className={`flex-1 rounded-full px-2.5 py-1 text-[10px] font-mono uppercase tracking-wide transition-colors ${
-                      summaryScope === scope
-                        ? 'bg-cyan-600 text-white dark:bg-cyan-500'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700/70'
-                    }`}
-                  >
-                    {scope}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-                {summaryJobs.length === 0 ? (
-                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 px-3 py-3">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">No visits scheduled for this {summaryScope}.</p>
-                  </div>
-                ) : (
-                  summaryJobs.slice(0, 6).map((job) => {
-                    const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.scheduled
-                    const scheduledAt = parseJobDate(job.scheduled_start)
-                    const accentClass =
-                      job.status === 'completed'
-                        ? 'border-l-emerald-400'
-                        : job.status === 'in_progress'
-                          ? 'border-l-cyan-400'
-                          : job.status === 'on_the_way' || job.status === 'arrived'
-                            ? 'border-l-amber-400'
-                            : job.status === 'cancelled'
-                              ? 'border-l-rose-400'
-                              : 'border-l-slate-400'
-                    return (
-                      <Link
-                        key={job.id}
-                        href={`/admin/jobs/${job.id}`}
-                        className={`block rounded-xl border border-slate-200/80 border-l-4 dark:border-slate-700/70 bg-white dark:bg-slate-800/40 px-3 py-2.5 hover:border-cyan-300 dark:hover:border-cyan-500/40 hover:shadow-sm transition-all ${accentClass}`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 tabular-nums flex items-center gap-1">
-                            <Clock3 className="w-3 h-3" />
-                            {format(scheduledAt, 'MMM d, HH:mm')}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300">
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                            {status.label}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 mt-1 truncate">
-                          {job.customer_name}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          {job.technician_name || 'Unassigned'}
-                        </p>
-                      </Link>
-                    )
-                  })
-                )}
-              </div>
-
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-xl bg-slate-100/80 dark:bg-slate-800/70 p-2.5">
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Booked</p>
-                  <p className="text-lg font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{summaryJobs.length}</p>
+          <section className="sticky top-2 z-[70] rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/85">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[220px] flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search customer..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-slate-200/80 bg-white pl-9 pr-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  />
                 </div>
-                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-2.5">
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Done</p>
-                  <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">{completedSummaryCount}</p>
-                </div>
-                <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-2.5">
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wide">Open</p>
-                  <p className="text-lg font-semibold text-amber-700 dark:text-amber-300 mt-0.5">{unassignedSummaryCount}</p>
-                </div>
-              </div>
 
-              <div className="mt-4">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-1.5">
-                  <Users2 className="w-3 h-3" />
-                  Technician Load
-                </p>
-                <div className="space-y-1.5">
-                  {technicianLoadSummary.map((tech) => (
-                    <div
-                      key={tech.id}
-                      className="rounded-lg bg-slate-50 dark:bg-slate-800/50 px-2.5 py-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-600 dark:text-slate-300 truncate">{tech.name}</span>
-                        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">{tech.count}</span>
-                      </div>
-                      <div className="mt-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700/70">
-                        <div
-                          className="h-full rounded-full bg-cyan-500"
-                          style={{ width: `${Math.max(16, Math.round((tech.count / maxTechLoad) * 100))}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              </div>
-              </details>
-
-              <details className="group rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
-                <summary className="flex items-center justify-between gap-3 p-4 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-300">
-                      <Filter className="w-3.5 h-3.5" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Filters
-                      </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 truncate">
-                        {activeFiltersCount ? `${activeFiltersCount} active` : 'None active'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" />
-                </summary>
-
-                <div className="relative overflow-hidden border-t border-slate-200/70 dark:border-slate-800 px-4 pb-4 pt-4">
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.10),transparent_55%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.16),transparent_55%)]" />
-
-                  <div className="relative flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Filter Console
-                      </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 truncate">
-                        {activeFiltersCount ? `${activeFiltersCount} active filters` : 'No filters applied'}
-                      </p>
-                    </div>
-
+                <div ref={contextMenuRef} className="flex flex-wrap items-center gap-1.5 relative z-[100]">
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={clearFilters}
-                      disabled={!activeFiltersCount}
-                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 px-3 py-1 text-[10px] font-mono uppercase tracking-wide text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70 disabled:opacity-50"
+                      onClick={() => setOpenContextMenu((prev) => (prev === 'tech' ? null : 'tech'))}
+                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${technicianFilter !== 'all'
+                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                        }`}
                     >
-                      <X className="w-3.5 h-3.5" />
-                      Clear all
+                      Tech: {selectedTechnicianLabel}
                     </button>
+                    {openContextMenu === 'tech' && (
+                      <div className="absolute left-0 top-full mt-1 z-[120] w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTechnicianFilter('all')
+                            setOpenContextMenu(null)
+                          }}
+                          className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                        >
+                          All Technicians
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTechnicianFilter('unassigned')
+                            setOpenContextMenu(null)
+                          }}
+                          className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                        >
+                          Unassigned
+                        </button>
+                        {technicians.map((tech) => (
+                          <button
+                            key={`menu-tech-${tech.id}`}
+                            type="button"
+                            onClick={() => {
+                              setTechnicianFilter(tech.id)
+                              setOpenContextMenu(null)
+                            }}
+                            className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                          >
+                            {tech.full_name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {activeFilterChips.length > 0 && (
-                    <div className="relative mt-3 flex flex-wrap gap-2">
-                      {activeFilterChips.map((chip) => (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenContextMenu((prev) => (prev === 'status' ? null : 'status'))}
+                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${statusFilter !== 'all'
+                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                        }`}
+                    >
+                      Status: {selectedStatusLabel}
+                    </button>
+                    {openContextMenu === 'status' && (
+                      <div className="absolute left-0 top-full mt-1 z-[120] w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
                         <button
-                          key={chip.key}
                           type="button"
-                          onClick={chip.onClear}
-                          className="group inline-flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/80 px-3 py-1.5 text-[11px] text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:bg-slate-800/70"
-                          title="Remove filter"
+                          onClick={() => {
+                            setStatusFilter('all')
+                            setOpenContextMenu(null)
+                          }}
+                          className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
                         >
-                          <span className="truncate max-w-[220px]">{chip.label}</span>
-                          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors group-hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:group-hover:bg-slate-700">
-                            <X className="w-3 h-3" />
-                          </span>
+                          All Statuses
                         </button>
-                      ))}
-                    </div>
-                  )}
+                        {[
+                          'scheduled',
+                          'on_the_way',
+                          'arrived',
+                          'in_progress',
+                          'completed',
+                          'cancelled',
+                        ].map((statusKey) => (
+                          <button
+                            key={`menu-status-${statusKey}`}
+                            type="button"
+                            onClick={() => {
+                              setStatusFilter(statusKey)
+                              setOpenContextMenu(null)
+                            }}
+                            className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                          >
+                            {(STATUS_CONFIG[statusKey] || STATUS_CONFIG.scheduled).label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-                  <div className="relative mt-4 grid gap-3">
-                    <div className="rounded-2xl border border-slate-200/70 bg-white/75 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/55">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        Who
-                      </p>
-
-                      <label className="block mt-2">
-                        <span className="sr-only">Customer search</span>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="text"
-                            placeholder="Customer name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                          />
-                        </div>
-                      </label>
-
-                      <label className="block mt-2">
-                        <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                          Technician
-                        </span>
-                        <select
-                          value={technicianFilter}
-                          onChange={(e) => setTechnicianFilter(e.target.value)}
-                          className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenContextMenu((prev) => (prev === 'service' ? null : 'service'))}
+                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${serviceFilter !== 'all'
+                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                        }`}
+                    >
+                      Service: {selectedServiceLabel}
+                    </button>
+                    {openContextMenu === 'service' && (
+                      <div className="absolute left-0 top-full mt-1 z-[120] w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setServiceFilter('all')
+                            setOpenContextMenu(null)
+                          }}
+                          className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
                         >
-                          <option value="all">All Technicians</option>
-                          <option value="unassigned">Unassigned</option>
-                          {technicians.map((tech) => (
-                            <option key={tech.id} value={tech.id}>
-                              {tech.full_name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200/70 bg-white/75 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/55">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        What
-                      </p>
-
-                      <label className="block mt-2">
-                        <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                          Service
-                        </span>
-                        <select
-                          value={serviceFilter}
-                          onChange={(e) => setServiceFilter(e.target.value)}
-                          disabled={serviceOptions.length === 0}
-                          className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30 disabled:opacity-60"
-                        >
-                          <option value="all">All Services</option>
-                          {serviceOptions.map((service) => (
-                            <option key={service} value={service}>
-                              {service}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <div className="mt-2">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                          Status
-                        </p>
-                        <div className="mt-1 grid grid-cols-2 gap-2">
-                          {[
-                            { key: 'all', label: 'All', dot: 'bg-slate-300 dark:bg-slate-600' },
-                            { key: 'scheduled', label: STATUS_CONFIG.scheduled.label, dot: STATUS_CONFIG.scheduled.dot },
-                            { key: 'on_the_way', label: STATUS_CONFIG.on_the_way.label, dot: STATUS_CONFIG.on_the_way.dot },
-                            { key: 'arrived', label: STATUS_CONFIG.arrived.label, dot: STATUS_CONFIG.arrived.dot },
-                            { key: 'in_progress', label: STATUS_CONFIG.in_progress.label, dot: STATUS_CONFIG.in_progress.dot },
-                            { key: 'completed', label: STATUS_CONFIG.completed.label, dot: STATUS_CONFIG.completed.dot },
-                            { key: 'cancelled', label: STATUS_CONFIG.cancelled.label, dot: STATUS_CONFIG.cancelled.dot },
-                          ].map((s) => (
-                            <button
-                              key={s.key}
-                              type="button"
-                              onClick={() => setStatusFilter(s.key)}
-                              className={`inline-flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs transition-colors ${
-                                statusFilter === s.key
-                                  ? 'border-cyan-300 bg-cyan-50 text-slate-900 shadow-sm dark:border-cyan-500/40 dark:bg-cyan-500/10 dark:text-slate-100'
-                                  : 'border-slate-200/80 bg-white/70 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200 dark:hover:bg-slate-800/60'
-                              }`}
-                            >
-                              <span className="truncate">{s.label}</span>
-                              <span className={`h-2.5 w-2.5 rounded-full ${s.dot}`} aria-hidden="true" />
-                            </button>
-                          ))}
-                        </div>
+                          All Services
+                        </button>
+                        {serviceOptions.map((service) => (
+                          <button
+                            key={`menu-service-${service}`}
+                            type="button"
+                            onClick={() => {
+                              setServiceFilter(service)
+                              setOpenContextMenu(null)
+                            }}
+                            className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                          >
+                            {service}
+                          </button>
+                        ))}
                       </div>
-                    </div>
+                    )}
+                  </div>
 
-                    <div className="rounded-2xl border border-slate-200/70 bg-white/75 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/55">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                        When
-                      </p>
-
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <label className="block">
-                          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                            Date From
-                          </span>
-                          <input
-                            type="date"
-                            value={dateFromFilter}
-                            onChange={(e) => setDateFromFilter(e.target.value)}
-                            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                            Date To
-                          </span>
-                          <input
-                            type="date"
-                            value={dateToFilter}
-                            onChange={(e) => setDateToFilter(e.target.value)}
-                            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                          />
-                        </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenContextMenu((prev) => (prev === 'invoice' ? null : 'invoice'))}
+                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${invoiceStatusFilter !== 'all'
+                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                        }`}
+                    >
+                      Invoice: {selectedInvoiceStatusLabel}
+                    </button>
+                    {openContextMenu === 'invoice' && (
+                      <div className="absolute left-0 top-full mt-1 z-[120] w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                        {[
+                          { key: 'all', label: 'All Invoices' },
+                          { key: 'none', label: 'No Invoice' },
+                          { key: 'draft', label: 'Draft' },
+                          { key: 'sent', label: 'Sent' },
+                          { key: 'overdue', label: 'Overdue' },
+                          { key: 'paid', label: 'Paid' },
+                          { key: 'cancelled', label: 'Cancelled' },
+                        ].map((option) => (
+                          <button
+                            key={`menu-invoice-${option.key}`}
+                            type="button"
+                            onClick={() => {
+                              setInvoiceStatusFilter(option.key)
+                              setOpenContextMenu(null)
+                            }}
+                            className="w-full rounded-lg px-2 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                          >
+                            {option.label}
+                          </button>
+                        ))}
                       </div>
-
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <label className="block">
-                          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                            Time From
-                          </span>
-                          <input
-                            type="time"
-                            value={timeFromFilter}
-                            onChange={(e) => setTimeFromFilter(e.target.value)}
-                            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                            Time To
-                          </span>
-                          <input
-                            type="time"
-                            value={timeToFilter}
-                            onChange={(e) => setTimeToFilter(e.target.value)}
-                            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-200/70 bg-white/70 px-3 py-2 dark:border-slate-700/70 dark:bg-slate-900/50">
-                        <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                          Results
-                        </span>
-                        <span className="text-[11px] font-mono text-slate-600 dark:text-slate-300">
-                          {filteredJobs.length} shown
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
-              </details>
-            </aside>
+
+                <div className="ml-auto flex items-center gap-2">
+                  <ActionIconButton
+                    stylePreset="ambient"
+                    intent={isMatchesPanelOpen ? 'primary' : 'secondary'}
+                    size="md"
+                    onClick={() => setIsMatchesPanelOpen((prev) => !prev)}
+                    aria-label={isMatchesPanelOpen ? 'Hide matched jobs' : 'Show matched jobs'}
+                    title={isMatchesPanelOpen ? 'Hide matched jobs' : 'Show matched jobs'}
+                    icon={<Search className="h-4 w-4" />}
+                  />
+                  <ActionButton
+                    stylePreset="industrial"
+                    intent="danger"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="uppercase tracking-[0.1em]"
+                  >
+                    Clear All
+                  </ActionButton>
+                </div>
+              </div>
+
+              {activeFilterChips.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {activeFilterChips.map((chip) => (
+                    <ActionFilterChip
+                      key={`rail-${chip.key}`}
+                      label={chip.label}
+                      onRemove={chip.onClear}
+                      stylePreset="ambient"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            <div className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">Jobs</p>
+              <p className="font-display text-xl text-slate-800 dark:text-slate-100">{summaryJobs.length}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Done</p>
+              <p className="font-display text-xl text-emerald-700 dark:text-emerald-300">{completedSummaryCount}</p>
+            </div>
+            <div className="rounded-xl border border-amber-200/70 bg-amber-50/80 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400">Open</p>
+              <p className="font-display text-xl text-amber-700 dark:text-amber-300">{unassignedSummaryCount}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">Filters</p>
+              <p className="font-display text-xl text-slate-800 dark:text-slate-100">{activeFiltersCount}</p>
+            </div>
+            <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/80 px-3 py-2 dark:border-cyan-500/30 dark:bg-cyan-500/10">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-700 dark:text-cyan-300">Top Tech Load</p>
+              <p className="font-display text-xl text-cyan-700 dark:text-cyan-200">{technicianLoadSummary[0]?.count ?? 0}</p>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 gap-4">
 
             <div className="space-y-3">
-              <div className="relative z-0 bg-white/90 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-[0_16px_36px_-28px_rgba(30,41,59,0.45)] backdrop-blur-sm">
-                {(scheduleDesign === 'planner_classic' ||
-                  scheduleDesign === 'planner_balanced' ||
-                  scheduleDesign === 'planner_minimal') && (
-                  <>
-                    {view === 'day' && (
-                      <DayView
-                        currentDate={currentDate}
-                        jobs={filteredJobs}
-                        technicians={technicians}
-                        variant={plannerVariant}
-                        onJobMove={handleJobMove}
-                      />
-                    )}
-                    {view === 'week' && (
-                      <WeekView
-                        currentDate={currentDate}
-                        jobs={filteredJobs}
-                        technicians={technicians}
-                        variant={plannerVariant}
-                        onJobMove={handleJobMove}
-                      />
-                    )}
-                    {view === 'month' && (
-                      <MonthView currentDate={currentDate} jobs={filteredJobs} variant={plannerVariant} />
-                    )}
-                  </>
-                )}
-                {scheduleDesign === 'agenda' && (
-                  <AgendaView currentDate={currentDate} view={view} jobs={filteredJobs} />
-                )}
-                {scheduleDesign === 'tech_board' && (
-                  <TechnicianBoardView
-                    currentDate={currentDate}
-                    view={view}
-                    jobs={filteredJobs}
-                    technicians={technicians}
-                  />
-                )}
+              <div
+                data-test="calendar"
+                className="relative z-0 bg-white/40 dark:bg-slate-900/30 rounded-[28px] border border-white/20 dark:border-white/5 overflow-hidden shadow-2xl backdrop-blur-md"
+              >
+                <>
+                  {view === 'day' && (
+                    <DayView
+                      currentDate={currentDate}
+                      jobs={filteredJobs}
+                      technicians={technicians}
+                      variant={plannerVariant}
+                      cardVariant={scheduleCardVariant}
+                      focusedJobId={focusedScheduleJobId}
+                      onJobMove={handleJobMove}
+                    />
+                  )}
+                  {view === 'week' && (
+                    <WeekView
+                      currentDate={currentDate}
+                      jobs={filteredJobs}
+                      technicians={technicians}
+                      variant={plannerVariant}
+                      cardVariant={scheduleCardVariant}
+                      focusedJobId={focusedScheduleJobId}
+                      onJobMove={handleJobMove}
+                    />
+                  )}
+                  {view === 'month' && (
+                    <MonthView
+                      currentDate={currentDate}
+                      jobs={filteredJobs}
+                      variant={plannerVariant}
+                      onSelectDay={(selectedDay) => {
+                        setCurrentDate(selectedDay)
+                        setView('day')
+                      }}
+                    />
+                  )}
+                </>
               </div>
+
+              {isMatchesPanelOpen && (
+                <section className="rounded-2xl border border-slate-200/80 bg-white/85 shadow-sm backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/75">
+                  <div className="border-b border-slate-200/70 dark:border-slate-800 px-4 py-3">
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      Matching Jobs
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      {activeFiltersCount
+                        ? `${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} selected by active filters`
+                        : 'Apply filters to populate this list'}
+                    </p>
+                  </div>
+
+                  <div className="p-3">
+                    {!activeFiltersCount ? (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Set at least one filter to preview matching jobs and jump directly to them on the schedule.
+                      </p>
+                    ) : filteredJobs.length === 0 ? (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        No jobs match the current filters.
+                      </p>
+                    ) : (
+                      <div className="max-h-[52vh] space-y-1.5 overflow-y-auto pr-1">
+                        {filteredJobsPreview.map((job) => (
+                          <button
+                            key={`matched-job-${job.id}`}
+                            type="button"
+                            onClick={() => jumpToJobOnSchedule(job)}
+                            className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200/70 bg-white/80 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-slate-50 dark:border-slate-700/70 dark:bg-slate-900/60 dark:hover:bg-slate-800/70"
+                          >
+                            <span className="min-w-0 truncate text-slate-700 dark:text-slate-200">
+                              {job.customer_name}
+                            </span>
+                            <span className="shrink-0 text-[10px] text-slate-500 dark:text-slate-400">
+                              {format(parseJobDate(job.scheduled_start), 'MMM d h:mm a')}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -1719,6 +2643,7 @@ function AgendaView({
                       <Link
                         key={job.id}
                         href={`/admin/jobs/${job.id}`}
+                        data-test="event-block"
                         className="block rounded-lg border border-slate-200/80 bg-slate-50/80 px-2.5 py-2 transition-colors hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/60 dark:hover:bg-slate-700/70"
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -1830,6 +2755,7 @@ function TechnicianBoardView({
                   <Link
                     key={job.id}
                     href={`/admin/jobs/${job.id}`}
+                    data-test="event-block"
                     className="block rounded-lg border border-slate-200/80 bg-slate-50/80 px-2.5 py-2 transition-colors hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/60 dark:hover:bg-slate-700/70"
                   >
                     <div className="flex items-center justify-between gap-2">

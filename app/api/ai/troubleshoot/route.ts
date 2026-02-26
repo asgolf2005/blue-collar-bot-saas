@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { compactLines, withTimeout } from '@/lib/ai/utils'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkCooldown, checkRateLimit } from '@/lib/rate-limit'
 import { trackAICost } from '@/lib/ai/cost-tracker'
 
 type ChatRole = 'user' | 'assistant'
@@ -32,6 +32,8 @@ const normalizeHistory = (value: TroubleshootRequestBody['history']) => {
     .filter((entry) => entry.content.length > 0)
     .slice(-10)
 }
+
+const AI_TROUBLESHOOT_COOLDOWN_MS = 10_000
 
 export async function POST(request: Request) {
   try {
@@ -64,6 +66,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
     }
 
+    if (profile.role !== 'admin' && profile.role !== 'tech') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const rateLimit = checkRateLimit(`${user.id}:ai:troubleshoot`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -71,6 +77,17 @@ export async function POST(request: Request) {
         {
           status: 429,
           headers: { 'Retry-After': String(rateLimit.retryAfter) },
+        }
+      )
+    }
+
+    const cooldown = checkCooldown(`${user.id}:ai:troubleshoot:${jobId}`, AI_TROUBLESHOOT_COOLDOWN_MS)
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        { error: `Please wait ${cooldown.retryAfter}s before sending another troubleshooting request for this job.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(cooldown.retryAfter) },
         }
       )
     }
@@ -88,6 +105,13 @@ export async function POST(request: Request) {
 
     if (profile.role === 'tech' && job.technician_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (job.status === 'cancelled') {
+      return NextResponse.json(
+        { error: 'Troubleshooting is unavailable for cancelled jobs.' },
+        { status: 400 }
+      )
     }
 
     if (!isOpenAIConfigured || !openai) {

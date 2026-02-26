@@ -4,7 +4,7 @@ import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Loader2 } from '@/components/ui/icons'
+import { Loader2 } from 'lucide-react'
 
 /**
  * Utility function to merge class names
@@ -51,6 +51,14 @@ const buttonVariants = cva(
           'hover:-translate-y-0.5',
           'focus:ring-surface-400/50',
         ],
+        outline: [
+          'bg-transparent text-surface-700',
+          'border border-gray-300',
+          'shadow-sm',
+          'hover:bg-gray-50',
+          'hover:border-gray-400',
+          'focus:ring-surface-400/50',
+        ],
         danger: [
           'bg-danger text-white',
           'border border-transparent',
@@ -87,14 +95,45 @@ const buttonVariants = cva(
           'hover:-translate-y-0.5 hover:shadow-md',
           'focus:ring-blue-500/50 dark:focus:ring-cyan-500/50',
         ],
+        industrial: [
+          'bg-slate-900 text-cyan-200',
+          'border border-cyan-400/55',
+          'shadow-[inset_0_0_0_1px_rgba(34,211,238,0.18)]',
+          'hover:bg-cyan-500/10',
+          'focus:ring-cyan-400/50',
+        ],
+        editorial: [
+          'bg-white text-slate-900',
+          'border-2 border-slate-900',
+          'uppercase tracking-[0.08em]',
+          'hover:bg-slate-100',
+          'dark:bg-slate-900 dark:text-slate-100 dark:border-slate-100 dark:hover:bg-slate-800',
+          'focus:ring-slate-500/40',
+        ],
+        ambient: [
+          'bg-gradient-to-r from-sky-400/90 via-cyan-400/90 to-emerald-400/90 text-slate-950',
+          'border border-cyan-300/50',
+          'shadow-[0_12px_28px_-18px_rgba(6,182,212,0.95)]',
+          'hover:brightness-110',
+          'focus:ring-cyan-300/60',
+        ],
+        success: [
+          'bg-emerald-500/15 text-emerald-700',
+          'border border-emerald-400/60',
+          'hover:bg-emerald-500/25',
+          'dark:text-emerald-300',
+          'focus:ring-emerald-400/50',
+        ],
       },
       /**
        * Size variant
        */
       size: {
+        xs: ['py-1 px-2.5 text-xs rounded-md', 'h-7'],
         sm: ['py-1.5 px-3 text-sm rounded-lg', 'h-8'],
         md: ['py-2.5 px-5 text-sm rounded-lg', 'h-10'],
         lg: ['py-3 px-6 text-base rounded-lg', 'h-12'],
+        icon: ['p-0 rounded-full', 'h-9 w-9'],
       },
       /**
        * Full width option

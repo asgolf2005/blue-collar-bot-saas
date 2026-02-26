@@ -1,224 +1,289 @@
-﻿import { createClient } from '@/lib/supabase/server'
-import { startOfWeek, startOfMonth, endOfMonth, format, differenceInHours } from 'date-fns'
-import { TrendingUp, CheckCircle, DollarSign, Clock, Calendar, Briefcase, Zap, MapPin, BarChart3, Star } from '@/components/ui/lucide'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import type { ReactNode } from 'react'
+import {
+  addDays,
+  differenceInMinutes,
+  endOfDay,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from 'date-fns'
+import { BarChart3, Clock3, DollarSign, Gauge, Sparkles, TrendingUp } from '@/components/ui/lucide'
 
-export default async function TechStatsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+type MetricCardProps = {
+  label: string
+  value: string
+  helper: string
+}
 
-  const now = new Date()
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
-  const monthStart = startOfMonth(now)
-  const monthEnd = endOfMonth(now)
-
-  // Fetch jobs with customer data for location analysis
-  const [
-    { data: allJobs },
-    { data: weekJobs },
-    { data: monthJobs },
-  ] = await Promise.all([
-    supabase
-      .from('jobs')
-      .select('status, total_cost, scheduled_start, scheduled_end, description')
-      .eq('technician_id', user!.id),
-    supabase
-      .from('jobs')
-      .select('status, total_cost, scheduled_start, scheduled_end')
-      .eq('technician_id', user!.id)
-      .gte('scheduled_start', weekStart.toISOString()),
-    supabase
-      .from('jobs')
-      .select('status, total_cost')
-      .eq('technician_id', user!.id)
-      .gte('scheduled_start', monthStart.toISOString())
-      .lte('scheduled_start', monthEnd.toISOString()),
-  ])
-
-  const completedJobs = allJobs?.filter(j => j.status === 'completed') || []
-  const completedThisWeek = weekJobs?.filter(j => j.status === 'completed') || []
-  const completedThisMonth = monthJobs?.filter(j => j.status === 'completed') || []
-
-  // Revenue calculations
-  const totalRevenue = completedJobs.reduce((sum, j) => sum + (j.total_cost || 0), 0)
-  const revenueThisWeek = completedThisWeek.reduce((sum, j) => sum + (j.total_cost || 0), 0)
-  const revenueThisMonth = completedThisMonth.reduce((sum, j) => sum + (j.total_cost || 0), 0)
-
-  // Calculate total hours worked
-  const totalHoursWorked = completedJobs.reduce((sum, j) => {
-    if (j.scheduled_start && j.scheduled_end) {
-      return sum + differenceInHours(new Date(j.scheduled_end), new Date(j.scheduled_start))
-    }
-    return sum
-  }, 0)
-
-  const hoursThisWeek = completedThisWeek.reduce((sum, j) => {
-    if (j.scheduled_start && j.scheduled_end) {
-      return sum + differenceInHours(new Date(j.scheduled_end), new Date(j.scheduled_start))
-    }
-    return sum
-  }, 0)
-
-  // Calculate hourly rate
-  const avgHourlyRate = totalHoursWorked > 0 ? totalRevenue / totalHoursWorked : 0
-  const weeklyHourlyRate = hoursThisWeek > 0 ? revenueThisWeek / hoursThisWeek : 0
-
-  // Most common job types
-  const jobTypeCounts: Record<string, number> = {}
-  completedJobs.forEach(job => {
-    const type = job.description || 'Other'
-    jobTypeCounts[type] = (jobTypeCounts[type] || 0) + 1
-  })
-  const topJobTypes = Object.entries(jobTypeCounts)
-    .sort(([,a], [,b]) => b - a)
-    .slice(0, 3)
-
-  // Performance metrics
-  const avgJobValue = completedJobs.length > 0 ? totalRevenue / completedJobs.length : 0
-  const jobsPerDay = completedJobs.length > 0 ? completedJobs.length / Math.max(1, Math.ceil(totalHoursWorked / 8)) : 0
-  const completionRate = allJobs && allJobs.length > 0 ? (completedJobs.length / allJobs.length) * 100 : 0
-
+function MetricCard({ label, value, helper }: MetricCardProps) {
   return (
-    <div className="pb-8">
-      {/* Page Header */}
-      <div className="mb-6">
-        <div className="flex items-center mb-2">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center mr-3">
-            <BarChart3 className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-ink">Performance Dashboard</h1>
-            <p className="text-sm text-muted">Your earnings, efficiency & job insights</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Key Performance Indicators */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        {/* Total Revenue - Prominent */}
-        <div className="col-span-2 glass-card bg-gradient-to-br from-primary/5 to-success/5 dark:from-primary/10 dark:to-success/10 p-6 border-primary/20">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-5 h-5 text-primary" />
-                <p className="text-sm font-semibold text-primary">Total Earnings</p>
-              </div>
-              <p className="text-4xl font-bold text-ink mb-1">${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-muted">This week: <span className="font-semibold text-ink">${revenueThisWeek.toFixed(0)}</span></span>
-                <span className="text-muted">This month: <span className="font-semibold text-ink">${revenueThisMonth.toFixed(0)}</span></span>
-              </div>
-            </div>
-            <div className="w-16 h-16 rounded-2xl bg-success/10 dark:bg-success/20 flex items-center justify-center border border-success/20">
-              <TrendingUp className="w-8 h-8 text-success" />
-            </div>
-          </div>
-        </div>
-
-        {/* Hourly Rate */}
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 rounded-xl bg-warning/10 dark:bg-warning/20 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-warning" />
-            </div>
-          </div>
-          <p className="text-sm text-muted mb-1">Avg Hourly Rate</p>
-          <p className="text-3xl font-bold text-ink mb-1">${avgHourlyRate.toFixed(2)}</p>
-          <p className="text-xs text-muted">This week: ${weeklyHourlyRate.toFixed(2)}/hr</p>
-        </div>
-
-        {/* Completion Rate */}
-        <div className="glass-card p-5">
-          <div className="flex items-start justify-between mb-3">
-            <div className="w-12 h-12 rounded-xl bg-info/10 dark:bg-info/20 flex items-center justify-center">
-              <Star className="w-6 h-6 text-info" />
-            </div>
-          </div>
-          <p className="text-sm text-muted mb-1">Completion Rate</p>
-          <p className="text-3xl font-bold text-ink mb-1">{completionRate.toFixed(0)}%</p>
-          <p className="text-xs text-muted">{completedJobs.length} of {allJobs?.length || 0} jobs</p>
-        </div>
-      </div>
-
-      {/* This Week Overview */}
-      <div className="glass-card p-5 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-primary" />
-          <h2 className="font-bold text-ink">This Week</h2>
-          <span className="ml-auto text-xs text-muted">{format(weekStart, 'MMM d')} - {format(now, 'MMM d')}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-muted mb-1">Completed</p>
-            <p className="text-2xl font-bold text-ink">{completedThisWeek.length}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted mb-1">Hours Worked</p>
-            <p className="text-2xl font-bold text-ink">{hoursThisWeek.toFixed(1)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted mb-1">Revenue</p>
-            <p className="text-2xl font-bold text-success">${revenueThisWeek.toFixed(0)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Job Statistics */}
-      <div className="glass-card p-5 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Briefcase className="w-5 h-5 text-primary" />
-          <h2 className="font-bold text-ink">Job Statistics</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-surface-100/50 dark:bg-surface-800/50 rounded-xl p-4">
-            <p className="text-xs text-muted mb-1">Total Completed</p>
-            <p className="text-3xl font-bold text-ink">{completedJobs.length}</p>
-          </div>
-          <div className="bg-surface-100/50 dark:bg-surface-800/50 rounded-xl p-4">
-            <p className="text-xs text-muted mb-1">Avg Job Value</p>
-            <p className="text-3xl font-bold text-ink">${avgJobValue.toFixed(0)}</p>
-          </div>
-          <div className="bg-surface-100/50 dark:bg-surface-800/50 rounded-xl p-4">
-            <p className="text-xs text-muted mb-1">Jobs This Month</p>
-            <p className="text-3xl font-bold text-ink">{completedThisMonth.length}</p>
-          </div>
-          <div className="bg-surface-100/50 dark:bg-surface-800/50 rounded-xl p-4">
-            <p className="text-xs text-muted mb-1">Total Hours</p>
-            <p className="text-3xl font-bold text-ink">{totalHoursWorked.toFixed(0)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Top Job Types */}
-      {topJobTypes.length > 0 && (
-        <div className="glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-primary" />
-            <h2 className="font-bold text-ink">Most Common Jobs</h2>
-          </div>
-          <div className="space-y-3">
-            {topJobTypes.map(([type, count], index) => (
-              <div key={type} className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                  index === 0 ? 'bg-warning/10 dark:bg-warning/20 text-warning' :
-                  index === 1 ? 'bg-primary/10 dark:bg-primary/20 text-primary' :
-                  'bg-surface-100 dark:bg-surface-800 text-muted'
-                }`}>
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-ink line-clamp-1">{type}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-ink">{count}</p>
-                  <p className="text-xs text-muted">Jobs</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{value}</p>
+      <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">{helper}</p>
     </div>
   )
 }
 
+export default async function TechStatsPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
+  if (!user) {
+    redirect('/login')
+  }
+
+  const {
+    data: profile,
+  } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.role !== 'tech') {
+    redirect('/tech/today')
+  }
+
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const monthStart = startOfMonth(now)
+  const next14 = addDays(now, 14)
+
+  const [
+    { data: allJobs = [] },
+    { data: weekJobs = [] },
+    { data: monthJobs = [] },
+    { data: futureJobs = [] },
+  ] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select('id, status, total_cost, scheduled_start, scheduled_end, description')
+      .eq('technician_id', user.id)
+      .order('scheduled_start', { ascending: false }),
+    supabase
+      .from('jobs')
+      .select('id, status, scheduled_start')
+      .eq('technician_id', user.id)
+      .gte('scheduled_start', weekStart.toISOString())
+      .order('scheduled_start', { ascending: true }),
+    supabase
+      .from('jobs')
+      .select('status, total_cost, scheduled_start, scheduled_end')
+      .eq('technician_id', user.id)
+      .gte('scheduled_start', monthStart.toISOString()),
+    supabase
+      .from('jobs')
+      .select('id')
+      .eq('technician_id', user.id)
+      .gte('scheduled_start', now.toISOString())
+      .lte('scheduled_start', next14.toISOString()),
+  ])
+
+  const safeAllJobs = allJobs || []
+  const safeWeekJobs = weekJobs || []
+  const safeMonthJobs = monthJobs || []
+  const safeFutureJobs = futureJobs || []
+
+  const completedJobs = safeAllJobs.filter((job) => job.status === 'completed')
+  const completedThisWeek = safeWeekJobs.filter((job) => job.status === 'completed').length
+  const completedThisMonth = safeMonthJobs.filter((job) => job.status === 'completed')
+  const activeNow = safeAllJobs.filter((job) => ['on_the_way', 'arrived', 'in_progress'].includes(job.status)).length
+  const cancellationCount = safeAllJobs.filter((job) => job.status === 'cancelled').length
+
+  const totalRevenue = completedJobs.reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
+  const monthRevenue = completedThisMonth.reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
+  const avgJobValue = completedJobs.length > 0 ? totalRevenue / completedJobs.length : 0
+
+  const totalMinutesWorked = completedJobs.reduce((sum, job) => {
+    if (!job.scheduled_start || !job.scheduled_end) return sum
+    const minutes = differenceInMinutes(new Date(job.scheduled_end), new Date(job.scheduled_start))
+    return sum + (minutes > 0 ? minutes : 0)
+  }, 0)
+  const totalHoursWorked = totalMinutesWorked / 60
+  const realizedHourly = totalHoursWorked > 0 ? totalRevenue / totalHoursWorked : 0
+
+  const completionRate = safeAllJobs.length > 0 ? Math.round((completedJobs.length / safeAllJobs.length) * 100) : 0
+  const reliabilityScore = Math.max(0, Math.round(completionRate - (cancellationCount / Math.max(safeAllJobs.length, 1)) * 100))
+
+  const serviceBreakdown = completedJobs.reduce<Record<string, number>>((acc, job) => {
+    const key = (job.description || 'General service').slice(0, 48)
+    acc[key] = (acc[key] || 0) + 1
+    return acc
+  }, {})
+  const topServices = Object.entries(serviceBreakdown)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 6)
+
+  const sevenDaySeries = Array.from({ length: 7 }, (_, idx) => {
+    const day = subDays(startOfDay(now), 6 - idx)
+    const dayEnd = endOfDay(day)
+    const total = safeWeekJobs.filter((job) => {
+      const time = new Date(job.scheduled_start)
+      return time >= day && time <= dayEnd
+    }).length
+    const completed = safeWeekJobs.filter((job) => {
+      const time = new Date(job.scheduled_start)
+      return time >= day && time <= dayEnd && job.status === 'completed'
+    }).length
+    return {
+      label: format(day, 'EEE'),
+      total,
+      completed,
+      isToday: format(day, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'),
+    }
+  })
+  const maxBars = Math.max(...sevenDaySeries.map((d) => d.total), 1)
+
+  return (
+    <div className="space-y-5">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-6 sm:py-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.17),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.22),transparent_42%)]" />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Performance Intelligence</p>
+            <h1 className="mt-2 font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-white">Tech Metrics</h1>
+            <p className="mt-1 font-sans text-sm text-slate-600 dark:text-slate-300">
+              Personal productivity, revenue quality, and delivery reliability in one board.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <MetricCard
+              label="Completed"
+              value={String(completedJobs.length)}
+              helper={`${completedThisWeek} this week`}
+            />
+            <MetricCard
+              label="Revenue"
+              value={`$${totalRevenue.toFixed(0)}`}
+              helper={`$${monthRevenue.toFixed(0)} this month`}
+            />
+            <MetricCard
+              label="Hourly"
+              value={`$${realizedHourly.toFixed(0)}/h`}
+              helper={`${totalHoursWorked.toFixed(1)} logged hours`}
+            />
+            <MetricCard
+              label="Reliability"
+              value={`${reliabilityScore}%`}
+              helper={`${safeFutureJobs.length} jobs queued next 14d`}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="font-display text-2xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">7-Day Throughput</p>
+              <p className="font-sans text-xs text-slate-500 dark:text-slate-400">Completed vs booked jobs by day</p>
+            </div>
+            <BarChart3 className="h-5 w-5 text-cyan-500" />
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {sevenDaySeries.map((day) => {
+              const totalHeight = Math.max((day.total / maxBars) * 100, day.total > 0 ? 12 : 0)
+              const completedHeight = day.total > 0 ? (day.completed / day.total) * totalHeight : 0
+
+              return (
+                <div key={day.label} className="flex flex-col items-center gap-2">
+                  <div className="flex h-36 w-full items-end justify-center rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950/40">
+                    <div className="relative h-full w-full overflow-hidden rounded-md bg-slate-200 dark:bg-slate-800">
+                      <div
+                        className="absolute inset-x-0 bottom-0 rounded-md bg-slate-400 dark:bg-slate-600"
+                        style={{ height: `${totalHeight}%` }}
+                      />
+                      <div
+                        className="absolute inset-x-0 bottom-0 rounded-md bg-cyan-500"
+                        style={{ height: `${completedHeight}%` }}
+                      />
+                    </div>
+                  </div>
+                  <p className={`font-mono text-[11px] ${day.isToday ? 'text-cyan-600 dark:text-cyan-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {day.label}
+                  </p>
+                  <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{day.completed}/{day.total}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="font-display text-xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">Ops Pulse</p>
+              <Gauge className="h-5 w-5 text-cyan-500" />
+            </div>
+            <div className="space-y-3">
+              <PulseRow icon={<TrendingUp className="h-4 w-4" />} label="Completion Rate" value={`${completionRate}%`} tone="cyan" />
+              <PulseRow icon={<Clock3 className="h-4 w-4" />} label="Active Right Now" value={String(activeNow)} tone="amber" />
+              <PulseRow icon={<DollarSign className="h-4 w-4" />} label="Average Job Value" value={`$${avgJobValue.toFixed(0)}`} tone="emerald" />
+              <PulseRow icon={<Sparkles className="h-4 w-4" />} label="Cancelled Jobs" value={String(cancellationCount)} tone="rose" />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="font-display text-xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">Top Work Types</p>
+            <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">Based on completed job descriptions</p>
+
+            {topServices.length === 0 ? (
+              <p className="mt-4 font-sans text-sm text-slate-500 dark:text-slate-400">No completed jobs yet.</p>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {topServices.map(([name, count], index) => (
+                  <div key={`${name}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/40">
+                    <p className="truncate font-sans text-sm text-slate-700 dark:text-slate-200">{name}</p>
+                    <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function PulseRow({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode
+  label: string
+  value: string
+  tone: 'cyan' | 'amber' | 'emerald' | 'rose'
+}) {
+  const toneClass =
+    tone === 'cyan'
+      ? 'border-cyan-300/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
+      : tone === 'amber'
+        ? 'border-amber-300/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+        : tone === 'emerald'
+          ? 'border-emerald-300/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+          : 'border-rose-300/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/40">
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${toneClass}`}>
+          {icon}
+        </span>
+        <span className="font-sans text-sm text-slate-700 dark:text-slate-200">{label}</span>
+      </div>
+      <span className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</span>
+    </div>
+  )
+}

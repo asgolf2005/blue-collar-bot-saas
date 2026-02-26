@@ -1,6 +1,44 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+type UserProfile = {
+  business_id: string
+  role: string
+}
+
+async function canAccessJobExpenseMutation(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  jobId: string
+  userId: string
+  userProfile: UserProfile
+}) {
+  const { supabase, jobId, userId, userProfile } = args
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, business_id, technician_id')
+    .eq('id', jobId)
+    .single()
+
+  if (!job) {
+    return { ok: false as const, status: 404, error: 'Job not found' }
+  }
+
+  if (!userProfile.business_id || userProfile.business_id !== job.business_id) {
+    return { ok: false as const, status: 403, error: 'Unauthorized' }
+  }
+
+  if (userProfile.role === 'admin') {
+    return { ok: true as const, businessId: job.business_id }
+  }
+
+  if (userProfile.role === 'tech' && job.technician_id === userId) {
+    return { ok: true as const, businessId: job.business_id }
+  }
+
+  return { ok: false as const, status: 403, error: 'Forbidden' }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string; expenseId: string }> }
@@ -23,7 +61,7 @@ export async function PATCH(
     // Get user's business
     const { data: userProfile } = await supabase
       .from('users')
-      .select('business_id')
+      .select('business_id, role')
       .eq('id', user.id)
       .single()
 
@@ -31,6 +69,20 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      )
+    }
+
+    const access = await canAccessJobExpenseMutation({
+      supabase,
+      jobId: id,
+      userId: user.id,
+      userProfile: userProfile as UserProfile,
+    })
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error },
+        { status: access.status }
       )
     }
 
@@ -42,7 +94,7 @@ export async function PATCH(
       .eq('job_id', id)
       .single()
 
-    if (!existingExpense || existingExpense.business_id !== userProfile.business_id) {
+    if (!existingExpense || existingExpense.business_id !== access.businessId) {
       return NextResponse.json(
         { error: 'Expense not found' },
         { status: 404 }
@@ -108,7 +160,7 @@ export async function DELETE(
     // Get user's business
     const { data: userProfile } = await supabase
       .from('users')
-      .select('business_id')
+      .select('business_id, role')
       .eq('id', user.id)
       .single()
 
@@ -116,6 +168,20 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      )
+    }
+
+    const access = await canAccessJobExpenseMutation({
+      supabase,
+      jobId: id,
+      userId: user.id,
+      userProfile: userProfile as UserProfile,
+    })
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error },
+        { status: access.status }
       )
     }
 
@@ -127,7 +193,7 @@ export async function DELETE(
       .eq('job_id', id)
       .single()
 
-    if (!existingExpense || existingExpense.business_id !== userProfile.business_id) {
+    if (!existingExpense || existingExpense.business_id !== access.businessId) {
       return NextResponse.json(
         { error: 'Expense not found' },
         { status: 404 }

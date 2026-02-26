@@ -15,60 +15,97 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create business
-    const { data: business, error: businessError } = await supabaseAdmin
-      .from('businesses')
-      .insert({
-        name: business_name,
-        address: address || null,
-        email: email,
-        phone: phone || null,
-        primary_calendar_id: calendar_id || null,
-        onboarding_completed: false,
-      })
-      .select()
-      .single()
-
-    if (businessError) {
-      console.error('Business creation error:', businessError)
-      throw businessError
-    }
-
-    // Create user profile
-    const { error: userError } = await supabaseAdmin
+    const { data: existingUser, error: existingUserError } = await supabaseAdmin
       .from('users')
-      .insert({
-        id: user_id,
-        business_id: business.id,
-        email: email,
-        full_name: owner_name,
-        phone: phone || null,
-        role: 'admin',
-      })
+      .select('id, business_id')
+      .eq('id', user_id)
+      .maybeSingle()
 
-    if (userError) {
-      console.error('User profile error:', userError)
-      throw userError
+    if (existingUserError) {
+      console.error('User lookup error:', existingUserError)
+      throw existingUserError
     }
 
-    // Create subscription (free trial)
+    let businessId = existingUser?.business_id || null
+    if (!businessId) {
+      const { data: business, error: businessError } = await supabaseAdmin
+        .from('businesses')
+        .insert({
+          name: business_name,
+          address: address || null,
+          email: email,
+          phone: phone || null,
+          primary_calendar_id: calendar_id || null,
+          onboarding_completed: false,
+        })
+        .select('id')
+        .single()
+
+      if (businessError || !business) {
+        console.error('Business creation error:', businessError)
+        throw businessError || new Error('Failed to create business')
+      }
+
+      businessId = business.id
+    } else {
+      // Keep business profile in sync when onboarding is retried.
+      const { error: businessUpdateError } = await supabaseAdmin
+        .from('businesses')
+        .update({
+          name: business_name,
+          address: address || null,
+          email: email,
+          phone: phone || null,
+          primary_calendar_id: calendar_id || null,
+        })
+        .eq('id', businessId)
+
+      if (businessUpdateError) {
+        console.error('Business update error:', businessUpdateError)
+        throw businessUpdateError
+      }
+    }
+
+    const { error: userUpsertError } = await supabaseAdmin
+      .from('users')
+      .upsert(
+        {
+          id: user_id,
+          business_id: businessId,
+          email: email,
+          full_name: owner_name,
+          phone: phone || null,
+          role: 'admin',
+        },
+        { onConflict: 'id' }
+      )
+
+    if (userUpsertError) {
+      console.error('User upsert error:', userUpsertError)
+      throw userUpsertError
+    }
+
+    // Create or keep subscription (free trial)
     const { error: subError } = await supabaseAdmin
       .from('subscriptions')
-      .insert({
-        business_id: business.id,
-        tier: 'professional',
-        plan_name: 'professional',
-        status: 'trialing',
-      })
+      .upsert(
+        {
+          business_id: businessId,
+          tier: 'professional',
+          plan_name: 'professional',
+          status: 'trialing',
+        },
+        { onConflict: 'business_id' }
+      )
 
     if (subError) {
-      console.error('Subscription error:', subError)
+      console.error('Subscription upsert error:', subError)
       throw subError
     }
 
     return NextResponse.json({
       success: true,
-      business_id: business.id,
+      business_id: businessId,
     })
   } catch (error: any) {
     console.error('Onboarding step 1 error:', error)

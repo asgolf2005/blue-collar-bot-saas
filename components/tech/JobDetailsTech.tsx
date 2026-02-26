@@ -71,6 +71,27 @@ export default function JobDetailsTech({ job }: { job: JobWithDetails }) {
           </div>
         </div>
 
+        <div className="relative mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/30">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Scheduled</p>
+            <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {format(new Date(job.scheduled_start), 'h:mm a')}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/30">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Current Stage</p>
+            <p className="mt-1 font-sans text-sm font-semibold capitalize text-slate-900 dark:text-slate-100">
+              {statusLabel}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/30">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Total Value</p>
+            <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {typeof job.total_cost === 'number' ? `$${job.total_cost.toFixed(2)}` : '--'}
+            </p>
+          </div>
+        </div>
+
         {/* Job Description */}
         {job.description && (
           <div className="relative mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-800/40">

@@ -3,6 +3,7 @@ import { createCustomerAccount } from '@/lib/utils/create-customer-account'
 import { n8nWebhookSchema, validateInput } from '@/lib/validation/schemas'
 import { timingSafeEqual } from 'crypto'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { markN8nWebhookReceived } from '@/lib/system-status'
 
 // ✅ SECURITY: Timing-safe comparison to prevent timing attacks
 function timingSafeCompare(a: string, b: string): boolean {
@@ -129,6 +130,8 @@ export async function POST(request: Request) {
       await createCustomerAccount(customerId, customer_email || null)
       // Account creation happens asynchronously, don't wait for it
     }
+
+    markN8nWebhookReceived()
 
     return NextResponse.json({
       success: true,

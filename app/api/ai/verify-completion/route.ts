@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evaluateCompletionVerification } from '@/lib/ai/completion-check'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkCooldown, checkRateLimit } from '@/lib/rate-limit'
 import { trackAICost } from '@/lib/ai/cost-tracker'
+
+const AI_VERIFY_COMPLETION_COOLDOWN_MS = 8_000
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +34,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
     }
 
+    if (profile.role !== 'admin' && profile.role !== 'tech') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const rateLimit = checkRateLimit(`${user.id}:ai:verify-completion`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -43,9 +49,20 @@ export async function POST(request: Request) {
       )
     }
 
+    const cooldown = checkCooldown(`${user.id}:ai:verify-completion:${jobId}`, AI_VERIFY_COMPLETION_COOLDOWN_MS)
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        { error: `Please wait ${cooldown.retryAfter}s before running completion verification again.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(cooldown.retryAfter) },
+        }
+      )
+    }
+
     const { data: job } = await supabase
       .from('jobs')
-      .select('id, business_id, technician_id')
+      .select('id, business_id, technician_id, status')
       .eq('id', jobId)
       .eq('business_id', profile.business_id)
       .single()
@@ -56,6 +73,13 @@ export async function POST(request: Request) {
 
     if (profile.role === 'tech' && job.technician_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (job.status === 'cancelled') {
+      return NextResponse.json(
+        { error: 'Completion verification is unavailable for cancelled jobs.' },
+        { status: 400 }
+      )
     }
 
     const result = await evaluateCompletionVerification({

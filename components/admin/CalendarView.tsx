@@ -203,19 +203,19 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
       </div>
 
       {/* Main Calendar Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="admin-card shadow-sm overflow-hidden">
         {/* Calendar Header */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             {/* Title & Navigation */}
             <div className="flex items-center gap-4">
-              <h2 className="font-display text-2xl text-slate-900 dark:text-white tracking-wide">
+              <h2 className="admin-section-title">
                 {getViewTitle()}
               </h2>
               <div className="flex items-center gap-1">
                 <button type="button"
                   onClick={goToToday}
-                  className="px-3 py-1.5 text-xs font-mono font-medium bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white rounded-full transition-colors"
+                  className="px-3 py-1.5 text-xs font-mono font-medium admin-btn-primary rounded-md transition-colors"
                 >
                   TODAY
                 </button>
@@ -259,7 +259,7 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
               <select
                 value={selectedTech}
                 onChange={(e) => setSelectedTech(e.target.value)}
-                className="px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-cyan-500"
+                className="px-3 py-2 text-xs font-mono admin-input rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               >
                 <option value="all">All Technicians</option>
                 {technicians.map(tech => (
@@ -273,7 +273,7 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-cyan-500"
+                className="px-3 py-2 text-xs font-mono admin-input rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               >
                 <option value="all">All Status</option>
                 <option value="scheduled">Scheduled</option>
@@ -286,7 +286,7 @@ export default function CalendarView({ jobs }: CalendarViewProps) {
               {/* New Job Button */}
               <Link
                 href="/admin/jobs/new"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono font-medium bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white rounded-full transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-mono font-medium admin-btn-primary rounded-md transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 NEW JOB
@@ -497,4 +497,9 @@ function MiniStatCard({
     </div>
   )
 }
+
+
+
+
+
 

@@ -95,7 +95,7 @@ export default async function NewJobPage({
             Next-Gen Job Composer
           </div>
 
-          <h1 className="text-3xl font-semibold tracking-tight text-text-primary sm:text-4xl">
+          <h1 className="admin-page-header">
             Create a new job in seconds
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-text-secondary sm:text-base">
@@ -140,5 +140,4 @@ export default async function NewJobPage({
     </div>
   )
 }
-
 

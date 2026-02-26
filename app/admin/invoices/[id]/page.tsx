@@ -133,287 +133,217 @@ export default async function AdminInvoiceDetailsPage({
   ]
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-5 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-cyan-500/10 sm:p-7">
-        <div className="pointer-events-none absolute -right-20 -top-16 h-64 w-64 rounded-full bg-cyan-200/40 blur-3xl dark:bg-cyan-500/20" />
-        <div className="pointer-events-none absolute -left-16 -bottom-16 h-56 w-56 rounded-full bg-emerald-200/35 blur-3xl dark:bg-emerald-500/15" />
+    <div className="relative min-h-[80vh] pb-24">
+      {/* 2026 Global Background Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-cyan-400/5 dark:bg-cyan-500/10 blur-[100px] rounded-full mix-blend-screen" />
+      </div>
 
-        <div className="relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-4">
-            <Link
-              href="/admin/invoices"
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Invoices
-            </Link>
-
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300">Invoice Workspace</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl" style={{ viewTransitionName: `invoice-${invoice.id}` }}>
-                Invoice {invoice.invoice_number}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-                Issued {format(issuedAt, 'MMMM dd, yyyy')} | {dueMeta}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <CopyInvoiceNumberButton value={invoice.invoice_number} />
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                Customer: <span className="ml-1 font-semibold text-slate-900 dark:text-slate-100">{customer?.name || 'Unknown'}</span>
-              </span>
-              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold ${config.badgeClass}`}>
-                {config.label}
-              </span>
-            </div>
+      {/* Floating Action Bar (Top) */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center mb-10 relative z-20">
+        <Link
+          href="/admin/invoices"
+          className="inline-flex items-center gap-2 group text-slate-500 hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400 transition-colors"
+        >
+          <div className="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/50 dark:border-white/10 flex items-center justify-center group-hover:bg-cyan-50 dark:group-hover:bg-white/10 transition-colors shadow-sm">
+            <ArrowLeft className="w-4 h-4" />
           </div>
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] font-bold">Ledger Archive</span>
+        </Link>
+        <div className="flex items-center gap-3 backdrop-blur-xl bg-white/40 dark:bg-slate-900/40 p-1.5 rounded-full border border-slate-200/50 dark:border-white/10 shadow-lg shadow-black/5">
+          <a
+            href={`/api/invoices/${invoice.id}/pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full hover:bg-white/80 dark:hover:bg-white/10 text-[11px] font-mono uppercase tracking-widest text-slate-700 dark:text-slate-200 transition-all font-bold"
+          >
+            <Download className="w-3.5 h-3.5" /> PDF
+          </a>
+          {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+            <SendInvoiceReminderButton
+              invoiceId={invoice.id}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/20 dark:hover:bg-indigo-500/30 text-[11px] font-mono uppercase tracking-widest text-indigo-700 dark:text-indigo-300 transition-all font-bold"
+            />
+          )}
+          {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+            <MarkAsPaidButton
+              invoiceId={invoice.id}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 text-[11px] font-mono uppercase tracking-widest transition-all font-bold"
+            />
+          )}
+        </div>
+      </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Payment Signal</p>
-              <span className={`text-sm font-semibold ${config.accentClass}`}>{config.label}</span>
-            </div>
+      {/* The Receipt Document */}
+      <div className="max-w-4xl mx-auto relative z-10">
+        <div className="relative overflow-hidden bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl border-x border-t border-slate-200/50 dark:border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] rounded-t-[2rem]">
+          {/* Top Zig-Zag or Perforated Edge Illusion via SVG/CSS can go here, using a dotted border for 2026 clean look */}
 
-            <div className="mt-4 flex items-center gap-4">
-              <div
-                className="grid h-20 w-20 place-items-center rounded-full"
-                style={{
-                  background: `conic-gradient(${config.meterColor} ${paymentPercent}%, rgba(148,163,184,0.18) ${paymentPercent}% 100%)`,
-                }}
-              >
-                <div className="grid h-14 w-14 place-items-center rounded-full bg-white text-xs font-semibold text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-                  {paymentPercent}%
+          <div className="p-8 sm:p-14">
+            {/* Header section */}
+            <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-16 border-b border-dashed border-slate-300 dark:border-slate-800 pb-12">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 mb-6 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  <Receipt className="w-3 h-3" /> Digital Receipt
                 </div>
+                <h1 className="text-5xl font-display font-bold tracking-tighter text-slate-900 dark:text-white mb-2">
+                  #{invoice.invoice_number}
+                </h1>
+                <p className="font-mono text-xs uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">
+                  Issued: {format(issuedAt, 'yyyy.MM.dd')}
+                </p>
               </div>
 
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-300">Total</p>
-                <p className="text-2xl font-semibold text-slate-900 dark:text-slate-100">${invoice.total.toFixed(2)}</p>
-                <p className={`mt-0.5 text-xs ${isOverdue ? 'text-rose-600 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}`}>
+              <div className="flex flex-col items-end text-right">
+                <div className={`mt-2 rounded-full border px-4 py-1.5 text-xs font-mono uppercase tracking-widest font-bold shadow-sm ${config.badgeClass} flex items-center gap-2 mb-6`}>
+                  <div className={`w-2 h-2 rounded-full bg-current ${invoice.status === 'sent' || invoice.status === 'overdue' ? 'animate-pulse' : ''}`} />
+                  {config.label}
+                </div>
+                <div className="font-display text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 tracking-tight">
+                  ${invoice.total.toFixed(2)}
+                </div>
+                <p className={`mt-2 font-mono text-[10px] uppercase tracking-[0.1em] font-semibold ${isOverdue ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>
                   {dueMeta}
                 </p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900 sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">Parties</h2>
-              <span className="text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">Business + Customer</span>
-            </div>
+            {/* Parties */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16 relative">
+              <div className="absolute left-1/2 top-0 bottom-0 w-px bg-dashed border-r border-dashed border-slate-300 dark:border-slate-800 hidden md:block -translate-x-1/2" />
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
-                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                  <Building2 className="h-3.5 w-3.5" />
-                  From
+              <div className="space-y-4">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 font-bold mb-6 flex items-center gap-2">
+                  <Building2 className="w-3.5 h-3.5" /> Origin
+                </h3>
+                <div>
+                  <p className="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">{business?.name || 'Your Business'}</p>
+                  <div className="font-mono text-xs tracking-wide text-slate-600 dark:text-slate-400 space-y-1.5">
+                    {business?.address && <p>{business.address}</p>}
+                    {business?.phone && <p>{business.phone}</p>}
+                    {business?.email && <p>{business.email}</p>}
+                  </div>
                 </div>
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{business?.name || 'Your Business'}</p>
-                {business?.address && (
-                  <p className="mt-1 flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    {business.address}
-                  </p>
-                )}
-                {business?.phone && (
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                    <Phone className="h-3.5 w-3.5" />
-                    {business.phone}
-                  </p>
-                )}
-                {business?.email && (
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                    <Mail className="h-3.5 w-3.5" />
-                    {business.email}
-                  </p>
-                )}
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
-                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                  <User className="h-3.5 w-3.5" />
-                  Bill To
+              <div className="space-y-4 md:pl-6">
+                <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 font-bold mb-6 flex items-center gap-2">
+                  <User className="w-3.5 h-3.5" /> Destination
+                </h3>
+                <div>
+                  <p className="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">{customer?.name || 'Unknown Client'}</p>
+                  <div className="font-mono text-xs tracking-wide text-slate-600 dark:text-slate-400 space-y-1.5">
+                    {customer?.address && <p>{customer.address}</p>}
+                    {customer?.phone && <p>{customer.phone}</p>}
+                    {customer?.email && <p>{customer.email}</p>}
+                  </div>
                 </div>
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-100">{customer?.name || 'Unknown Customer'}</p>
-                {customer?.address && (
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{customer.address}</p>
-                )}
-                {customer?.phone && (
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{customer.phone}</p>
-                )}
-                {customer?.email && (
-                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{customer.email}</p>
-                )}
               </div>
             </div>
-          </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900 sm:p-6">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">Invoice Timeline</h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              {timeline.map((entry) => (
-                <div key={entry.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">{entry.label}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{entry.value}</p>
+            {/* Line Items */}
+            <div className="mb-16">
+              <h3 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 font-bold mb-6 flex items-center gap-2 border-b border-dashed border-slate-300 dark:border-slate-800 pb-4">
+                Service Manifest
+                <span className="bg-cyan-100 dark:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 px-2 py-0.5 rounded-full text-[9px]">
+                  {(invoice.line_items || []).length} ENTR{(invoice.line_items || []).length === 1 ? 'Y' : 'IES'}
+                </span>
+              </h3>
+
+              {(invoice.line_items || []).length === 0 ? (
+                <div className="py-12 text-center border-b border-dashed border-slate-300 dark:border-slate-800">
+                  <p className="font-mono text-xs uppercase tracking-widest text-slate-400">Empty Ledger</p>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900 sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">Line Items</h2>
-              <span className="text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
-                {(invoice.line_items || []).length} item{(invoice.line_items || []).length === 1 ? '' : 's'}
-              </span>
-            </div>
-
-            {(invoice.line_items || []).length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center dark:border-slate-700 dark:bg-slate-800/40">
-                <Receipt className="mx-auto mb-2 h-8 w-8 text-slate-400 dark:text-slate-500" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">No line items</p>
-              </div>
-            ) : (
-              <>
-                <div className="hidden overflow-x-auto lg:block">
-                  <table className="w-full">
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-slate-700">
-                        <th className="py-2.5 text-left text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">Description</th>
-                        <th className="w-24 py-2.5 text-right text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">Qty</th>
-                        <th className="w-28 py-2.5 text-right text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">Rate</th>
-                        <th className="w-32 py-2.5 text-right text-[10px] uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">Amount</th>
+                      <tr className="border-b-2 border-slate-900 dark:border-slate-100">
+                        <th className="py-4 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 w-1/2">Descriptor</th>
+                        <th className="py-4 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 text-right">Qty</th>
+                        <th className="py-4 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 text-right">Rate</th>
+                        <th className="py-4 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 text-right text-slate-900 dark:text-white font-bold">Sum</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {invoice.line_items?.map((item: InvoiceLineItem, index: number) => (
-                        <tr key={item.id} className={`${index !== (invoice.line_items?.length || 1) - 1 ? 'border-b border-slate-200/80 dark:border-slate-700/80' : ''}`}>
-                          <td className="py-3.5 text-sm text-slate-900 dark:text-slate-100">
-                            <p className="font-medium">{item.description}</p>
-                            <span className="mt-0.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <tbody className="font-mono text-sm">
+                      {invoice.line_items?.map((item: InvoiceLineItem, idx: number) => (
+                        <tr key={item.id} className="border-b border-dashed border-slate-200 dark:border-slate-800/80 group hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="py-6">
+                            <p className="font-semibold text-slate-900 dark:text-slate-200 mb-1">{item.description}</p>
+                            <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
                               {item.type}
                             </span>
                           </td>
-                          <td className="py-3.5 text-right font-mono text-sm text-slate-900 dark:text-slate-100">{item.quantity}</td>
-                          <td className="py-3.5 text-right font-mono text-sm text-slate-900 dark:text-slate-100">${item.unit_price.toFixed(2)}</td>
-                          <td className="py-3.5 text-right font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">${item.total.toFixed(2)}</td>
+                          <td className="py-6 text-right text-slate-600 dark:text-slate-400">{item.quantity}</td>
+                          <td className="py-6 text-right text-slate-600 dark:text-slate-400">${item.unit_price.toFixed(2)}</td>
+                          <td className="py-6 text-right font-bold text-slate-900 dark:text-white">${item.total.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
 
-                <div className="space-y-2 lg:hidden">
-                  {invoice.line_items?.map((item: InvoiceLineItem) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{item.description}</p>
-                          <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                            {item.type}
-                          </span>
-                        </div>
-                        <p className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">${item.total.toFixed(2)}</p>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
-                        <span>Qty {item.quantity}</span>
-                        <span>Rate ${item.unit_price.toFixed(2)}</span>
-                      </div>
+            {/* Totals & Notes Footer */}
+            <div className="grid md:grid-cols-2 gap-12">
+              <div>
+                {invoice.notes ? (
+                  <div className="bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-500/20 rounded-2xl p-6">
+                    <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-600 dark:text-amber-500 font-bold mb-3">Transmitter Notes</h4>
+                    <p className="font-mono text-xs text-amber-800 dark:text-amber-200/80 leading-relaxed whitespace-pre-wrap">
+                      {invoice.notes}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center p-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl opacity-50">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400">No additional notes</p>
+                  </div>
+                )}
+
+                {invoice.job_id && (
+                  <div className="mt-6 flex items-center justify-between p-4 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <div className="font-mono text-xs flex gap-2 items-center text-slate-500">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Mission Reference: <span className="font-bold text-slate-700 dark:text-slate-300">#{invoice.job_id.slice(0, 8)}</span>
                     </div>
-                  ))}
+                    <Link
+                      href={`/admin/jobs/${invoice.job_id}`}
+                      className="text-[10px] font-mono font-bold uppercase tracking-widest text-cyan-500 hover:text-cyan-600"
+                    >
+                      Inspect →
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-[2rem] p-8 border border-slate-200 dark:border-white/5 font-mono">
+                <div className="space-y-4 text-xs tracking-wide">
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Subtotal</span>
+                    <span>${invoice.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Tax</span>
+                    <span>${invoice.tax.toFixed(2)}</span>
+                  </div>
                 </div>
-              </>
-            )}
-          </section>
 
-          {invoice.notes && (
-            <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900 sm:p-6">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">Notes</h2>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600 dark:text-slate-300">{invoice.notes}</p>
-            </section>
-          )}
+                <div className="my-6 border-t-2 border-dashed border-slate-300 dark:border-slate-700" />
+
+                <div className="flex justify-between items-end">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-1">Total Due</span>
+                  <span className={`text-4xl font-display font-bold tracking-tight ${isOverdue ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+                    ${amountDue.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom "Tear" Effect */}
+          <div className="h-6 w-full bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(0,0,0,0.02)_10px,rgba(0,0,0,0.02)_20px)] dark:bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.02)_10px,rgba(255,255,255,0.02)_20px)] border-t border-slate-200/50 dark:border-white/10" />
         </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:h-fit">
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Actions</h3>
-            <div className="space-y-2">
-              <a
-                href={`/api/invoices/${invoice.id}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              >
-                <Download className="h-4 w-4" />
-                Download PDF
-              </a>
-
-              {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-                <SendInvoiceReminderButton
-                  invoiceId={invoice.id}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-xs font-semibold text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
-                />
-              )}
-
-              {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
-                <MarkAsPaidButton
-                  invoiceId={invoice.id}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                />
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Totals</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                <span>Subtotal</span>
-                <span className="font-mono text-slate-900 dark:text-slate-100">${invoice.subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                <span>Tax</span>
-                <span className="font-mono text-slate-900 dark:text-slate-100">${invoice.tax.toFixed(2)}</span>
-              </div>
-              <div className="my-1 h-px bg-border" />
-              <div className="flex items-center justify-between text-sm font-semibold text-slate-900 dark:text-slate-100">
-                <span>Total</span>
-                <span className="font-mono text-base">${invoice.total.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-300">
-                <span className="inline-flex items-center gap-1">
-                  <DollarSign className="h-3.5 w-3.5" />
-                  Amount due
-                </span>
-                <span className={`font-mono font-semibold ${isOverdue ? 'text-rose-600 dark:text-rose-300' : 'text-slate-900 dark:text-slate-100'}`}>
-                  ${amountDue.toFixed(2)}
-                </span>
-              </div>
-              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${config.badgeClass}`}>
-                {dueMeta}
-              </div>
-            </div>
-          </section>
-
-          {invoice.job_id && (
-            <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Linked Job</h3>
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Job #{invoice.job_id.slice(0, 8)}</p>
-              <Link
-                href={`/admin/jobs/${invoice.job_id}`}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              >
-                <Calendar className="h-4 w-4" />
-                Open Job
-              </Link>
-            </section>
-          )}
-        </aside>
       </div>
     </div>
   )

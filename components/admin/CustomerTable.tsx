@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { useBulkSelection } from '@/hooks/useBulkSelection'
 import BulkActionBar, { BulkActionButton } from '@/components/ui/BulkActionBar'
 import { showToast } from '@/lib/utils/toast'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { EmptyCustomers } from '@/components/ui/EmptyState'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,30 @@ import ContextMenu from '@/components/ui/ContextMenu'
 
 export default function CustomerTable({ customers }: { customers: Customer[] }) {
   const router = useRouter()
+  const [visibleCustomers, setVisibleCustomers] = useState<Customer[]>(customers)
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date>(new Date())
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  useEffect(() => {
+    setVisibleCustomers(customers)
+    setLastFetchedAt(new Date())
+  }, [customers])
+
+  useEffect(() => {
+    const interval = setInterval(() => setNowMs(Date.now()), 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const freshnessLabel = useMemo(() => {
+    const ageMs = nowMs - lastFetchedAt.getTime()
+    if (ageMs < 30000) return 'Updated just now'
+    const minutes = Math.floor(ageMs / 60000)
+    if (minutes < 60) return `Updated ${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    return `Updated ${hours}h ago`
+  }, [lastFetchedAt, nowMs])
+
   const {
     selectedIds,
     selectedCount,
@@ -22,10 +46,17 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
     clearSelection,
     isAllSelected,
     isSomeSelected,
-  } = useBulkSelection(customers)
+  } = useBulkSelection(visibleCustomers)
 
   const [isDeleting, setIsDeleting] = useState(false)
   const [togglingPortal, setTogglingPortal] = useState<string | null>(null)
+
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    router.refresh()
+    setLastFetchedAt(new Date())
+    setTimeout(() => setIsRefreshing(false), 450)
+  }
 
   const handlePortalToggle = async (customerId: string, currentStatus: boolean, customerEmail: string | null) => {
     if (!currentStatus && !customerEmail) {
@@ -34,6 +65,13 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
     }
 
     setTogglingPortal(customerId)
+    setVisibleCustomers((current) =>
+      current.map((customer) =>
+        customer.id === customerId
+          ? { ...customer, portal_access: !currentStatus }
+          : customer
+      )
+    )
     try {
       const response = await fetch(`/api/customers/${customerId}/portal-access`, {
         method: 'PATCH',
@@ -52,10 +90,16 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
           ? `Portal access enabled${data.emailSent ? ' - Login link sent to customer' : ''}`
           : 'Portal access disabled'
       )
-
-      // Refresh the page to show updated status
       router.refresh()
+      setLastFetchedAt(new Date())
     } catch (error) {
+      setVisibleCustomers((current) =>
+        current.map((customer) =>
+          customer.id === customerId
+            ? { ...customer, portal_access: currentStatus }
+            : customer
+        )
+      )
       showToast.error(error instanceof Error ? error.message : 'Failed to update portal access')
     } finally {
       setTogglingPortal(null)
@@ -63,11 +107,13 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
   }
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedCount} customer${selectedCount > 1 ? 's' : ''}?`)) {
+    if (!confirm(`Delete ${selectedCount} customer${selectedCount > 1 ? 's' : ''}? This cannot be undone.`)) {
       return
     }
 
     setIsDeleting(true)
+    const snapshot = visibleCustomers
+    setVisibleCustomers((current) => current.filter((customer) => !selectedIds.includes(customer.id)))
     try {
       const response = await fetch('/api/customers/bulk-delete', {
         method: 'POST',
@@ -79,8 +125,10 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
 
       showToast.success(`${selectedCount} customer${selectedCount > 1 ? 's' : ''} deleted successfully`)
       clearSelection()
-      window.location.reload()
+      router.refresh()
+      setLastFetchedAt(new Date())
     } catch (error) {
+      setVisibleCustomers(snapshot)
       showToast.error('Failed to delete customers')
     } finally {
       setIsDeleting(false)
@@ -88,7 +136,7 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
   }
 
   const handleBulkExport = () => {
-    const selectedCustomers = customers.filter(c => selectedIds.includes(c.id))
+    const selectedCustomers = visibleCustomers.filter(c => selectedIds.includes(c.id))
     const csv = [
       ['Name', 'Email', 'Phone', 'Address', 'Added'].join(','),
       ...selectedCustomers.map(c => [
@@ -111,7 +159,7 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
     showToast.success('Customers exported successfully')
   }
 
-  if (customers.length === 0) {
+  if (visibleCustomers.length === 0) {
     return (
       <div className="p-6">
         <EmptyCustomers
@@ -123,6 +171,18 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
 
   return (
     <>
+      <div className="flex items-center justify-between border-b border-surface-200 px-6 py-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+          {freshnessLabel}
+        </p>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className="rounded-md border border-surface-300 px-3 py-1 text-xs font-semibold text-ink transition-colors hover:bg-surface-100"
+        >
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full">
             <thead>
@@ -157,7 +217,7 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-200">
-              {customers.map((customer) => (
+              {visibleCustomers.map((customer) => (
                 <tr
                   key={customer.id}
                   className={`hover:bg-surface-100 transition-colors ${isSelected(customer.id) ? 'bg-primary/5' : ''}`}
@@ -244,7 +304,10 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
                         {
                           label: 'Delete',
                           onClick: async () => {
-                            if (!confirm('Are you sure you want to delete this customer?')) return
+                            if (!confirm('Delete this customer? This cannot be undone.')) return
+
+                            const snapshot = visibleCustomers
+                            setVisibleCustomers((current) => current.filter((item) => item.id !== customer.id))
 
                             try {
                               const response = await fetch(`/api/customers/${customer.id}`, {
@@ -253,7 +316,9 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
                               if (!response.ok) throw new Error('Failed to delete customer')
                               showToast.success('Customer deleted successfully')
                               router.refresh()
+                              setLastFetchedAt(new Date())
                             } catch (error) {
+                              setVisibleCustomers(snapshot)
                               showToast.error('Failed to delete customer')
                             }
                           },

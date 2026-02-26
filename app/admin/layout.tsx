@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminNav from '@/components/admin/AdminNav'
-import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 
 export default async function AdminLayout({
   children,
@@ -28,46 +27,33 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0a0e1a] text-slate-900 dark:text-white transition-colors duration-300">
-      {/* Light Mode - Subtle Dot Pattern */}
-      <div className="fixed inset-0 pointer-events-none dark:hidden opacity-[0.4]">
-        <div 
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
-            backgroundSize: '24px 24px'
-          }}
-        />
-      </div>
+    <div className="min-h-screen bg-white dark:bg-[#030712] text-slate-900 dark:text-slate-200 transition-colors duration-500 overflow-x-hidden">
+      {/* 2026 Spatial Lighting Effects */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-cyan-500/10 blur-[150px] rounded-full mix-blend-screen" />
 
-      {/* Dark Mode - Blueprint Grid */}
-      <div className="fixed inset-0 pointer-events-none hidden dark:block opacity-[0.15]">
-        <div 
-          className="absolute inset-0"
+        {/* Subtle grid mesh */}
+        <div
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02]"
           style={{
             backgroundImage: `
-              linear-gradient(to right, rgba(34, 211, 238, 0.3) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(34, 211, 238, 0.3) 1px, transparent 1px)
+              linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(255,255,255,1) 1px, transparent 1px)
             `,
-            backgroundSize: '48px 48px'
+            backgroundSize: '64px 64px'
           }}
         />
       </div>
 
-      {/* Accent Glow - Dark Mode Only */}
-      <div className="fixed top-0 right-0 w-[600px] h-[500px] opacity-0 dark:opacity-[0.08] pointer-events-none transition-opacity duration-300">
-        <div className="absolute inset-0 bg-gradient-to-bl from-cyan-400 to-transparent blur-[100px]" />
-      </div>
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <AdminNav userName={profile.full_name} />
 
-      <AdminNav userName={profile.full_name} />
-      
-      <ErrorBoundary>
-        <main className="lg:ml-[72px] min-h-screen pt-24 lg:pt-8 px-4 lg:px-6 pb-12 relative">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
+        {/* Added lg:pl-32 so the sidebar doesn't overlap the child pages! */}
+        <main className="flex-1 w-full max-w-[1600px] mx-auto pt-24 lg:pt-8 px-4 sm:px-6 lg:px-8 lg:pl-32 pb-32">
+          {children}
         </main>
-      </ErrorBoundary>
+      </div>
     </div>
   )
 }

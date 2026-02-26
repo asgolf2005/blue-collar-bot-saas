@@ -11,7 +11,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { DollarSign, Briefcase, Clock } from '@/components/ui/icons'
+import { DollarSign, Briefcase, Clock } from '@/components/ui/lucide'
+import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
 
 interface RevenueDataPoint {
   date: string
@@ -146,11 +147,11 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
+    <div className="admin-card p-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-display text-2xl text-slate-900 dark:text-white tracking-wide">
+          <h2 className="admin-section-title">
             REVENUE TREND
           </h2>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -159,20 +160,14 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+        <div className={ADMIN_RANGE_TRACK_CLASS}>
           {(Object.keys(viewConfig) as ChartView[]).map((v) => {
             const Icon = viewConfig[v].icon
             return (
               <button type="button"
                 key={v}
                 onClick={() => setView(v)}
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-md font-mono text-xs transition-all
-                  ${view === v 
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' 
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }
-                `}
+                className={adminRangeItemClass(view === v)}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span className="capitalize">{v}</span>
@@ -186,19 +181,19 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
           <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 uppercase">Total</p>
-          <p className="font-mono text-lg font-semibold text-slate-900 dark:text-white">
+          <p className="font-display text-xl font-semibold text-slate-900 dark:text-white">
             {config.prefix}{Math.round(stats.total).toLocaleString()}
           </p>
         </div>
         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
           <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 uppercase">Average</p>
-          <p className="font-mono text-lg font-semibold text-slate-900 dark:text-white">
+          <p className="font-display text-xl font-semibold text-slate-900 dark:text-white">
             {config.prefix}{Math.round(stats.avg).toLocaleString()}
           </p>
         </div>
         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">
           <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 uppercase">Peak</p>
-          <p className="font-mono text-lg font-semibold text-slate-900 dark:text-white">
+          <p className="font-display text-xl font-semibold text-slate-900 dark:text-white">
             {config.prefix}{Math.round(stats.max).toLocaleString()}
           </p>
         </div>
@@ -297,9 +292,11 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
       </div>
 
       <p className="font-mono text-[10px] text-slate-400 dark:text-slate-500 text-center mt-2">
-        Hover for breakdown â€¢ Click chart for details
+        Hover for breakdown - click chart for details
       </p>
     </div>
   )
 }
+
+
 

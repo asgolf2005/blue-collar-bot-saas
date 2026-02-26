@@ -11,8 +11,7 @@ import {
   Lock,
   Mail,
   ShieldCheck,
-  Workflow,
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 
 type AuthMessage = { type: 'success' | 'error'; text: string } | null
 type PortalRole = 'admin' | 'tech' | 'customer'
@@ -99,7 +98,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+    <div className="relative h-[100dvh] overflow-hidden bg-slate-950 text-slate-100">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-220px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-cyan-500/25 blur-[130px]" />
         <div className="absolute bottom-[-200px] left-1/2 h-[460px] w-[460px] -translate-x-1/2 rounded-full bg-blue-500/20 blur-[140px]" />
@@ -114,54 +113,51 @@ export default function LoginPage() {
         />
       </div>
 
-      <main className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-8">
-        <div className="w-full max-w-[510px]">
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/40 bg-cyan-500/20 text-cyan-300 shadow-neon-cyan">
-              <Workflow className="h-5 w-5" />
-            </div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-cyan-300/90">Blue Collar Bot</p>
-            <h1 className="mt-3 font-display text-[52px] leading-none tracking-[0.08em] text-white">Access Portal</h1>
+      <main className="relative flex h-[100dvh] items-center justify-center px-4 py-3 sm:px-6">
+        <div className="w-full max-w-[500px] [@media(max-height:900px)]:scale-[0.94] [@media(max-height:900px)]:origin-center [@media(max-height:820px)]:scale-[0.88]">
+          <div className="mb-4 text-center [@media(max-height:900px)]:mb-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-300/90">Blue Collar Bot</p>
+            <h1 className="mt-2 font-display text-[44px] leading-none tracking-[0.08em] text-white sm:text-[48px] [@media(max-height:900px)]:text-[38px]">Access Portal</h1>
           </div>
 
           <div
-            className="relative p-[1px] shadow-neon-cyan"
+            className="relative p-[1px] shadow-[0_16px_40px_rgba(11,43,84,0.45)]"
             style={{
               clipPath: HUD_FRAME_CLIP,
               background:
-                'linear-gradient(140deg, rgba(34,211,238,0.58) 0%, rgba(56,189,248,0.34) 32%, rgba(16,185,129,0.26) 100%)',
+                'linear-gradient(140deg, rgba(150,205,246,0.78) 0%, rgba(87,155,218,0.72) 45%, rgba(39,108,181,0.82) 100%)',
             }}
           >
             <div
-              className="relative overflow-hidden bg-slate-900/88 p-7 backdrop-blur-xl sm:p-8"
+              className="relative overflow-hidden bg-[#1f66b8]/94 p-5 backdrop-blur-xl sm:p-6 [@media(max-height:900px)]:p-4"
               style={{ clipPath: HUD_INNER_CLIP }}
             >
               <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -left-16 top-[-64px] h-32 w-32 rounded-full bg-cyan-500/20 blur-3xl" />
-                <div className="absolute -right-20 bottom-[-68px] h-32 w-32 rounded-full bg-emerald-400/15 blur-3xl" />
-                <div className="absolute left-1/2 top-0 h-[2px] w-40 -translate-x-1/2 bg-gradient-to-r from-transparent via-cyan-300 to-transparent opacity-80" />
+                <div className="absolute -left-16 top-[-64px] h-32 w-32 rounded-full bg-[#9ad0f8]/28 blur-3xl" />
+                <div className="absolute -right-20 bottom-[-68px] h-32 w-32 rounded-full bg-[#69afe8]/24 blur-3xl" />
+                <div className="absolute left-1/2 top-0 h-[2px] w-40 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#a9d8fb] to-transparent opacity-90" />
               </div>
 
               <div className="pointer-events-none absolute inset-0" style={{ clipPath: HUD_INNER_CLIP }}>
-                <div className="absolute inset-[10px] border border-cyan-500/20" style={{ clipPath: HUD_INNER_CLIP }} />
-                <div className="absolute left-3 top-3 h-4 w-4 border-l border-t border-cyan-300/70" />
-                <div className="absolute right-3 top-3 h-4 w-4 border-r border-t border-cyan-300/70" />
-                <div className="absolute bottom-3 left-3 h-4 w-4 border-b border-l border-cyan-300/70" />
-                <div className="absolute bottom-3 right-3 h-4 w-4 border-b border-r border-cyan-300/70" />
+                <div className="absolute inset-[10px] border border-[#97cef7]/35" style={{ clipPath: HUD_INNER_CLIP }} />
+                <div className="absolute left-3 top-3 h-4 w-4 border-l border-t border-[#a8d8fb]/90" />
+                <div className="absolute right-3 top-3 h-4 w-4 border-r border-t border-[#a8d8fb]/90" />
+                <div className="absolute bottom-3 left-3 h-4 w-4 border-b border-l border-[#a8d8fb]/90" />
+                <div className="absolute bottom-3 right-3 h-4 w-4 border-b border-r border-[#a8d8fb]/90" />
               </div>
 
               <div className="relative">
-              <div className="mb-6 text-center">
+              <div className="mb-4 text-center [@media(max-height:900px)]:mb-3">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-300/85">Secure Login Node</p>
-                <h2 className="mt-3 text-4xl font-semibold tracking-tight text-white">Welcome back</h2>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-white [@media(max-height:900px)]:text-[28px]">Welcome back</h2>
               </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-3">
                 <div>
-                  <label className="mb-2 block font-mono text-[11px] uppercase tracking-[0.16em] text-white/90">
+                  <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-white/90">
                     Sign In As
                   </label>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-700 bg-slate-950/70 p-1">
+                  <div className="grid grid-cols-3 gap-1 rounded-xl border border-[#89c7f4]/40 bg-[#174f97]/60 p-1">
                     {(['admin', 'tech', 'customer'] as const).map((role) => (
                       <button
                         key={role}
@@ -170,10 +166,10 @@ export default function LoginPage() {
                           setSelectedRole(role)
                           setMessage(null)
                         }}
-                        className={`rounded-lg px-2 py-2 text-[11px] font-mono uppercase tracking-wide transition ${
+                        className={`rounded-lg px-2 py-1.5 text-[10px] font-mono uppercase tracking-wide transition ${
                           selectedRole === role
-                            ? 'bg-cyan-500/20 text-cyan-200 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.45)]'
-                            : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
+                            ? 'bg-[#9ad0f8]/28 text-white shadow-[inset_0_0_0_1px_rgba(169,216,251,0.9)]'
+                            : 'text-[#d5eaff]/85 hover:bg-[#2a6fb8]/55 hover:text-white'
                         }`}
                       >
                         {role}
@@ -185,14 +181,14 @@ export default function LoginPage() {
                 <div>
                   <label
                     htmlFor="email"
-                    className={`mb-2 block font-mono text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                    className={`mb-1.5 block font-mono text-[10px] uppercase tracking-[0.16em] transition-colors ${
                       focusedField === 'email' ? 'text-cyan-300' : 'text-white/90'
                     }`}
                   >
                     Work Email
                   </label>
                   <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-300/70" />
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#bfe2fc]/85" />
                     <input
                       id="email"
                       type="email"
@@ -203,31 +199,31 @@ export default function LoginPage() {
                       placeholder="you@company.com"
                       required
                       disabled={loading}
-                      className={`h-12 w-full rounded-xl border bg-slate-950/80 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 ${
+                      className={`h-10 w-full rounded-xl border bg-[#18579f]/70 pl-10 pr-3 text-[13px] text-white outline-none transition placeholder:text-[#c5e2f8]/75 ${
                         focusedField === 'email'
-                          ? 'border-cyan-400 ring-2 ring-cyan-400/20'
-                          : 'border-slate-700 hover:border-cyan-500/50'
+                          ? 'border-[#a8d8fb] ring-2 ring-[#a8d8fb]/30'
+                          : 'border-[#84bee9]/45 hover:border-[#a8d8fb]/70'
                       } disabled:cursor-not-allowed disabled:opacity-60`}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-1.5 flex items-center justify-between">
                     <label
                       htmlFor="password"
-                      className={`font-mono text-[11px] uppercase tracking-[0.16em] transition-colors ${
+                      className={`font-mono text-[10px] uppercase tracking-[0.16em] transition-colors ${
                         focusedField === 'password' ? 'text-cyan-300' : 'text-white/90'
                       }`}
                     >
                       Password
                     </label>
-                    <a href="#" className="text-xs text-slate-400 transition hover:text-cyan-300">
+                    <a href="#" className="text-xs text-[#c1e1fb]/90 transition hover:text-white">
                       Forgot?
                     </a>
                   </div>
                   <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-300/70" />
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#bfe2fc]/85" />
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
@@ -238,16 +234,16 @@ export default function LoginPage() {
                       placeholder="Enter your password"
                       required
                       disabled={loading}
-                      className={`h-12 w-full rounded-xl border bg-slate-950/80 pl-10 pr-11 text-sm text-white outline-none transition placeholder:text-slate-500 ${
+                      className={`h-10 w-full rounded-xl border bg-[#18579f]/70 pl-10 pr-11 text-[13px] text-white outline-none transition placeholder:text-[#c5e2f8]/75 ${
                         focusedField === 'password'
-                          ? 'border-cyan-400 ring-2 ring-cyan-400/20'
-                          : 'border-slate-700 hover:border-cyan-500/50'
+                          ? 'border-[#a8d8fb] ring-2 ring-[#a8d8fb]/30'
+                          : 'border-[#84bee9]/45 hover:border-[#a8d8fb]/70'
                       } disabled:cursor-not-allowed disabled:opacity-60`}
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-cyan-300"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#b5dbfa]/85 transition hover:bg-[#2a6fb8]/55 hover:text-white"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -255,7 +251,7 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <label className="group flex items-center justify-between gap-3 rounded-xl border border-cyan-500/30 bg-slate-900/65 px-3 py-2.5 transition hover:border-cyan-400/50 hover:bg-slate-900/80">
+                <label className="group flex items-center justify-between gap-3 rounded-xl border border-[#8bc5f3]/45 bg-[#18559d]/65 px-3 py-2 transition hover:border-[#a8d8fb]/70 hover:bg-[#205fa7]/75">
                   <span className="flex items-center gap-3">
                     <span className="relative inline-flex h-6 w-11 items-center">
                       <input
@@ -264,10 +260,10 @@ export default function LoginPage() {
                         onChange={(e) => setRememberMe(e.target.checked)}
                         className="peer sr-only"
                       />
-                      <span className="h-6 w-11 rounded-full border border-slate-600 bg-slate-800 transition peer-checked:border-cyan-400/70 peer-checked:bg-cyan-500/25" />
-                      <span className="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-slate-300 transition peer-checked:translate-x-5 peer-checked:bg-cyan-200" />
+                      <span className="h-6 w-11 rounded-full border border-[#7db8e7]/55 bg-[#184b88] transition peer-checked:border-[#a8d8fb]/80 peer-checked:bg-[#8cc8f4]/32" />
+                      <span className="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-[#e4f4ff] transition peer-checked:translate-x-5 peer-checked:bg-white" />
                     </span>
-                    <span className="text-sm font-medium text-white">Keep me signed in</span>
+                    <span className="text-[13px] font-medium text-white">Keep me signed in</span>
                   </span>
                   <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-300/95">
                     Trusted
@@ -277,7 +273,7 @@ export default function LoginPage() {
 
                 {message && (
                   <div
-                    className={`rounded-xl border px-3 py-2 text-sm ${
+                    className={`rounded-xl border px-3 py-2 text-xs ${
                       message.type === 'success'
                         ? 'border-emerald-400/50 bg-emerald-500/10 text-emerald-300'
                         : 'border-rose-400/50 bg-rose-500/10 text-rose-300'
@@ -290,10 +286,10 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition ${
+                  className={`group inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition ${
                     loading
                       ? 'cursor-not-allowed bg-slate-700 text-slate-300'
-                      : 'bg-gradient-to-r from-cyan-600 to-blue-700 text-white shadow-elevation-2 hover:from-cyan-500 hover:to-blue-600'
+                      : 'bg-gradient-to-r from-[#5eaee8] to-[#2f7fcb] text-white shadow-elevation-2 hover:from-[#74bdef] hover:to-[#4494dd]'
                   }`}
                 >
                   {loading ? 'Signing in...' : 'Enter Workspace'}
@@ -301,17 +297,17 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <div className="mt-6 border-t border-slate-700 pt-4 text-center text-sm text-slate-200">
+              <div className="mt-4 border-t border-[#8bc5f3]/40 pt-3 text-center text-xs text-slate-200">
                 Need an account?{' '}
-                <Link href="/signup" className="font-semibold text-cyan-300 hover:text-cyan-200">
-                  Start free trial
+                <Link href="/signup" className="font-semibold text-[#b5dbfa] hover:text-white">
+                  Create business account
                 </Link>
               </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-cyan-200/70">
+          <div className="mt-3 flex flex-wrap justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-cyan-200/70 [@media(max-height:900px)]:hidden">
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">Realtime CRM</span>
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">Dispatch AI</span>
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1">Instant Invoices</span>

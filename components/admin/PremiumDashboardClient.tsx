@@ -5,18 +5,7 @@ import Link from 'next/link'
 import { Briefcase, Plus, Download, Zap } from '@/components/ui/icons'
 import {
   format,
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  startOfQuarter,
-  endOfQuarter,
-  subWeeks,
   subDays,
-  subMonths,
-  subQuarters,
 } from 'date-fns'
 import JobMetricCards from '@/components/admin/JobMetricCards'
 import JobFilters, { FilterState } from '@/components/admin/JobFilters'
@@ -28,9 +17,10 @@ import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
 import TechLocationMap from '@/components/admin/TechLocationMap'
 import Pagination from '@/components/ui/Pagination'
 import type { JobWithDetails } from '@/lib/types'
+import { ADMIN_RANGE_OPTIONS, getRangeLookbackDays, type DateRangeKey } from '@/lib/analytics/dateUtils'
+import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
 
 const ACTIVE_STATUSES = new Set(['in_progress', 'on_the_way', 'arrived'])
-const WEEK_STARTS_ON = 1
 
 type JobStats = {
   totalJobs: number
@@ -49,30 +39,7 @@ type JobTrends = {
   completionRate: number | null
 }
 
-type TimeRangeKey = 'today' | 'week' | 'month' | 'quarter' | 'all'
-
-const TIME_RANGE_LABELS: Record<TimeRangeKey, string> = {
-  today: 'today',
-  week: 'this week',
-  month: 'this month',
-  quarter: 'this quarter',
-  all: 'all time',
-}
-
-const getWeekBounds = (reference: Date) => {
-  const weekOptions = { weekStartsOn: WEEK_STARTS_ON as 0 | 1 | 2 | 3 | 4 | 5 | 6 }
-  const startOfWeekRange = startOfWeek(reference, weekOptions)
-  const endOfWeekRange = endOfWeek(reference, weekOptions)
-  const startOfLastWeek = subWeeks(startOfWeekRange, 1)
-  const endOfLastWeek = endOfWeek(startOfLastWeek, weekOptions)
-
-  return {
-    startOfWeek: startOfWeekRange,
-    endOfWeek: endOfWeekRange,
-    startOfLastWeek,
-    endOfLastWeek,
-  }
-}
+type TimeRangeKey = DateRangeKey
 
 const filterByRange = (
   jobs: JobWithDetails[],
@@ -202,7 +169,7 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
     dateRange: 'all',
   })
   const [currentPage, setCurrentPage] = useState(1)
-  const [timeRange, setTimeRange] = useState<TimeRangeKey>('week')
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('30d')
 
   // Real-time subscription for jobs
   const { jobs, isConnected } = useRealtimeJobsWithRelations({
@@ -212,32 +179,22 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
 
   const rangeDefinition = useMemo(() => {
     const now = new Date()
-    const weekOptions = { weekStartsOn: WEEK_STARTS_ON as 0 | 1 | 2 | 3 | 4 | 5 | 6 }
-
-    const ranges: Record<TimeRangeKey, { current: { start: Date | null; end: Date | null }; previous?: { start: Date | null; end: Date | null } }> = {
-      today: {
-        current: { start: startOfDay(now), end: endOfDay(now) },
-        previous: { start: startOfDay(subDays(now, 1)), end: endOfDay(subDays(now, 1)) },
-      },
-      week: {
-        current: { start: startOfWeek(now, weekOptions), end: endOfWeek(now, weekOptions) },
-        previous: { start: startOfWeek(subWeeks(now, 1), weekOptions), end: endOfWeek(subWeeks(now, 1), weekOptions) },
-      },
-      month: {
-        current: { start: startOfMonth(now), end: endOfMonth(now) },
-        previous: { start: startOfMonth(subMonths(now, 1)), end: endOfMonth(subMonths(now, 1)) },
-      },
-      quarter: {
-        current: { start: startOfQuarter(now), end: endOfQuarter(now) },
-        previous: { start: startOfQuarter(subQuarters(now, 1)), end: endOfQuarter(subQuarters(now, 1)) },
-      },
-      all: {
+    if (timeRange === 'all') {
+      return {
         current: { start: null, end: null },
         previous: undefined,
-      },
+      }
     }
 
-    return ranges[timeRange]
+    const days = getRangeLookbackDays(timeRange)
+    const currentStart = subDays(now, days)
+    const previousEnd = subDays(currentStart, 1)
+    const previousStart = subDays(previousEnd, days)
+
+    return {
+      current: { start: currentStart, end: now },
+      previous: { start: previousStart, end: previousEnd },
+    }
   }, [timeRange])
   const currentRange = rangeDefinition.current
   const previousRange = rangeDefinition.previous
@@ -261,17 +218,11 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
   // Apply filters
   const filteredJobs = useMemo(() => {
     const now = new Date()
-    const weekOptions = { weekStartsOn: WEEK_STARTS_ON as 0 | 1 | 2 | 3 | 4 | 5 | 6 }
-    const dateRanges = {
-      today: { start: startOfDay(now), end: endOfDay(now) },
-      week: { start: startOfWeek(now, weekOptions), end: endOfWeek(now, weekOptions) },
-      month: { start: startOfMonth(now), end: endOfMonth(now) },
-      quarter: { start: startOfQuarter(now), end: endOfQuarter(now) },
-    }
-    const activeRange =
-      filters.dateRange !== 'all'
-        ? dateRanges[filters.dateRange as keyof typeof dateRanges]
-        : null
+    const activeRange = (() => {
+      if (filters.dateRange === 'all') return null
+      const days = getRangeLookbackDays(filters.dateRange as DateRangeKey)
+      return { start: subDays(now, days), end: now }
+    })()
 
     return jobs.filter(job => {
       // Status filter
@@ -425,23 +376,22 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
           <JobMetricCards
             stats={stats}
             trends={trends}
-            periodLabel={TIME_RANGE_LABELS[timeRange]}
+            periodLabel={(ADMIN_RANGE_OPTIONS.find((option) => option.key === timeRange)?.label || '30 Days').toLowerCase()}
           />
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex flex-wrap gap-2">
-              {(['today', 'week', 'month', 'quarter', 'all'] as TimeRangeKey[]).map(range => (
-                <button type="button"
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
-                    timeRange === range
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-white dark:bg-slate-800 text-ink dark:text-gray-200 border-surface-200 dark:border-slate-700 hover:border-primary/40'
-                  }`}
-                >
-                  {TIME_RANGE_LABELS[range].replace('this ', '').replace(/\b\w/g, c => c.toUpperCase())}
-                </button>
-              ))}
+              <div className={ADMIN_RANGE_TRACK_CLASS}>
+                {ADMIN_RANGE_OPTIONS.map((range) => (
+                  <button
+                    type="button"
+                    key={range.key}
+                    onClick={() => setTimeRange(range.key)}
+                    className={adminRangeItemClass(timeRange === range.key)}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="w-full md:w-auto">
               <KeyboardShortcutsCard role="admin" defaultExpanded={false} />

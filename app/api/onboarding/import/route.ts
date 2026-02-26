@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { z } from 'zod'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/server'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024
 
@@ -16,12 +18,24 @@ const importPayloadSchema = z.object({
       })
     )
     .default([]),
+  technicians: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(255),
+        email: z.string().trim().email(),
+        phone: z.string().trim().max(50).optional().or(z.literal('')),
+        hourly_rate: z.union([z.number(), z.string()]).optional(),
+      })
+    )
+    .default([]),
   jobs: z
     .array(
       z.object({
         customer_email: z.string().trim().email().optional().or(z.literal('')),
         customer_phone: z.string().trim().optional().or(z.literal('')),
         customer_name: z.string().trim().optional().or(z.literal('')),
+        technician_email: z.string().trim().email().optional().or(z.literal('')),
+        technician_name: z.string().trim().optional().or(z.literal('')),
         scheduled_start: z.string().trim().min(1),
         scheduled_end: z.string().trim().optional().or(z.literal('')),
         status: z
@@ -118,6 +132,8 @@ function mapRowToJob(row: FlatRow) {
     customer_email: pickFirst(row, ['customer_email', 'email']),
     customer_phone: pickFirst(row, ['customer_phone', 'phone', 'phone_number', 'mobile']),
     customer_name: pickFirst(row, ['customer_name', 'name', 'company', 'company_name']),
+    technician_email: pickFirst(row, ['technician_email', 'tech_email', 'assigned_technician_email']),
+    technician_name: pickFirst(row, ['technician_name', 'tech_name', 'assigned_technician']),
     scheduled_start: pickFirst(row, ['scheduled_start', 'start', 'start_time', 'scheduled_date', 'date']),
     scheduled_end: pickFirst(row, ['scheduled_end', 'end', 'end_time']),
     status: pickFirst(row, ['status', 'job_status']) as ImportPayload['jobs'][number]['status'],
@@ -127,6 +143,15 @@ function mapRowToJob(row: FlatRow) {
     parts_cost: pickFirst(row, ['parts_cost', 'materials_cost']),
     labor_hours: pickFirst(row, ['labor_hours', 'hours']),
     labor_rate: pickFirst(row, ['labor_rate', 'hourly_rate']),
+  }
+}
+
+function mapRowToTechnician(row: FlatRow) {
+  return {
+    name: pickFirst(row, ['name', 'full_name', 'technician_name', 'tech_name', 'staff_name']),
+    email: pickFirst(row, ['email', 'technician_email', 'tech_email', 'staff_email']),
+    phone: pickFirst(row, ['phone', 'technician_phone', 'tech_phone', 'phone_number', 'mobile']),
+    hourly_rate: pickFirst(row, ['hourly_rate', 'labor_rate', 'rate']),
   }
 }
 
@@ -191,7 +216,7 @@ function parseCsvRows(text: string): FlatRow[] {
 }
 
 function rowsToPayload(rows: FlatRow[]): ImportPayload {
-  const payload: ImportPayload = { customers: [], jobs: [] }
+  const payload: ImportPayload = { customers: [], technicians: [], jobs: [] }
   if (rows.length === 0) {
     return payload
   }
@@ -202,6 +227,14 @@ function rowsToPayload(rows: FlatRow[]): ImportPayload {
       const type = (row.record_type || '').trim().toLowerCase()
       if (type === 'customer' || type === 'customers') {
         payload.customers.push(mapRowToCustomer(row))
+      } else if (
+        type === 'technician' ||
+        type === 'technicians' ||
+        type === 'tech' ||
+        type === 'staff' ||
+        type === 'employee'
+      ) {
+        payload.technicians.push(mapRowToTechnician(row))
       } else if (type === 'job' || type === 'jobs') {
         payload.jobs.push(mapRowToJob(row))
       }
@@ -210,8 +243,16 @@ function rowsToPayload(rows: FlatRow[]): ImportPayload {
   }
 
   for (const row of rows) {
+    const roleHint = pickFirst(row, ['role', 'user_role', 'account_role']).toLowerCase()
+    const looksLikeTechnician =
+      !!pickFirst(row, ['technician_email', 'tech_email', 'technician_name', 'tech_name', 'hourly_rate']) ||
+      roleHint === 'tech' ||
+      roleHint === 'technician' ||
+      roleHint === 'staff'
     const looksLikeJob = !!pickFirst(row, ['scheduled_start', 'start', 'start_time', 'scheduled_date', 'date'])
-    if (looksLikeJob) {
+    if (looksLikeTechnician) {
+      payload.technicians.push(mapRowToTechnician(row))
+    } else if (looksLikeJob) {
       payload.jobs.push(mapRowToJob(row))
     } else {
       payload.customers.push(mapRowToCustomer(row))
@@ -247,11 +288,20 @@ function parseXlsxPayload(fileBuffer: Buffer): ImportPayload {
     lowerToActual.get('job') ||
     lowerToActual.get('work_orders') ||
     lowerToActual.get('workorders')
+  const techniciansSheet =
+    lowerToActual.get('technicians') ||
+    lowerToActual.get('technician') ||
+    lowerToActual.get('techs') ||
+    lowerToActual.get('tech') ||
+    lowerToActual.get('staff')
 
-  if (customersSheet || jobsSheet) {
-    const payload: ImportPayload = { customers: [], jobs: [] }
+  if (customersSheet || jobsSheet || techniciansSheet) {
+    const payload: ImportPayload = { customers: [], technicians: [], jobs: [] }
     if (customersSheet) {
       payload.customers = rowsFromXlsxSheet(workbook, customersSheet).map(mapRowToCustomer)
+    }
+    if (techniciansSheet) {
+      payload.technicians = rowsFromXlsxSheet(workbook, techniciansSheet).map(mapRowToTechnician)
     }
     if (jobsSheet) {
       payload.jobs = rowsFromXlsxSheet(workbook, jobsSheet).map(mapRowToJob)
@@ -260,7 +310,7 @@ function parseXlsxPayload(fileBuffer: Buffer): ImportPayload {
   }
 
   const firstSheet = workbook.SheetNames[0]
-  if (!firstSheet) return { customers: [], jobs: [] }
+  if (!firstSheet) return { customers: [], technicians: [], jobs: [] }
 
   return rowsToPayload(rowsFromXlsxSheet(workbook, firstSheet))
 }
@@ -317,17 +367,34 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Sign in as an admin account before importing data.' },
+        { status: 401 }
+      )
     }
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('business_id, role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (profileError) {
+      throw profileError
+    }
+
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Complete onboarding step 1 before importing customers, jobs, and technicians.' },
+        { status: 409 }
+      )
+    }
+
+    if (profile.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Only admin accounts can import customers, jobs, and technicians.' },
+        { status: 403 }
+      )
     }
 
     const formData = await request.formData()
@@ -346,9 +413,9 @@ export async function POST(request: Request) {
     }
 
     const payload = await parseImportFile(file)
-    if (payload.customers.length === 0 && payload.jobs.length === 0) {
+    if (payload.customers.length === 0 && payload.technicians.length === 0 && payload.jobs.length === 0) {
       return NextResponse.json(
-        { error: 'Import file has no customers or jobs.' },
+        { error: 'Import file has no customers, technicians, or jobs.' },
         { status: 400 }
       )
     }
@@ -362,9 +429,21 @@ export async function POST(request: Request) {
       throw existingCustomersError
     }
 
+    const { data: existingTechnicians, error: existingTechniciansError } = await supabase
+      .from('users')
+      .select('id, email, full_name')
+      .eq('business_id', profile.business_id)
+      .eq('role', 'tech')
+
+    if (existingTechniciansError) {
+      throw existingTechniciansError
+    }
+
     const customerByEmail = new Map<string, string>()
     const customerByPhone = new Map<string, string>()
     const customerByName = new Map<string, string>()
+    const technicianByEmail = new Map<string, string>()
+    const technicianByName = new Map<string, string>()
 
     for (const customer of existingCustomers || []) {
       const emailKey = normalizeEmail(customer.email)
@@ -375,9 +454,18 @@ export async function POST(request: Request) {
       if (nameKey) customerByName.set(nameKey, customer.id)
     }
 
+    for (const technician of existingTechnicians || []) {
+      const emailKey = normalizeEmail(technician.email)
+      const nameKey = normalizeName(technician.full_name)
+      if (emailKey) technicianByEmail.set(emailKey, technician.id)
+      if (nameKey) technicianByName.set(nameKey, technician.id)
+    }
+
     const summary = {
       customersImported: 0,
       customersSkipped: 0,
+      techniciansImported: 0,
+      techniciansSkipped: 0,
       jobsImported: 0,
       jobsSkipped: 0,
       errors: [] as string[],
@@ -386,6 +474,18 @@ export async function POST(request: Request) {
     const addError = (message: string) => {
       if (summary.errors.length < 50) {
         summary.errors.push(message)
+      }
+    }
+
+    let supabaseAdmin: ReturnType<typeof getSupabaseAdminClient> | null = null
+    if (payload.technicians.length > 0) {
+      try {
+        supabaseAdmin = getSupabaseAdminClient()
+      } catch {
+        summary.techniciansSkipped += payload.technicians.length
+        addError(
+          'Technician import skipped: missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL in server environment.'
+        )
       }
     }
 
@@ -432,6 +532,74 @@ export async function POST(request: Request) {
       if (insertedName) customerByName.set(insertedName, insertedCustomer.id)
     }
 
+    for (const [index, technician] of payload.technicians.entries()) {
+      const name = technician.name.trim()
+      const email = normalizeEmail(technician.email)
+      const phone = (technician.phone || '').trim()
+
+      const existingId = (email ? technicianByEmail.get(email) : undefined) || technicianByName.get(normalizeName(name))
+      if (existingId) {
+        summary.techniciansSkipped += 1
+        continue
+      }
+
+      if (!supabaseAdmin) {
+        summary.techniciansSkipped += 1
+        continue
+      }
+
+      let technicianUserId: string | null = null
+      const generatedPassword = `T!${randomBytes(9).toString('base64url')}`
+
+      const { data: createdAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: generatedPassword,
+        email_confirm: true,
+        user_metadata: { full_name: name },
+      })
+
+      if (createAuthError) {
+        summary.techniciansSkipped += 1
+        if (createAuthError.message.includes('already been registered')) {
+          addError(`Technician row ${index + 1}: Email already has an account. Use a unique technician email.`)
+        } else {
+          addError(`Technician row ${index + 1}: ${createAuthError.message}`)
+        }
+        continue
+      } else {
+        technicianUserId = createdAuthUser.user?.id || null
+      }
+
+      if (!technicianUserId) {
+        summary.techniciansSkipped += 1
+        addError(`Technician row ${index + 1}: Failed to create auth user.`)
+        continue
+      }
+
+      const { error: upsertTechnicianError } = await supabaseAdmin.from('users').upsert(
+        {
+          id: technicianUserId,
+          business_id: profile.business_id,
+          email,
+          full_name: name,
+          phone: phone || null,
+          role: 'tech',
+          hourly_rate: parseOptionalNumber(technician.hourly_rate),
+        },
+        { onConflict: 'id' }
+      )
+
+      if (upsertTechnicianError) {
+        summary.techniciansSkipped += 1
+        addError(`Technician row ${index + 1}: ${upsertTechnicianError.message}`)
+        continue
+      }
+
+      summary.techniciansImported += 1
+      technicianByEmail.set(email, technicianUserId)
+      technicianByName.set(normalizeName(name), technicianUserId)
+    }
+
     for (const [index, job] of payload.jobs.entries()) {
       const customerId =
         (job.customer_email ? customerByEmail.get(normalizeEmail(job.customer_email)) : undefined) ||
@@ -442,6 +610,14 @@ export async function POST(request: Request) {
         summary.jobsSkipped += 1
         addError(`Job row ${index + 1}: Could not match customer by email, phone, or name.`)
         continue
+      }
+
+      const technicianId =
+        (job.technician_email ? technicianByEmail.get(normalizeEmail(job.technician_email)) : undefined) ||
+        (job.technician_name ? technicianByName.get(normalizeName(job.technician_name)) : undefined)
+
+      if ((job.technician_email || job.technician_name) && !technicianId) {
+        addError(`Job row ${index + 1}: Could not match technician by email or name. Job imported as unassigned.`)
       }
 
       const scheduledStart = toIsoDate(job.scheduled_start)
@@ -464,6 +640,7 @@ export async function POST(request: Request) {
       const { error: insertJobError } = await supabase.from('jobs').insert({
         business_id: profile.business_id,
         customer_id: customerId,
+        technician_id: technicianId || null,
         source: 'manual',
         status,
         scheduled_start: scheduledStart,

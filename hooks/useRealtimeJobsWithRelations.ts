@@ -39,6 +39,9 @@ export function useRealtimeJobsWithRelations({
   const supabase = useMemo(() => createClient(), [])
   const isMountedRef = useRef(true)
   const lastRefreshRef = useRef<number>(0)
+  const inFlightRef = useRef(false)
+  const pendingRefreshRef = useRef(false)
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startDateIso = startDate?.toISOString() ?? null
   const endDateIso = endDate?.toISOString() ?? null
 
@@ -109,12 +112,19 @@ export function useRealtimeJobsWithRelations({
     if (!businessId) {
       return
     }
+
+    if (inFlightRef.current) {
+      pendingRefreshRef.current = true
+      return
+    }
+
     // Debounce: Don't refetch if we just did within the last 500ms
     const now = Date.now()
     if (now - lastRefreshRef.current < 500) {
       return
     }
     lastRefreshRef.current = now
+    inFlightRef.current = true
 
     setIsRefreshing(true)
     try {
@@ -139,11 +149,28 @@ export function useRealtimeJobsWithRelations({
         setError(err instanceof Error ? err.message : 'Failed to fetch jobs')
       }
     } finally {
+      inFlightRef.current = false
       if (isMountedRef.current) {
         setIsRefreshing(false)
       }
+
+      if (pendingRefreshRef.current) {
+        pendingRefreshRef.current = false
+        void fetchJobsWithRelations()
+      }
     }
   }, [businessId, fallbackSelect, fetchAllJobs, jobsSelect])
+
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      return
+    }
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      refreshTimeoutRef.current = null
+      void fetchJobsWithRelations()
+    }, 250)
+  }, [fetchJobsWithRelations])
 
   useEffect(() => {
     isMountedRef.current = true
@@ -170,9 +197,9 @@ export function useRealtimeJobsWithRelations({
               table: 'jobs',
               filter: `business_id=eq.${businessId}`,
             },
-            (payload) => {
+            () => {
               // When any change occurs, refetch all jobs with relations
-              fetchJobsWithRelations()
+              scheduleRefresh()
             }
           )
           .subscribe((status) => {
@@ -196,11 +223,15 @@ export function useRealtimeJobsWithRelations({
 
     // Cleanup function
     return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+        refreshTimeoutRef.current = null
+      }
       if (channel) {
         supabase.removeChannel(channel)
       }
     }
-  }, [businessId, fetchJobsWithRelations, supabase])
+  }, [businessId, scheduleRefresh, supabase])
 
   // Initialize jobs from props
   useEffect(() => {

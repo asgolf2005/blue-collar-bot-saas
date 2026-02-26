@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   AlertCircle,
   CheckCircle2,
@@ -90,200 +91,245 @@ export default function NewCustomerForm({
     }
   }
 
+  const [currentStep, setCurrentStep] = useState(1)
+  const totalSteps = 2
+
+  const nextStep = () => setCurrentStep(prev => Math.min(prev + 1, totalSteps))
+  const prevStep = () => setCurrentStep(prev => Math.max(prev - 1, 1))
+
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-6">
-          <section className={PANEL_CLASS}>
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-text-primary">Customer Profile</h2>
-                <p className="mt-1 text-xs text-text-secondary">
-                  Add the customer details your team needs for dispatch, invoices, and updates.
-                </p>
+    <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-6">
+      {/* Step Indicator */}
+      <div className="flex items-center justify-between mb-8 relative">
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-full -z-10 overflow-hidden">
+          <motion.div
+            className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]"
+            initial={{ width: 0 }}
+            animate={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          />
+        </div>
+        {[1, 2].map((step) => (
+          <div key={step} className="flex flex-col items-center gap-2">
+            <motion.div
+              className={`w-10 h-10 rounded-full flex items-center justify-center font-mono text-sm font-bold border-2 transition-colors duration-300 ${currentStep >= step
+                  ? 'bg-cyan-500 border-cyan-400 text-white shadow-[0_0_20px_rgba(6,182,212,0.4)]'
+                  : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-400'
+                }`}
+              animate={currentStep === step ? { scale: 1.1 } : { scale: 1 }}
+            >
+              {currentStep > step ? <CheckCircle2 className="w-5 h-5" /> : step}
+            </motion.div>
+            <span className={`text-[10px] font-mono tracking-widest uppercase font-semibold ${currentStep >= step ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'
+              }`}>
+              {step === 1 ? 'Identity & Location' : 'Contact Vectors'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="relative overflow-hidden rounded-[2rem] border border-slate-200/50 bg-white/60 dark:bg-slate-900/40 dark:border-white/10 p-6 md:p-8 backdrop-blur-2xl shadow-xl min-h-[400px]">
+          <AnimatePresence mode="wait">
+            {currentStep === 1 && (
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="mb-6">
+                  <h2 className="text-xl font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <User className="h-5 w-5 text-cyan-500" /> Identity Matrix
+                  </h2>
+                  <p className="mt-1 text-sm text-text-secondary">Provide the primary name and service location.</p>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
+                      Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                      <input
+                        id="customer"
+                        data-test="customer-input"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full rounded-2xl border border-border bg-white/50 px-4 py-4 pl-11 text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:bg-slate-900/50 backdrop-blur shadow-sm"
+                        placeholder="e.g. Acme Corp or John Doe"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
+                      Service Address
+                    </label>
+                    <div className="relative">
+                      <MapPin className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                      <input
+                        id="address"
+                        data-test="address-input"
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className="w-full rounded-2xl border border-border bg-white/50 px-4 py-4 pl-11 text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:bg-slate-900/50 backdrop-blur shadow-sm"
+                        placeholder="123 Innovation Drive, Tech City"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {currentStep === 2 && (
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <div className="mb-6">
+                  <h2 className="text-xl font-display font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Phone className="h-5 w-5 text-emerald-500" /> Comm Channels
+                  </h2>
+                  <p className="mt-1 text-sm text-text-secondary">Configure contact methods for notifications and billing.</p>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
+                      Primary Phone <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full rounded-2xl border border-border bg-white/50 px-4 py-4 pl-11 text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:bg-slate-900/50 backdrop-blur shadow-sm font-mono"
+                        placeholder="555-0199"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full rounded-2xl border border-border bg-white/50 px-4 py-4 pl-11 text-sm text-text-primary transition-colors placeholder:text-text-muted focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:bg-slate-900/50 backdrop-blur shadow-sm font-mono"
+                        placeholder="comms@acme.corp"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="mt-4 rounded-xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300">
+                    <p className="flex items-center gap-2 font-mono uppercase tracking-wider text-[10px] font-bold">
+                      <AlertCircle className="h-4 w-4" />
+                      {error}
+                    </p>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Navigation */}
+          <div className="mt-8 pt-6 border-t border-slate-200/50 dark:border-slate-800 flex items-center justify-between">
+            <button
+              type="button"
+              className={`px-6 py-2 rounded-full border border-slate-200 dark:border-slate-700 text-sm font-semibold transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${currentStep === 1 ? 'opacity-0 pointer-events-none' : ''}`}
+              onClick={prevStep}
+            >
+              ← Back
+            </button>
+
+            {currentStep < 2 ? (
+              <button
+                type="button"
+                className="px-6 py-2 rounded-full bg-cyan-500 hover:bg-cyan-600 text-white shadow-lg shadow-cyan-500/30 text-sm font-bold tracking-wide transition-all hover:scale-105"
+                onClick={nextStep}
+                disabled={!trimmedName}
+              >
+                Continue →
+              </button>
+            ) : (
+              <button
+                type="submit"
+                data-test="save-customer"
+                disabled={loading || !requiredReady}
+                className="inline-flex items-center gap-2 px-8 py-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-cyan-500/30 font-mono text-sm uppercase tracking-widest font-bold transition-all disabled:opacity-50 hover:scale-105"
+              >
+                {loading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Registering...</>
+                ) : (
+                  <><Save className="h-4 w-4" /> Initialize Client</>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Preview Aside */}
+        <aside className="hidden xl:block space-y-4 xl:sticky xl:top-24 xl:h-fit">
+          <motion.section
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-[2rem] border border-slate-200/50 bg-white/40 p-6 shadow-xl backdrop-blur-3xl dark:border-white/10 dark:bg-slate-900/40 relative overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-400/10 blur-[40px] rounded-full pointer-events-none" />
+
+            <div className="mb-6 flex items-center gap-2 relative z-10">
+              <Users className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
+              <h3 className="text-[11px] font-bold font-mono uppercase tracking-[0.2em] text-slate-800 dark:text-slate-200">Live Telemetry</h3>
+            </div>
+
+            <div className="relative z-10 flex flex-col items-center mb-6 text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-indigo-500 p-[2px] shadow-xl mb-4">
+                <div className="w-full h-full bg-white dark:bg-slate-900 rounded-full flex items-center justify-center font-display text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-cyan-600 to-indigo-600 dark:from-cyan-400 dark:to-indigo-400">
+                  {initials}
+                </div>
               </div>
-              <span className="rounded-full border border-border bg-bg-secondary px-3 py-1 text-[10px] uppercase tracking-wide text-text-secondary">
-                Required fields marked *
+              <p className="font-display text-xl font-bold text-slate-900 dark:text-white truncate w-full">
+                {trimmedName || 'Unidentified'}
+              </p>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500 mt-1 flex items-center gap-1">
+                <Circle className="w-2 h-2 fill-emerald-500 animate-pulse" /> Active Draft
               </span>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
-                  Full Name <span className="text-danger">*</span>
-                </label>
-                <div className="relative">
-                  <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={`${INPUT_CLASS} pl-9`}
-                    placeholder="John Smith"
-                    required
-                  />
-                </div>
+            <dl className="space-y-3 text-sm relative z-10">
+              <div className="rounded-xl border border-white/50 dark:border-slate-700/50 bg-white/60 dark:bg-slate-800/60 shadow-sm p-3 backdrop-blur-sm">
+                <dt className="text-[9px] uppercase font-mono tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1"><Phone className="w-3 h-3" /> COMMS</dt>
+                <dd className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">{trimmedPhone || <span className="text-slate-400 opacity-50">Awaiting input...</span>}</dd>
               </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
-                  Phone Number <span className="text-danger">*</span>
-                </label>
-                <div className="relative">
-                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={`${INPUT_CLASS} pl-9`}
-                    placeholder="0412 345 678"
-                    required
-                  />
-                </div>
+              <div className="rounded-xl border border-white/50 dark:border-slate-700/50 bg-white/60 dark:bg-slate-800/60 shadow-sm p-3 backdrop-blur-sm">
+                <dt className="text-[9px] uppercase font-mono tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1"><Mail className="w-3 h-3" /> NET</dt>
+                <dd className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 truncate">{trimmedEmail || <span className="text-slate-400 opacity-50">Offline</span>}</dd>
               </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={`${INPUT_CLASS} pl-9`}
-                    placeholder="john@example.com"
-                  />
-                </div>
-                <p className="mt-1 text-[11px] text-text-muted">Used for invoice and reminder delivery.</p>
+              <div className="rounded-xl border border-white/50 dark:border-slate-700/50 bg-white/60 dark:bg-slate-800/60 shadow-sm p-3 backdrop-blur-sm">
+                <dt className="text-[9px] uppercase font-mono tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-1"><MapPin className="w-3 h-3" /> LOC</dt>
+                <dd className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 line-clamp-2">{trimmedAddress || <span className="text-slate-400 opacity-50">Grid unassigned</span>}</dd>
               </div>
-
-              <div>
-                <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-text-secondary">
-                  Service Address
-                </label>
-                <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className={`${INPUT_CLASS} pl-9`}
-                    placeholder="123 Collins St, Melbourne VIC 3000"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {error && (
-            <div className="rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300">
-              <p className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:h-fit">
-          <section className={`${PANEL_CLASS} p-4`}>
-            <div className="mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">Live Preview</h3>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-bg-secondary p-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-cyan-100 text-sm font-semibold text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300">
-                  {initials}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-text-primary">
-                    {trimmedName || 'New customer'}
-                  </p>
-                  <p className="truncate text-xs text-text-secondary">
-                    {trimmedPhone || 'No phone yet'}
-                  </p>
-                </div>
-              </div>
-
-              <dl className="mt-3 space-y-1.5 text-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-text-muted">Email</dt>
-                  <dd className="truncate text-right text-text-secondary">{trimmedEmail || 'Not set'}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-text-muted">Address</dt>
-                  <dd className="line-clamp-2 text-right text-text-secondary">{trimmedAddress || 'Not set'}</dd>
-                </div>
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-text-muted">Customers</dt>
-                  <dd className="text-text-secondary">{existingCustomerCount + (trimmedName ? 1 : 0)} total after create</dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-
-          <section className={`${PANEL_CLASS} p-4`}>
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">Completion</h3>
-            <div className="space-y-2">
-              {completionItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`rounded-xl border px-3 py-2 ${
-                    item.done
-                      ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-500/30 dark:bg-emerald-500/10'
-                      : item.required
-                        ? 'border-rose-200 bg-rose-50/70 dark:border-rose-500/30 dark:bg-rose-500/10'
-                        : 'border-amber-200 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10'
-                  }`}
-                >
-                  <p className="flex items-center gap-2 text-xs">
-                    {item.done ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
-                    ) : (
-                      <Circle className="h-3.5 w-3.5 text-text-muted" />
-                    )}
-                    <span className="text-text-secondary">{item.label}</span>
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className={`${PANEL_CLASS} p-4`}>
-            <div className="flex flex-col gap-2">
-              <button
-                type="submit"
-                disabled={loading || !requiredReady}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating customer...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Create Customer
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/admin/customers')}
-                className="inline-flex w-full items-center justify-center rounded-2xl border border-border bg-bg-secondary px-4 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
-              >
-                Cancel
-              </button>
-              <p className="text-center text-[11px] text-text-muted">
-                Name and phone are required before you can save.
-              </p>
-            </div>
-          </section>
+            </dl>
+          </motion.section>
         </aside>
       </div>
     </form>

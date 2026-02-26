@@ -1,6 +1,63 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+type UserProfile = {
+  business_id: string
+  role: string
+}
+
+async function canAccessJobNotes(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  jobId: string
+  userId: string
+  userProfile: UserProfile
+  allowCustomerRead: boolean
+  forWrite: boolean
+}) {
+  const { supabase, jobId, userId, userProfile, allowCustomerRead, forWrite } = args
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, business_id, technician_id, customer_id')
+    .eq('id', jobId)
+    .single()
+
+  if (!job) {
+    return { ok: false as const, status: 404, error: 'Job not found' }
+  }
+
+  if (!userProfile.business_id || userProfile.business_id !== job.business_id) {
+    return { ok: false as const, status: 403, error: 'Unauthorized' }
+  }
+
+  if (userProfile.role === 'admin') {
+    return { ok: true as const, role: 'admin' as const }
+  }
+
+  if (userProfile.role === 'tech') {
+    if (job.technician_id !== userId) {
+      return { ok: false as const, status: 403, error: 'Forbidden' }
+    }
+    return { ok: true as const, role: 'tech' as const }
+  }
+
+  if (userProfile.role === 'customer' && allowCustomerRead && !forWrite) {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', userId)
+      .single()
+
+    if (!customer || customer.id !== job.customer_id) {
+      return { ok: false as const, status: 403, error: 'Forbidden' }
+    }
+
+    return { ok: true as const, role: 'customer' as const }
+  }
+
+  return { ok: false as const, status: 403, error: 'Forbidden' }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -27,31 +84,39 @@ export async function POST(
       )
     }
 
-    // Verify user has access to this job
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('id, business_id')
-      .eq('id', id)
-      .single()
-
-    if (!job) {
+    if (content.trim().length > 5000) {
       return NextResponse.json(
-        { error: 'Job not found' },
-        { status: 404 }
+        { error: 'Content is too long (max 5000 chars)' },
+        { status: 400 }
       )
     }
 
-    // Get user's business to verify access
     const { data: userProfile } = await supabase
       .from('users')
       .select('business_id, role')
       .eq('id', user.id)
       .single()
 
-    if (!userProfile || userProfile.business_id !== job.business_id) {
+    if (!userProfile) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
+        { error: 'User profile not found' },
+        { status: 404 }
+      )
+    }
+
+    const access = await canAccessJobNotes({
+      supabase,
+      jobId: id,
+      userId: user.id,
+      userProfile: userProfile as UserProfile,
+      allowCustomerRead: false,
+      forWrite: true,
+    })
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error },
+        { status: access.status }
       )
     }
 
@@ -110,6 +175,22 @@ export async function GET(
       )
     }
 
+    const access = await canAccessJobNotes({
+      supabase,
+      jobId: id,
+      userId: user.id,
+      userProfile: userProfile as UserProfile,
+      allowCustomerRead: true,
+      forWrite: false,
+    })
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error },
+        { status: access.status }
+      )
+    }
+
     // Build query based on role
     let query = supabase
       .from('job_notes')
@@ -118,7 +199,7 @@ export async function GET(
       .order('created_at', { ascending: false })
 
     // Customers only see notes marked as visible to them
-    if (userProfile.role === 'customer') {
+    if (access.role === 'customer') {
       query = query.eq('is_visible_to_customer', true)
     }
 

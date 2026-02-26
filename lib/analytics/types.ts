@@ -75,6 +75,42 @@ export interface ServiceData {
   jobs: number
   avgTicket: number
   trend: number
+  completedJobs: number
+  avgDurationHours: number
+  avgPrice: number
+  totalRevenue: number
+  revenuePerJob: number
+}
+
+export interface OpsHealthData {
+  demandJobs: number
+  unassignedJobs: number
+  activeTechnicians: number
+  scheduledHours: number
+  capacityHours: number
+  capacityUtilizationPct: number
+  onTimeRate: number
+  lateStartJobs: number
+  overdueInProgressJobs: number
+  activeWindowJobs: number
+}
+
+export interface ForecastData {
+  horizonDays: number
+  projectedRevenue: number
+  expectedJobVolume: number
+  delayRiskScore: number
+  cancellationRisk: number
+  predictedCancelledJobs: number
+  scheduledPipelineJobs: number
+  confidence: 'low' | 'medium' | 'high'
+  drivers: {
+    completionRate: number
+    avgRevenuePerCompletedJob: number
+    unassignedRate: number
+    utilizationPct: number
+    historicalCancellationRate: number
+  }
 }
 
 // ============================================================================

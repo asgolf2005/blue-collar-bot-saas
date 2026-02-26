@@ -2,6 +2,25 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  const isAuthPage = path.startsWith("/login");
+  const isSignupPage = path.startsWith("/signup");
+  const isOnboardingPage = path.startsWith("/onboarding");
+  const isAdminPage = path.startsWith("/admin");
+  const isTechPage = path.startsWith("/tech");
+  const isCustomerPage = path.startsWith("/customer");
+  const isApiRoute = path.startsWith("/api");
+  const isAuthCallback = path.startsWith("/auth/callback");
+
+  // Fast path: API/auth-callback/signup should not pay middleware auth + role DB lookup cost.
+  if (isApiRoute || isSignupPage || isAuthCallback) {
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    });
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -39,10 +58,17 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch the user's role
+  // Fetch role only for paths that need role-based redirects.
   let userRole: string | null = null;
+  const needsRole =
+    path === "/" ||
+    isAuthPage ||
+    isOnboardingPage ||
+    isAdminPage ||
+    isTechPage ||
+    isCustomerPage;
 
-  if (user) {
+  if (user && needsRole) {
     const { data: profile } = await supabase
       .from("users")
       .select("role")
@@ -52,26 +78,7 @@ export async function proxy(request: NextRequest) {
     userRole = profile?.role || null;
   }
 
-  const path = request.nextUrl.pathname;
-  const isAuthPage = path.startsWith("/login");
-  const isSignupPage = path.startsWith("/signup");
-  const isOnboardingPage = path.startsWith("/onboarding");
-  const isAdminPage = path.startsWith("/admin");
-  const isTechPage = path.startsWith("/tech");
-  const isCustomerPage = path.startsWith("/customer");
-  const isApiRoute = path.startsWith("/api");
-  const isAuthCallback = path.startsWith("/auth/callback");
-
   const isPublicPage = isAuthPage || isSignupPage || isAuthCallback;
-
-  // Allow API routes
-  if (isApiRoute) return response;
-
-  // Allow signup for everyone
-  if (isSignupPage) return response;
-
-  // Allow auth callback
-  if (isAuthCallback) return response;
 
   // Redirect users without role to onboarding (except if already there)
   if (user && !userRole && !isOnboardingPage) {
@@ -126,6 +133,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/",
+    "/login",
+    "/onboarding/:path*",
   ],
 };

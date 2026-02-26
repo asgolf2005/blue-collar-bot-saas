@@ -16,6 +16,15 @@ export interface FilterState {
   dateRange: string
 }
 
+const DATE_RANGE_OPTIONS = [
+  { value: 'all', label: 'All Time' },
+  { value: '7d', label: '7 Days' },
+  { value: '14d', label: '14 Days' },
+  { value: '30d', label: '30 Days' },
+  { value: '6m', label: '6 Months' },
+  { value: '1y', label: '1 Year' },
+]
+
 export default function JobFilters({ onFilterChange, technicians = [], totalCount, filteredCount }: JobFiltersProps) {
   const [filters, setFilters] = useState<FilterState>({
     status: 'all',
@@ -139,11 +148,11 @@ export default function JobFilters({ onFilterChange, technicians = [], totalCoun
             onChange={(e) => updateFilter('dateRange', e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-white border border-surface-200 dark:border-slate-300 text-ink dark:text-ink text-sm appearance-none cursor-pointer hover:border-primary/50 focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
           >
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
+            {DATE_RANGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -169,7 +178,7 @@ export default function JobFilters({ onFilterChange, technicians = [], totalCoun
           )}
           {filters.dateRange !== 'all' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-success/10 dark:bg-white text-success text-xs font-medium">
-              {filters.dateRange}
+              {DATE_RANGE_OPTIONS.find((option) => option.value === filters.dateRange)?.label || filters.dateRange}
               <button type="button" onClick={() => updateFilter('dateRange', 'all')} className="hover:bg-success/20 dark:hover:bg-slate-200 rounded p-0.5">
                 <span className="text-[10px] font-semibold">x</span>
               </button>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -318,3 +318,4 @@ export default function DashboardClient({ jobs, stats }: DashboardClientProps) {
     </>
   )
 }
+

@@ -1,15 +1,10 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { format } from 'date-fns'
 import Link from 'next/link'
 import type { JobWithDetails } from '@/lib/types'
-
-const ranges = [
-  { key: '7d', label: '7D', days: 7 },
-  { key: '30d', label: '30D', days: 30 },
-  { key: '90d', label: '90D', days: 90 },
-] as const
+import { ADMIN_RANGE_OPTIONS, getRangeLookbackDays, type DateRangeKey } from '@/lib/analytics/dateUtils'
+import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
 
 const stages = [
   { key: 'scheduled', label: 'Scheduled', tone: 'text-primary' },
@@ -20,33 +15,34 @@ const stages = [
 ] as const
 
 export default function JobPipelineCard({ jobs }: { jobs: JobWithDetails[] }) {
-  const [rangeKey, setRangeKey] = useState<(typeof ranges)[number]['key']>('30d')
-  const activeRange = ranges.find((item) => item.key === rangeKey) || ranges[1]
+  const [rangeKey, setRangeKey] = useState<DateRangeKey>('30d')
+  const activeRange = ADMIN_RANGE_OPTIONS.find((item) => item.key === rangeKey) || ADMIN_RANGE_OPTIONS[2]
 
   const filteredJobs = useMemo(() => {
+    if (activeRange.key === 'all') return jobs
     const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - activeRange.days)
+    cutoff.setDate(cutoff.getDate() - getRangeLookbackDays(activeRange.key))
 
     return jobs.filter((job) => job.scheduled_start && new Date(job.scheduled_start) >= cutoff)
-  }, [activeRange.days, jobs])
+  }, [activeRange.key, jobs])
 
   return (
     <div className="clean-card">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h2 className="text-xl font-semibold text-ink">Job Pipeline</h2>
-          <p className="text-sm text-muted">Status breakdown for the last {activeRange.days} days</p>
+          <p className="text-sm text-muted">
+            {activeRange.key === 'all'
+              ? 'Status breakdown for all scheduled jobs'
+              : `Status breakdown for the last ${getRangeLookbackDays(activeRange.key)} days`}
+          </p>
         </div>
-        <div className="flex rounded-full border-2 border-surface-200 bg-surface-50 p-1">
-          {ranges.map((item) => (
+        <div className={ADMIN_RANGE_TRACK_CLASS}>
+          {ADMIN_RANGE_OPTIONS.map((item) => (
             <button type="button"
               key={item.key}
               onClick={() => setRangeKey(item.key)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${
-                item.key === rangeKey
-                  ? 'bg-white text-ink shadow-sm'
-                  : 'text-muted hover:text-ink'
-              }`}
+              className={adminRangeItemClass(item.key === rangeKey)}
             >
               {item.label}
             </button>
@@ -61,7 +57,7 @@ export default function JobPipelineCard({ jobs }: { jobs: JobWithDetails[] }) {
             <Link
               key={stage.key}
               href={stageJobs.length > 0 ? `/admin/jobs?status=${stage.key}` : '#'}
-              className={`block rounded-2xl border-2 border-surface-200 bg-gradient-to-br from-white to-surface-50 p-4 transition ${
+              className={`block rounded-lg border border-surface-200 bg-gradient-to-br from-white to-surface-50 p-4 transition ${
                 stageJobs.length > 0
                   ? 'hover:border-primary/30 hover:shadow-md cursor-pointer'
                   : 'cursor-default'

@@ -13,9 +13,13 @@ export default async function TodayPage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('business_id')
+    .select('business_id, role')
     .eq('id', user.id)
     .single()
+
+  if (!profile || profile.role !== 'tech') {
+    redirect('/admin/jobs')
+  }
 
   const today = new Date()
   const startOfToday = startOfDay(today)
@@ -33,7 +37,8 @@ export default async function TodayPage() {
       scheduled_start,
       scheduled_end,
       total_cost,
-      customer:customers(id, name, email, phone, address)
+      customer:customers(id, name, email, phone, address),
+      services:job_services(service:services(name, category))
     `)
     .eq('technician_id', user!.id)
     .gte('scheduled_start', startOfToday.toISOString())
@@ -44,7 +49,7 @@ export default async function TodayPage() {
     <TodayViewClient
       initialJobs={jobs || []}
       userId={user.id}
-      businessId={profile?.business_id || ''}
+      businessId={profile.business_id || ''}
       today={today}
     />
   )

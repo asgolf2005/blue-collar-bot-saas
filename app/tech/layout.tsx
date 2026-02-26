@@ -22,25 +22,24 @@ export default async function TechLayout({
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'tech') {
+  if (profile?.role !== 'tech' && profile?.role !== 'admin') {
     redirect('/admin/jobs')
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* Ambient background effects */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-1/4 w-[800px] h-[800px] bg-primary/8 rounded-full blur-[150px]" />
-        <div className="absolute bottom-0 left-1/4 w-[600px] h-[600px] bg-success/6 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-primary/5 rounded-full blur-[180px]" />
+        <div className="absolute -top-28 right-[18%] h-[680px] w-[680px] rounded-full bg-cyan-400/10 blur-[140px] dark:bg-cyan-400/16" />
+        <div className="absolute bottom-[-260px] left-[12%] h-[680px] w-[680px] rounded-full bg-emerald-400/8 blur-[140px] dark:bg-emerald-400/12" />
+        <div className="absolute inset-x-0 top-0 h-[320px] bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-slate-950/85 dark:via-slate-950/45 dark:to-transparent" />
         <div
-          className="absolute inset-0 opacity-[0.015]"
+          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03]"
           style={{
             backgroundImage: `
-              linear-gradient(rgba(31, 58, 95, 0.35) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(31, 58, 95, 0.35) 1px, transparent 1px)
+              linear-gradient(rgba(31, 58, 95, 0.28) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(31, 58, 95, 0.28) 1px, transparent 1px)
             `,
-            backgroundSize: '80px 80px'
+            backgroundSize: '64px 64px',
           }}
         />
       </div>
@@ -48,8 +47,8 @@ export default async function TechLayout({
       <TechNav userName={profile.full_name} />
       <GlobalSearch />
       <GlobalKeyboardShortcuts role="tech" />
-      <main className="relative min-h-screen pb-24">
-        <div className="p-6 lg:p-8">
+      <main className="relative min-h-screen pb-24 lg:pb-10">
+        <div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-10 lg:py-6 lg:pl-[104px]">
           {children}
         </div>
       </main>

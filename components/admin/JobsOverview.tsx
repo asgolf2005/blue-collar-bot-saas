@@ -2,20 +2,16 @@
 
 import { useState, useMemo } from 'react'
 import type { JobWithDetails } from '@/lib/types'
-
-const timePeriods = [
-  { key: 'today', label: 'Today', days: 0 },
-  { key: 'week', label: 'This Week', days: 7 },
-  { key: 'month', label: 'This Month', days: 30 },
-] as const
+import { ADMIN_RANGE_OPTIONS, getRangeLookbackDays, type DateRangeKey } from '@/lib/analytics/dateUtils'
+import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
 
 interface JobsOverviewProps {
   jobs: JobWithDetails[]
 }
 
 export default function JobsOverview({ jobs }: JobsOverviewProps) {
-  const [period, setPeriod] = useState<(typeof timePeriods)[number]['key']>('today')
-  const activePeriod = timePeriods.find((p) => p.key === period) || timePeriods[0]
+  const [period, setPeriod] = useState<DateRangeKey>('7d')
+  const activePeriod = ADMIN_RANGE_OPTIONS.find((p) => p.key === period) || ADMIN_RANGE_OPTIONS[0]
 
   const stats = useMemo(() => {
     const now = new Date()
@@ -23,22 +19,10 @@ export default function JobsOverview({ jobs }: JobsOverviewProps) {
     const isInPeriod = (dateString?: string | null) => {
       if (!dateString) return false
       const date = new Date(dateString)
-
-      if (activePeriod.key === 'today') {
-        return (
-          date.getFullYear() === now.getFullYear() &&
-          date.getMonth() === now.getMonth() &&
-          date.getDate() === now.getDate()
-        )
-      } else if (activePeriod.key === 'week') {
-        const weekAgo = new Date(now)
-        weekAgo.setDate(now.getDate() - 7)
-        return date >= weekAgo && date <= now
-      } else {
-        const monthAgo = new Date(now)
-        monthAgo.setDate(now.getDate() - 30)
-        return date >= monthAgo && date <= now
-      }
+      if (activePeriod.key === 'all') return true
+      const cutoff = new Date(now)
+      cutoff.setDate(cutoff.getDate() - getRangeLookbackDays(activePeriod.key))
+      return date >= cutoff && date <= now
     }
 
     const periodJobs = jobs.filter((job) => isInPeriod(job.scheduled_start))
@@ -68,16 +52,12 @@ export default function JobsOverview({ jobs }: JobsOverviewProps) {
         </h2>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted mr-2">{stats.scheduled} jobs scheduled</span>
-          <div className="flex rounded-full border-2 border-surface-200 bg-surface-50 p-1">
-            {timePeriods.map((item) => (
+          <div className={ADMIN_RANGE_TRACK_CLASS}>
+            {ADMIN_RANGE_OPTIONS.map((item) => (
               <button type="button"
                 key={item.key}
                 onClick={() => setPeriod(item.key)}
-                className={`px-3 py-1 text-xs font-semibold rounded-full transition ${
-                  item.key === period
-                    ? 'bg-white text-ink shadow-sm'
-                    : 'text-muted hover:text-ink'
-                }`}
+                className={adminRangeItemClass(item.key === period)}
               >
                 {item.label}
               </button>

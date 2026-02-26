@@ -1,48 +1,40 @@
 ﻿'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  DollarSign, 
-  CheckCircle2, 
+import {
+  DollarSign,
+  CheckCircle2,
   TrendingUp,
   Activity,
   Briefcase,
   Download,
-  Filter,
   RefreshCw,
-} from '@/components/ui/icons'
+  ChevronDown,
+} from '@/components/ui/lucide'
+import { ActionButton, ActionIconButton } from '@/components/ui/ActionSystem'
 
-import { AnalyticsMetrics, RevenueDataPoint, StatusData, TechnicianData, ServiceData } from '@/lib/analytics/types'
+import { AnalyticsMetrics, RevenueDataPoint, TechnicianData, ServiceData, OpsHealthData } from '@/lib/analytics/types'
+import { ADMIN_RANGE_OPTIONS, type DateRangeKey } from '@/lib/analytics/dateUtils'
 import LiveMetricCard from './LiveMetricCard'
 import RevenueChart from './RevenueChart'
-import JobsByStatusChart from './JobsByStatusChart'
 import TopTechniciansChart from './TopTechniciansChart'
 import ServiceBreakdownTable from './ServiceBreakdownTable'
 
-type RangeKey = '7d' | '30d' | '90d' | 'ytd'
-
 interface AnalyticsClientProps {
-  initialRange: string
+  initialRange: DateRangeKey
   metrics: AnalyticsMetrics
   revenueData: RevenueDataPoint[]
-  statusData: StatusData[]
+  opsHealth: OpsHealthData
   technicianData: TechnicianData[]
   serviceData: ServiceData[]
 }
 
-const rangeOptions: Array<{ key: RangeKey; label: string; shortLabel: string }> = [
-  { key: '7d', label: 'Last 7 days', shortLabel: '7D' },
-  { key: '30d', label: 'Last 30 days', shortLabel: '30D' },
-  { key: '90d', label: 'Last 90 days', shortLabel: '90D' },
-  { key: 'ytd', label: 'Year to date', shortLabel: 'YTD' },
-]
-
 // CSV Export helper
 function exportToCSV(data: any[], filename: string) {
   if (!data || data.length === 0) return
-  
+
   const headers = Object.keys(data[0] || {})
   const csvContent = [
     headers.join(','),
@@ -52,7 +44,7 @@ function exportToCSV(data: any[], filename: string) {
       return val
     }).join(','))
   ].join('\n')
-  
+
   const blob = new Blob([csvContent], { type: 'text/csv' })
   const url = window.URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -66,43 +58,65 @@ export default function AnalyticsClient({
   initialRange,
   metrics,
   revenueData,
-  statusData,
+  opsHealth,
   technicianData,
   serviceData,
 }: AnalyticsClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  
-  const requestedRange = searchParams.get('range') as RangeKey | null
-  const selectedRange = rangeOptions.find(r => r.key === requestedRange) || 
-    rangeOptions.find(r => r.key === initialRange) || 
-    rangeOptions[1]
+
+  const requestedRange = searchParams.get('range') as DateRangeKey | null
+  const selectedRange = ADMIN_RANGE_OPTIONS.find(r => r.key === requestedRange) ||
+    ADMIN_RANGE_OPTIONS.find(r => r.key === initialRange) ||
+    ADMIN_RANGE_OPTIONS[2]
 
   // State
-  const [isLoading, setIsLoading] = useState(false)
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const [selectedTechnician, setSelectedTechnician] = useState<TechnicianData | null>(null)
+  const [rangeMenuOpen, setRangeMenuOpen] = useState(false)
+  const rangeMenuRef = useRef<HTMLDivElement | null>(null)
+  const isLoading = isPending
   const rangeQuery = `range=${selectedRange.key}`
-  const formatStatusLabel = (status: string) =>
-    status
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  
+  const isForecastView = pathname.includes('/admin/analytics/forecast')
+
+  useEffect(() => {
+    if (!rangeMenuOpen) return
+
+    const onMouseDown = (event: MouseEvent) => {
+      if (!rangeMenuRef.current || rangeMenuRef.current.contains(event.target as Node)) return
+      setRangeMenuOpen(false)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setRangeMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [rangeMenuOpen])
+
   // Handlers
-  const handleRangeChange = (range: RangeKey) => {
-    setIsLoading(true)
+  const handleRangeChange = (range: DateRangeKey) => {
+    setRangeMenuOpen(false)
     const params = new URLSearchParams(searchParams)
     params.set('range', range)
-    router.push(`${pathname}?${params.toString()}`)
-    setTimeout(() => setIsLoading(false), 500)
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   const handleRefresh = () => {
-    setIsLoading(true)
-    router.refresh()
-    setTimeout(() => setIsLoading(false), 500)
+    startTransition(() => {
+      router.refresh()
+    })
   }
 
   const handleExport = () => {
@@ -127,25 +141,15 @@ export default function AnalyticsClient({
     router.push(`/admin/analytics/revenue?${params.toString()}`)
   }, [router, selectedRange.key])
 
-  const handleStatusClick = (status: string | null) => {
-    setStatusFilter(status)
-    const params = new URLSearchParams()
-    params.set('range', selectedRange.key)
-    if (status) {
-      params.set('status', status === 'en_route' ? 'on_the_way' : status)
-    }
-    router.push(`/admin/analytics/jobs?${params.toString()}`)
-  }
-
   const handleTechnicianClick = (tech: TechnicianData) => {
     setSelectedTechnician(selectedTechnician?.id === tech.id ? null : tech)
   }
 
   // Current date for header
-  const sysTime = new Date().toLocaleDateString('en-US', { 
-    day: '2-digit', 
-    month: 'short', 
-    year: 'numeric' 
+  const sysTime = new Date().toLocaleDateString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
   }).toUpperCase().replace(/,/g, '')
 
   return (
@@ -159,45 +163,97 @@ export default function AnalyticsClient({
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
             Performance Overview - SYS.TIME: {sysTime}
           </p>
+          <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
+            <Link
+              href={`/admin/analytics?${rangeQuery}`}
+              className={`rounded-full px-3 py-1.5 font-mono text-xs transition-colors ${!isForecastView
+                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+            >
+              Overview
+            </Link>
+            <Link
+              href={`/admin/analytics/forecast?${rangeQuery}`}
+              className={`rounded-full px-3 py-1.5 font-mono text-xs transition-colors ${isForecastView
+                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+            >
+              Forecast
+            </Link>
+          </div>
         </div>
-        
+
         <div className="flex flex-wrap items-center gap-2">
           {/* Range Selector */}
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-1">
-            {rangeOptions.map((range) => (
-              <button type="button"
-                key={range.key}
-                onClick={() => handleRangeChange(range.key)}
-                className={`
-                  px-4 py-1.5 rounded-full font-mono text-xs transition-all
-                  ${range.key === selectedRange.key
-                    ? 'bg-cyan-600 dark:bg-cyan-500 text-white'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }
-                `}
+          <div className="relative" ref={rangeMenuRef}>
+            <button
+              type="button"
+              onClick={() => setRangeMenuOpen((prev) => !prev)}
+              aria-haspopup="menu"
+              aria-expanded={rangeMenuOpen}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm transition-colors hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
+            >
+              <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-200">
+                {selectedRange.label}
+              </span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-slate-500 transition-transform dark:text-slate-400 ${rangeMenuOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {rangeMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-30 mt-2 w-40 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
               >
-                {range.shortLabel}
-              </button>
-            ))}
+                {ADMIN_RANGE_OPTIONS.map((range) => {
+                  const active = range.key === selectedRange.key
+                  return (
+                    <button
+                      type="button"
+                      key={range.key}
+                      onClick={() => handleRangeChange(range.key)}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-sans text-xs font-semibold transition-colors ${
+                        active
+                          ? 'bg-cyan-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.3)] dark:bg-cyan-400'
+                          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>{range.label}</span>
+                      {active ? (
+                        <span className="font-mono text-[9px] uppercase tracking-wider">Current</span>
+                      ) : null}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Export Button */}
-          <button type="button"
+          <ActionButton
             onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-mono text-xs text-slate-700 dark:text-slate-300 transition-colors"
+            stylePreset="industrial"
+            intent="secondary"
+            size="md"
+            icon={<Download className="w-3.5 h-3.5" />}
+            className="uppercase tracking-[0.08em]"
           >
-            <Download className="w-3.5 h-3.5" />
             Export
-          </button>
+          </ActionButton>
 
           {/* Refresh Button */}
-          <button type="button"
+          <ActionIconButton
             onClick={handleRefresh}
             disabled={isLoading}
-            className="w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-slate-400 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
+            stylePreset="industrial"
+            intent="secondary"
+            size="md"
+            icon={<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />}
+            className="disabled:opacity-50"
+          />
         </div>
       </div>
 
@@ -216,7 +272,7 @@ export default function AnalyticsClient({
             Live Data
           </span>
         </div>
-        
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block">
             <LiveMetricCard
@@ -266,55 +322,138 @@ export default function AnalyticsClient({
       </div>
 
       {/* Section 2: Revenue Chart */}
-      <RevenueChart 
-        data={revenueData} 
+      <RevenueChart
+        data={revenueData}
         onDataPointClick={handleDataPointClick}
       />
 
-      {/* Section 3 & 4: Two Column Layout */}
+      {/* Section 3: Capacity + On-Time */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Jobs by Status */}
-        <JobsByStatusChart 
-          data={statusData} 
-          onSegmentClick={handleStatusClick}
-        />
-        
-        {/* Top Technicians */}
-        <TopTechniciansChart 
-          data={technicianData} 
-          onTechnicianClick={handleTechnicianClick}
-        />
+        <div className="admin-card p-6 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300">
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg tracking-widest text-slate-900 dark:text-white uppercase flex items-center gap-3">
+                <div className="w-1.5 h-5 rounded-full bg-cyan-500" />
+                Capacity & Utilization
+              </h2>
+              <Briefcase className="w-5 h-5 text-cyan-500 opacity-80" />
+            </div>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              {opsHealth.activeTechnicians} Active Techs • {opsHealth.capacityHours.toFixed(0)} Hrs Base Capacity
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <div className="flex items-end gap-3 mb-3">
+              <span className="font-display text-5xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {opsHealth.capacityUtilizationPct.toFixed(0)}%
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 font-bold">
+                Utilized
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden shadow-inner">
+              <div
+                className={`h-full rounded-full transition-all duration-1000 ${opsHealth.capacityUtilizationPct > 90 ? 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-gradient-to-r from-cyan-400 to-blue-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]'}`}
+                style={{ width: `${Math.max(0, Math.min(100, opsHealth.capacityUtilizationPct))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 grid grid-cols-2 gap-6 pt-5 border-t border-slate-100 dark:border-white/5">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500 font-bold">Demand</p>
+              <p className="font-display text-2xl font-semibold text-slate-900 dark:text-white mt-1">
+                {opsHealth.demandJobs} <span className="text-xs font-sans font-normal text-slate-400">jobs</span>
+              </p>
+              <p className="text-[10px] font-sans text-slate-400 mt-0.5">{opsHealth.scheduledHours.toFixed(0)} total hrs</p>
+            </div>
+            <div className="pl-6 border-l border-slate-100 dark:border-white/5">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-500 font-bold">Unassigned</p>
+              <p className="font-display text-2xl font-semibold text-amber-600 dark:text-amber-400 mt-1">
+                {opsHealth.unassignedJobs} <span className="text-xs font-sans font-normal text-amber-600/60 dark:text-amber-400/60">jobs</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="admin-card p-6 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300">
+          <div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-lg tracking-widest text-slate-900 dark:text-white uppercase flex items-center gap-3">
+                <div className="w-1.5 h-5 rounded-full bg-emerald-500" />
+                On-Time Performance
+              </h2>
+              <CheckCircle2 className="w-5 h-5 text-emerald-500 opacity-80" />
+            </div>
+            <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              Schedule adherence for {opsHealth.activeWindowJobs} active pipeline jobs
+            </p>
+          </div>
+
+          <div className="mt-8">
+            <div className="flex items-end gap-3 mb-3">
+              <span className="font-display text-5xl font-bold text-slate-900 dark:text-white tracking-tight">
+                {opsHealth.onTimeRate.toFixed(0)}%
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2 font-bold">
+                On Track
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden shadow-inner flex">
+              <div
+                className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)] transition-all duration-1000"
+                style={{ width: `${Math.max(0, Math.min(100, opsHealth.onTimeRate))}%` }}
+              />
+              <div
+                className="h-full bg-amber-500 transition-all duration-1000"
+                style={{ width: `${Math.max(0, Math.min(100, (opsHealth.lateStartJobs / Math.max(1, opsHealth.activeWindowJobs)) * 100))}%` }}
+              />
+              <div
+                className="h-full bg-rose-500 transition-all duration-1000"
+                style={{ width: `${Math.max(0, Math.min(100, (opsHealth.overdueInProgressJobs / Math.max(1, opsHealth.activeWindowJobs)) * 100))}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 flex divide-x divide-slate-100 dark:divide-white/5 pt-5 border-t border-slate-100 dark:border-white/5">
+            <div className="flex-1 pr-4">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-emerald-600 dark:text-emerald-500 font-bold">On Track</p>
+              <p className="font-display text-2xl font-semibold text-emerald-600 dark:text-emerald-400 mt-1">{Math.max(0, opsHealth.activeWindowJobs - opsHealth.lateStartJobs - opsHealth.overdueInProgressJobs)}</p>
+            </div>
+            <div className="flex-1 px-4">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-500 font-bold">Late Start</p>
+              <p className="font-display text-2xl font-semibold text-amber-600 dark:text-amber-400 mt-1">{opsHealth.lateStartJobs}</p>
+            </div>
+            <div className="flex-1 pl-4">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-rose-600 dark:text-rose-500 font-bold">Overdue</p>
+              <p className="font-display text-2xl font-semibold text-rose-600 dark:text-rose-400 mt-1">{opsHealth.overdueInProgressJobs}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Section 4: Technician Performance */}
+      <TopTechniciansChart
+        data={technicianData}
+        onTechnicianClick={handleTechnicianClick}
+      />
+
       {/* Section 5: Service Breakdown */}
-      <ServiceBreakdownTable 
+      <ServiceBreakdownTable
         data={serviceData}
         onRowClick={() => router.push(`/admin/services`)}
         onExport={handleServiceExport}
       />
 
-      {/* Status Filter Indicator */}
-      {statusFilter && (
-        <div className="fixed bottom-4 right-4 bg-cyan-100 dark:bg-cyan-400/20 text-cyan-800 dark:text-cyan-200 px-4 py-2 rounded-lg font-mono text-sm flex items-center gap-2 animate-fade-in-up">
-          <Filter className="w-4 h-4" />
-          Filtered by: {formatStatusLabel(statusFilter)}
-          <button type="button" 
-            onClick={() => handleStatusClick(null)}
-            className="ml-2 hover:text-cyan-600"
-          >
-            x
-          </button>
-        </div>
-      )}
-
       {/* Technician Detail Modal */}
       {selectedTechnician && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedTechnician(null)}
         >
-          <div 
-            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 max-w-md w-full animate-scale-in"
+          <div
+            className="admin-card p-6 max-w-md w-full animate-scale-in"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center gap-4 mb-4">
@@ -328,7 +467,7 @@ export default function AnalyticsClient({
                 </p>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 text-center">
                 <p className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase">Completed Jobs</p>
@@ -346,25 +485,25 @@ export default function AnalyticsClient({
               <p className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase mb-2">Completion Rate</p>
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full transition-all"
-                    style={{ 
-                      width: `${selectedTechnician.totalJobs > 0 
-                        ? (selectedTechnician.completedJobs / selectedTechnician.totalJobs) * 100 
-                        : 0}%` 
+                    style={{
+                      width: `${selectedTechnician.totalJobs > 0
+                        ? (selectedTechnician.completedJobs / selectedTechnician.totalJobs) * 100
+                        : 0}%`
                     }}
                   />
                 </div>
                 <span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {selectedTechnician.totalJobs > 0 
-                    ? Math.round((selectedTechnician.completedJobs / selectedTechnician.totalJobs) * 100) 
+                  {selectedTechnician.totalJobs > 0
+                    ? Math.round((selectedTechnician.completedJobs / selectedTechnician.totalJobs) * 100)
                     : 0}%
                 </span>
               </div>
             </div>
 
             <div className="flex gap-3">
-              <Link 
+              <Link
                 href={`/admin/jobs?view=all&timing=all&technician=${selectedTechnician.id}`}
                 className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-mono text-sm transition-colors text-center"
               >
@@ -383,5 +522,3 @@ export default function AnalyticsClient({
     </div>
   )
 }
-
-

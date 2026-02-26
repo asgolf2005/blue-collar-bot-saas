@@ -7,6 +7,7 @@ type RateLimitAllowed = { allowed: true }
 type RateLimitBlocked = { allowed: false; retryAfter: number }
 
 const rateLimits = new Map<string, RateLimitRecord>()
+const cooldowns = new Map<string, number>()
 
 export function checkRateLimit(
   identifier: string,
@@ -29,5 +30,23 @@ export function checkRateLimit(
   }
 
   record.count += 1
+  return { allowed: true }
+}
+
+export function checkCooldown(
+  identifier: string,
+  cooldownMs: number
+): RateLimitAllowed | RateLimitBlocked {
+  const now = Date.now()
+  const cooldownUntil = cooldowns.get(identifier) || 0
+
+  if (now < cooldownUntil) {
+    return {
+      allowed: false,
+      retryAfter: Math.max(1, Math.ceil((cooldownUntil - now) / 1000)),
+    }
+  }
+
+  cooldowns.set(identifier, now + cooldownMs)
   return { allowed: true }
 }

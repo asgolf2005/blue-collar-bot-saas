@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import {
@@ -83,8 +83,8 @@ export default function JobsByStatusChart({ data, onSegmentClick }: JobsByStatus
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5">
-      <h2 className="font-display text-2xl text-slate-900 dark:text-white tracking-wide mb-4">
+    <div className="admin-card p-5">
+      <h2 className="admin-section-title mb-4">
         JOBS BY STATUS
       </h2>
 
@@ -188,3 +188,5 @@ export default function JobsByStatusChart({ data, onSegmentClick }: JobsByStatus
     </div>
   )
 }
+
+

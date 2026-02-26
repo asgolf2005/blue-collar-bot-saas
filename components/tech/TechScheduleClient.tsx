@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   addDays,
@@ -187,7 +187,15 @@ function JobCard({ job }: { job: TechScheduleJob }) {
   )
 }
 
-function WeekView({ date, jobs }: { date: Date; jobs: TechScheduleJob[] }) {
+function WeekView({
+  date,
+  jobs,
+  onSelectDay,
+}: {
+  date: Date
+  jobs: TechScheduleJob[]
+  onSelectDay: (day: Date) => void
+}) {
   const weekStart = startOfWeek(date, { weekStartsOn: 1 })
   const weekEnd = endOfWeek(date, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd })
@@ -210,9 +218,13 @@ function WeekView({ date, jobs }: { date: Date; jobs: TechScheduleJob[] }) {
                 <p className="text-[11px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   {format(day, 'EEEE')}
                 </p>
-                <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                <button
+                  type="button"
+                  onClick={() => onSelectDay(day)}
+                  className="text-base font-semibold text-slate-900 transition-colors hover:text-cyan-600 dark:text-slate-100 dark:hover:text-cyan-300"
+                >
                   {format(day, 'MMM d')}
-                </p>
+                </button>
               </div>
               <span className="text-xs font-mono rounded-full px-2.5 py-1 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 {dayJobs.length} {dayJobs.length === 1 ? 'job' : 'jobs'}
@@ -239,7 +251,15 @@ function WeekView({ date, jobs }: { date: Date; jobs: TechScheduleJob[] }) {
   )
 }
 
-function MonthView({ date, jobs }: { date: Date; jobs: TechScheduleJob[] }) {
+function MonthView({
+  date,
+  jobs,
+  onSelectDay,
+}: {
+  date: Date
+  jobs: TechScheduleJob[]
+  onSelectDay: (day: Date) => void
+}) {
   const monthStart = startOfMonth(date)
   const monthEnd = endOfMonth(date)
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -268,9 +288,16 @@ function MonthView({ date, jobs }: { date: Date; jobs: TechScheduleJob[] }) {
               )}
             >
               <div className="flex items-center justify-between">
-                <span className={cx('text-xs font-mono tabular-nums', isCurrentMonth ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500')}>
+                <button
+                  type="button"
+                  onClick={() => onSelectDay(day)}
+                  className={cx(
+                    'text-xs font-mono tabular-nums transition-colors hover:text-cyan-600 dark:hover:text-cyan-300',
+                    isCurrentMonth ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'
+                  )}
+                >
                   {format(day, 'd')}
-                </span>
+                </button>
                 {dayJobs.length > 0 ? (
                   <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{dayJobs.length}</span>
                 ) : null}
@@ -317,6 +344,7 @@ export default function TechScheduleClient({
   const today = useMemo(() => new Date(todayIso), [todayIso])
   const [view, setView] = useState<ScheduleView>('week')
   const [currentDate, setCurrentDate] = useState<Date>(today)
+  const [jumpDate, setJumpDate] = useState<string>(format(today, 'yyyy-MM-dd'))
 
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -325,6 +353,10 @@ export default function TechScheduleClient({
   const [dateToFilter, setDateToFilter] = useState<string>('')
   const [timeFromFilter, setTimeFromFilter] = useState<string>('')
   const [timeToFilter, setTimeToFilter] = useState<string>('')
+
+  useEffect(() => {
+    setJumpDate(format(currentDate, 'yyyy-MM-dd'))
+  }, [currentDate])
 
   const serviceOptions = useMemo(() => {
     const set = new Set<string>()
@@ -432,6 +464,18 @@ export default function TechScheduleClient({
   const goToday = () => setCurrentDate(today)
   const goPrev = () => setCurrentDate((d) => (view === 'day' ? subDays(d, 1) : view === 'week' ? subWeeks(d, 1) : subMonths(d, 1)))
   const goNext = () => setCurrentDate((d) => (view === 'day' ? addDays(d, 1) : view === 'week' ? addWeeks(d, 1) : addMonths(d, 1)))
+  const openDay = (day: Date) => {
+    setCurrentDate(day)
+    setJumpDate(format(day, 'yyyy-MM-dd'))
+    setView('day')
+  }
+
+  const applyJumpDate = () => {
+    if (!jumpDate) return
+    const parsed = new Date(`${jumpDate}T00:00:00`)
+    if (Number.isNaN(parsed.getTime())) return
+    openDay(parsed)
+  }
 
   return (
     <div className="space-y-4">
@@ -441,8 +485,8 @@ export default function TechScheduleClient({
         <div className="relative z-20 flex flex-col gap-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 tracking-tight">Schedule</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <h1 className="font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-slate-100">Schedule</h1>
+              <p className="mt-0.5 font-sans text-xs text-slate-500 dark:text-slate-400">
                 {activeFiltersCount
                   ? `${filteredJobs.length} jobs shown - ${totalHours}h`
                   : `${filteredJobs.length} jobs - ${totalHours}h`}
@@ -453,7 +497,7 @@ export default function TechScheduleClient({
               <button
                 type="button"
                 onClick={goToday}
-                className="inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/80 px-3 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-800/60"
               >
                 Today
               </button>
@@ -472,12 +516,12 @@ export default function TechScheduleClient({
 
               <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
                 {(['day', 'week', 'month'] as const).map((v, index) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    className={cx(
-                      'h-8 rounded-none px-3 text-xs font-medium capitalize transition-colors',
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className={cx(
+                      'h-8 rounded-none px-3 font-sans text-xs font-semibold uppercase tracking-[0.1em] transition-colors',
                       index === 0 && 'rounded-l-full',
                       index === 2 && 'rounded-r-full',
                       index > 0 && 'border-l border-slate-100 dark:border-slate-800',
@@ -491,7 +535,23 @@ export default function TechScheduleClient({
                 ))}
               </div>
 
-              <Link href="/tech/today" className="inline-flex items-center justify-center rounded-full px-3 py-2 text-xs font-medium bg-cyan-600 dark:bg-cyan-500 text-white hover:bg-cyan-700 dark:hover:bg-cyan-400 transition-colors">
+              <div className="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-2 py-1 dark:border-slate-700 dark:bg-slate-900/80 md:inline-flex">
+                <input
+                  type="date"
+                  value={jumpDate}
+                  onChange={(e) => setJumpDate(e.target.value)}
+                  className="rounded-full border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-700 outline-none focus:border-cyan-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                />
+                <button
+                  type="button"
+                  onClick={applyJumpDate}
+                  className="rounded-full bg-cyan-500 px-2.5 py-1 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-950 hover:bg-cyan-400"
+                >
+                  Jump
+                </button>
+              </div>
+
+              <Link href="/tech/today" className="inline-flex items-center justify-center rounded-full bg-cyan-600 px-3 py-2 font-sans text-xs font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-400">
                 Dispatch
               </Link>
             </div>
@@ -609,9 +669,9 @@ export default function TechScheduleClient({
             <div className="space-y-3">
               <div className="relative z-0 bg-white/90 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-[0_16px_36px_-28px_rgba(30,41,59,0.45)] backdrop-blur-sm">
                 {view === 'month' ? (
-                  <MonthView date={currentDate} jobs={filteredJobs} />
+                  <MonthView date={currentDate} jobs={filteredJobs} onSelectDay={openDay} />
                 ) : view === 'week' ? (
-                  <WeekView date={currentDate} jobs={filteredJobs} />
+                  <WeekView date={currentDate} jobs={filteredJobs} onSelectDay={openDay} />
                 ) : (
                   <div className="p-4 space-y-3">
                     {filteredJobs.length === 0 ? (

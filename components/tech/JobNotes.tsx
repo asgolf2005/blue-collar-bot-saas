@@ -220,6 +220,7 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
             <div className="flex items-end gap-1">
               <textarea
                 ref={textareaRef}
+                data-test="note-input"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 placeholder="Add a note about this job..."
@@ -238,6 +239,7 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
               <div className="mb-1 flex shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-slate-100/90 p-1 dark:border-slate-700 dark:bg-slate-800/90">
                 <button
                   type="button"
+                  data-test="add-note"
                   onPointerDown={(event) => {
                     event.preventDefault()
                     ignoreClickRef.current = true
@@ -273,6 +275,7 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
 
                 <button
                   type="button"
+                  data-test="save-note"
                   onClick={() => void handleSubmitNote()}
                   disabled={!canSubmit}
                   className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white transition-colors hover:bg-slate-800 disabled:opacity-45 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"

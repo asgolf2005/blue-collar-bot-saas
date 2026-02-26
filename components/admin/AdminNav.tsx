@@ -2,9 +2,10 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Calendar,
@@ -20,7 +21,7 @@ import {
   HardHat,
   Sun,
   Moon,
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -47,12 +48,13 @@ interface AdminNavProps {
   userAvatar?: string
 }
 
-export default function AdminNav({ 
-  userName, 
+export default function AdminNav({
+  userName,
   userRole = 'ADMINISTRATOR',
-  userAvatar 
+  userAvatar
 }: AdminNavProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const supabase = createClient()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isDark, setIsDark] = useState(() => {
@@ -60,7 +62,9 @@ export default function AdminNav({
     const savedTheme = localStorage.getItem('theme')
     return savedTheme ? savedTheme === 'dark' : true
   })
-  const [isExpanded, setIsExpanded] = useState(false)
+
+  // Controls the expanded state of the floating dock
+  const [isHovered, setIsHovered] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
@@ -73,472 +77,234 @@ export default function AdminNav({
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = '/login'
+    router.replace('/login')
   }
 
   return (
     <>
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-20">
+      {/* Mobile Header (Simplified for 2026 aesthetics) */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 p-4 pointer-events-none">
         <div className={cn(
-          "mx-4 mt-4 p-4 rounded-xl border-r transition-colors duration-300",
-          isDark 
-            ? "bg-[#0a0e1a] border-[rgba(34,211,238,0.2)]" 
-            : "bg-white border-gray-200 shadow-lg"
+          "pointer-events-auto flex items-center justify-between p-3 rounded-2xl backdrop-blur-2xl border transition-colors duration-500 shadow-2xl",
+          isDark
+            ? "bg-[#030712]/60 border-indigo-500/20 shadow-indigo-500/10"
+            : "bg-white/60 border-slate-200/50 shadow-slate-200/50"
         )}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "relative w-10 h-10 rounded-lg flex items-center justify-center",
-                isDark 
-                  ? "bg-gradient-to-br from-blue-500 to-cyan-400"
-                  : "bg-gradient-to-br from-blue-600 to-blue-800"
-              )}>
-                <HardHat className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className={cn(
-                  "text-xl tracking-wider font-display",
-                  isDark ? "text-white" : "text-gray-900"
-                )}>
-                  BLUE COLLAR
-                </div>
-                <div className={cn(
-                  "text-[10px] font-mono tracking-[0.3em]",
-                  isDark ? "text-cyan-400" : "text-blue-600"
-                )}>
-                  BOT v2.0
-                </div>
-              </div>
+          <div className="flex items-center gap-3 pl-2">
+            <div className={cn(
+              "w-8 h-8 rounded-xl flex items-center justify-center",
+              isDark ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"
+            )}>
+              <HardHat className="w-4 h-4" />
             </div>
-            <div className="flex items-center gap-2">
-              <button type="button"
-                onClick={toggleTheme}
-                className={cn(
-                  "w-10 h-10 flex items-center justify-center rounded-lg transition-colors",
-                  isDark 
-                    ? "text-gray-400 hover:text-white hover:bg-white/10"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                )}
-              >
-                {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button type="button"
-                onClick={() => setMobileOpen(!mobileOpen)}
-                className={cn(
-                  "w-10 h-10 flex items-center justify-center rounded-lg transition-colors",
-                  isDark 
-                    ? "text-gray-400 hover:text-white"
-                    : "text-gray-600 hover:text-gray-900"
-                )}
-                style={{
-                  backgroundColor: mobileOpen 
-                    ? (isDark ? 'rgba(34, 211, 238, 0.1)' : 'rgba(59, 130, 246, 0.1)')
-                    : 'transparent',
-                }}
-              >
-                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
+            <div className="font-display font-bold tracking-wider text-sm">
+              BCB<span className="text-indigo-500">2.0</span>
             </div>
           </div>
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </header>
 
       {/* Mobile Menu Overlay */}
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Desktop Sidebar - Hover Expand */}
-      <aside
-        className={cn(
-          'group hidden lg:flex flex-col fixed left-0 top-0 bottom-0 z-50',
-          'transition-all duration-300 ease-out',
-          'overflow-hidden',
-          isExpanded ? 'w-[280px]' : 'w-[72px]'
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="lg:hidden fixed inset-0 z-40 bg-slate-50 dark:bg-[#030712] pt-24 px-4 pb-8 overflow-y-auto block"
+          >
+            <div className="flex flex-col gap-2">
+              {navItems.map((item) => {
+                const isActive = pathname.startsWith(item.href)
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      'flex items-center gap-4 px-4 py-4 rounded-2xl transition-all',
+                      isActive
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
+                    )}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </motion.div>
         )}
-        onMouseEnter={() => setIsExpanded(true)}
-        onMouseLeave={() => setIsExpanded(false)}
+      </AnimatePresence>
+
+      {/* Desktop Spatial Nav (Floating Pill Sidebar) */}
+      <motion.nav
+        className="hidden lg:flex flex-col fixed left-6 top-8 bottom-8 z-50 rounded-[2rem] border backdrop-blur-3xl overflow-hidden shadow-2xl"
+        initial={{ width: 80 }}
+        animate={{ width: isHovered ? 260 : 80 }}
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
         style={{
-          backgroundColor: isDark ? '#0a0e1a' : '#ffffff',
-          borderRight: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.1)' : 'rgba(0,0,0,0.1)'}`,
+          backgroundColor: isDark ? 'rgba(10, 15, 30, 0.4)' : 'rgba(255, 255, 255, 0.6)',
+          borderColor: isDark ? 'rgba(99, 102, 241, 0.15)' : 'rgba(203, 213, 225, 0.5)',
+          boxShadow: isDark ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 255, 255, 0.05)' : undefined
         }}
       >
-        {/* Logo Area */}
-        <div 
-          className="h-[80px] flex items-center px-4 shrink-0"
-          style={{ borderBottom: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.1)' : 'rgba(0,0,0,0.1)'}` }}
-        >
-          {/* Logo Icon - Always Visible */}
-          <div className={cn(
-            "relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300",
-            isExpanded ? "opacity-0 w-0 scale-75" : "opacity-100"
-          )}>
-            <div className={cn(
-              "absolute inset-0 rounded-xl",
-              isDark 
-                ? "bg-gradient-to-br from-blue-500 to-cyan-400"
-                : "bg-gradient-to-br from-blue-600 to-blue-800"
-            )} />
-            <HardHat className="w-5 h-5 text-white relative z-10" />
-          </div>
+        {/* Glow behind the pill in dark mode */}
+        {isDark && (
+          <div className="absolute inset-0 z-0 bg-gradient-to-b from-indigo-500/10 via-transparent to-cyan-500/10 pointer-events-none" />
+        )}
 
-          {/* Expanded Logo - Full Brand */}
-          <div className={cn(
-            "flex items-center gap-3 transition-all duration-300 absolute left-4",
-            isExpanded ? "opacity-100" : "opacity-0 w-0 overflow-hidden"
-          )}>
+        <div className="relative z-10 flex flex-col h-full py-6">
+
+          {/* Brand/Logo Area */}
+          <div className="mb-8 px-5 flex items-center gap-4 shrink-0 overflow-hidden">
             <div className={cn(
-              "relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-              isDark 
-                ? "bg-gradient-to-br from-blue-500 to-cyan-400"
-                : "bg-gradient-to-br from-blue-600 to-blue-800"
+              "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-transform",
+              isDark ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]" : "bg-indigo-600 text-white shadow-lg"
             )}>
-              <HardHat className="w-5 h-5 text-white relative z-10" />
+              <HardHat className="w-5 h-5" />
             </div>
-            <div className="overflow-hidden whitespace-nowrap">
-              <div className={cn(
-                "text-xl tracking-wider font-display",
-                isDark ? "text-white" : "text-gray-900"
-              )}>
+            <motion.div
+              className="flex-col whitespace-nowrap"
+              animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="font-display font-bold tracking-wider text-sm text-slate-900 dark:text-white">
                 BLUE COLLAR
               </div>
-              <div className={cn(
-                "text-[10px] font-mono tracking-[0.3em]",
-                isDark ? "text-cyan-400" : "text-blue-600"
-              )}>
-                BOT v2.0
+              <div className="text-[10px] font-mono tracking-widest text-indigo-500 dark:text-indigo-400">
+                BOT OS v2.0
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
-          {navItems.map((item, index) => {
-            const isActive = pathname.startsWith(item.href)
-            const Icon = item.icon
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-3 rounded-lg font-mono text-sm tracking-wide',
-                  'transition-all duration-200 relative',
-                  'border-l-2',
-                  isActive 
-                    ? (isDark ? 'text-cyan-400 border-cyan-400' : 'text-blue-600 border-blue-600')
-                    : (isDark 
-                        ? 'text-gray-400 border-transparent hover:text-white hover:border-cyan-400/50' 
-                        : 'text-gray-600 border-transparent hover:text-gray-900 hover:border-blue-400/50')
-                )}
-                style={{
-                  backgroundColor: isActive 
-                    ? (isDark ? 'rgba(34, 211, 238, 0.08)' : 'rgba(59, 130, 246, 0.08)')
-                    : 'transparent',
-                  animation: `slideInLeft 0.4s ease-out ${index * 50}ms both`,
-                }}
-              >
-                {/* Icon */}
-                <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                  <Icon 
-                    className={cn(
-                      'w-5 h-5 transition-all duration-200',
-                      isActive 
-                        ? (isDark ? 'text-cyan-400' : 'text-blue-600')
-                        : ''
-                    )} 
-                  />
-                </div>
-                
-                {/* Label - Shows when expanded */}
-                <span className={cn(
-                  "whitespace-nowrap transition-all duration-200",
-                  isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
-                )}>
-                  {item.label}
-                </span>
+          {/* Scrollable Content Container */}
+          <div className="flex-1 flex flex-col overflow-y-auto no-scrollbar">
+            {/* Nav Links */}
+            <div className="px-3 space-y-2 shrink-0">
+              {navItems.map((item) => {
+                const isActive = pathname.startsWith(item.href)
+                const Icon = item.icon
 
-                {/* Active Indicator */}
-                {isActive && isExpanded && (
-                  <div className={cn(
-                    "absolute right-3 w-1.5 h-1.5 rounded-full animate-pulse",
-                    isDark ? "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" : "bg-blue-600"
-                  )} />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="relative flex items-center gap-4 px-3 py-3 rounded-2xl group"
+                  >
+                    {/* Active Background Pill */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeNavPill"
+                        className={cn(
+                          "absolute inset-0 rounded-2xl z-0",
+                          isDark ? "bg-indigo-500/20 border border-indigo-500/30" : "bg-indigo-50"
+                        )}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
 
-        {/* Theme Toggle & User Section */}
-        <div 
-          className="shrink-0 p-2"
-          style={{ borderTop: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.1)' : 'rgba(0,0,0,0.1)'}` }}
-        >
-          {/* Theme Toggle */}
-          <button type="button"
-            onClick={toggleTheme}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-sm transition-all duration-200",
-              isDark 
-                ? "text-gray-400 hover:text-white hover:bg-white/5"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-            )}
-          >
-            <div className="w-6 h-6 flex items-center justify-center shrink-0">
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    {/* Hover Indicator Line */}
+                    <div className={cn(
+                      "absolute left-0 top-1/2 -translate-y-1/2 w-1 h-0 rounded-r-md transition-all duration-300 z-10",
+                      isDark ? "bg-cyan-400" : "bg-indigo-600",
+                      !isActive && "group-hover:h-1/2"
+                    )} />
+
+                    <div className="relative z-10 w-6 h-6 flex items-center justify-center shrink-0">
+                      <Icon className={cn(
+                        "w-5 h-5 transition-colors",
+                        isActive
+                          ? (isDark ? "text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" : "text-indigo-600")
+                          : "text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
+                      )} />
+                    </div>
+
+                    <motion.span
+                      className={cn(
+                        "relative z-10 whitespace-nowrap font-medium text-sm transition-colors",
+                        isActive ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
+                      )}
+                      animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {item.label}
+                    </motion.span>
+                  </Link>
+                )
+              })}
             </div>
-            <span className={cn(
-              "whitespace-nowrap transition-all duration-200",
-              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
-            )}>
-              {isDark ? 'LIGHT MODE' : 'DARK MODE'}
-            </span>
-          </button>
 
-          {/* User Info */}
-          <div className="flex items-center gap-3 px-2 py-2 mt-1">
-            {/* Avatar */}
-            <div className="shrink-0">
-              {userAvatar ? (
-                <Image
-                  src={userAvatar} 
-                  alt={userName}
-                  width={36}
-                  height={36}
-                  unoptimized
-                  className={cn(
-                    "w-9 h-9 rounded-full object-cover border",
-                    isDark ? "border-cyan-400/30" : "border-blue-400/30"
-                  )}
-                />
-              ) : (
-                <div className={cn(
-                  "w-9 h-9 rounded-full flex items-center justify-center text-white font-mono font-bold text-sm border",
-                  isDark 
-                    ? "bg-gradient-to-br from-blue-600 to-blue-800 border-blue-400/30"
-                    : "bg-gradient-to-br from-blue-500 to-blue-700 border-blue-400/30"
-                )}>
+            <div className="flex-1 min-h-[1rem]" />
+
+            {/* Footer Controls */}
+            <div className="mt-4 px-3 space-y-2 shrink-0 pb-2">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="w-full relative flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group"
+              >
+                <div className="w-6 h-6 flex items-center justify-center shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                  {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </div>
+                <motion.span
+                  className="whitespace-nowrap font-medium text-sm text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
+                  animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isDark ? 'Light Mode' : 'Dark Mode'}
+                </motion.span>
+              </button>
+
+              {/* Logout */}
+              <button
+                onClick={handleLogout}
+                className="w-full relative flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors group"
+              >
+                <div className="w-6 h-6 flex items-center justify-center shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                  <LogOut className="w-5 h-5" />
+                </div>
+                <motion.span
+                  className="whitespace-nowrap font-medium text-sm text-slate-500 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors"
+                  animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  Sign Out
+                </motion.span>
+              </button>
+
+              {/* User Profile */}
+              <div className="mt-4 pt-4 border-t border-slate-200 dark:border-white/10 flex items-center gap-3 px-2 overflow-hidden">
+                <div className="w-10 h-10 rounded-full shrink-0 bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center text-white font-bold text-sm shadow-inner">
                   {userName?.charAt(0).toUpperCase() || 'A'}
                 </div>
-              )}
-            </div>
-            
-            {/* User Name & Role */}
-            <div className={cn(
-              "whitespace-nowrap transition-all duration-200",
-              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
-            )}>
-              <div className={cn(
-                "text-sm font-mono truncate",
-                isDark ? "text-white" : "text-gray-900"
-              )}>
-                {userName}
-              </div>
-              <div className={cn(
-                "text-[10px] font-mono",
-                isDark ? "text-gray-500" : "text-gray-400"
-              )}>
-                {userRole.toUpperCase()}
-              </div>
-            </div>
-          </div>
-          
-          {/* Logout Button */}
-          <button type="button"
-            onClick={handleLogout}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-sm transition-all duration-200",
-              isDark 
-                ? "text-gray-400 hover:text-red-400 hover:bg-red-400/10"
-                : "text-gray-600 hover:text-red-600 hover:bg-red-50"
-            )}
-          >
-            <div className="w-6 h-6 flex items-center justify-center shrink-0">
-              <LogOut className="w-4 h-4" />
-            </div>
-            <span className={cn(
-              "whitespace-nowrap transition-all duration-200",
-              isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
-            )}>
-              LOGOUT
-            </span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Mobile Sidebar - Slide Out Drawer */}
-      <aside
-        className={cn(
-          'lg:hidden fixed z-50 flex flex-col',
-          'w-[280px] left-0 top-0 bottom-0',
-          'transition-transform duration-300 ease-out',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-        style={{
-          backgroundColor: isDark ? '#0a0e1a' : '#ffffff',
-          borderRight: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.15)' : 'rgba(0,0,0,0.1)'}`,
-        }}
-      >
-        {/* Logo Area */}
-        <div 
-          className="h-[80px] flex items-center px-6 shrink-0"
-          style={{ borderBottom: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.15)' : 'rgba(0,0,0,0.1)'}` }}
-        >
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "relative w-10 h-10 rounded-xl flex items-center justify-center",
-              isDark 
-                ? "bg-gradient-to-br from-blue-500 to-cyan-400"
-                : "bg-gradient-to-br from-blue-600 to-blue-800"
-            )}>
-              <HardHat className="w-5 h-5 text-white relative z-10" />
-            </div>
-            <div>
-              <div className={cn(
-                "text-xl tracking-wider font-display",
-                isDark ? "text-white" : "text-gray-900"
-              )}>
-                BLUE COLLAR
-              </div>
-              <div className={cn(
-                "text-[10px] font-mono tracking-[0.3em]",
-                isDark ? "text-cyan-400" : "text-blue-600"
-              )}>
-                BOT v2.0
+                <motion.div
+                  className="flex-col whitespace-nowrap"
+                  animate={{ opacity: isHovered ? 1 : 0, x: isHovered ? 0 : -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="font-medium text-sm text-slate-900 dark:text-white truncate max-w-[140px]">
+                    {userName}
+                  </div>
+                  <div className="text-[10px] tracking-wider font-mono text-slate-500 dark:text-slate-400 uppercase">
+                    {userRole}
+                  </div>
+                </motion.div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-              {navItems.map((item, index) => {
-            const isActive = pathname.startsWith(item.href)
-            const Icon = item.icon
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  'flex items-center gap-4 px-4 py-3 rounded-lg font-mono text-sm tracking-wide',
-                  'transition-all duration-200',
-                  'border-l-2',
-                  isActive 
-                    ? (isDark ? 'text-cyan-400 border-cyan-400' : 'text-blue-600 border-blue-600')
-                    : (isDark 
-                        ? 'text-gray-400 border-transparent hover:text-white'
-                        : 'text-gray-600 border-transparent hover:text-gray-900')
-                )}
-                style={{
-                  backgroundColor: isActive 
-                    ? (isDark ? 'rgba(34, 211, 238, 0.08)' : 'rgba(59, 130, 246, 0.08)')
-                    : 'transparent',
-                  animation: `slideInLeft 0.4s ease-out ${index * 50}ms both`,
-                }}
-              >
-                <Icon 
-                  className={cn(
-                    'w-5 h-5',
-                    isActive 
-                      ? (isDark ? 'text-cyan-400' : 'text-blue-600')
-                      : ''
-                  )} 
-                />
-                <span className="whitespace-nowrap">{item.label}</span>
-                {isActive && (
-                  <div className={cn(
-                    "ml-auto w-1.5 h-1.5 rounded-full animate-pulse",
-                    isDark ? "bg-cyan-400" : "bg-blue-600"
-                  )} />
-                )}
-              </Link>
-            )
-          })}
-          
-          {/* Theme Toggle in Mobile Menu */}
-          <button type="button"
-            onClick={toggleTheme}
-            className={cn(
-              "w-full flex items-center gap-4 px-4 py-3 rounded-lg font-mono text-sm tracking-wide transition-all duration-200",
-              isDark 
-                ? "text-gray-400 hover:text-white"
-                : "text-gray-600 hover:text-gray-900"
-            )}
-          >
-            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            <span className="whitespace-nowrap">
-              {isDark ? 'LIGHT MODE' : 'DARK MODE'}
-            </span>
-          </button>
-        </nav>
-
-        {/* User Profile Section */}
-        <div 
-          className="shrink-0 p-4"
-          style={{ borderTop: `1px solid ${isDark ? 'rgba(34, 211, 238, 0.15)' : 'rgba(0,0,0,0.1)'}` }}
-        >
-          <div className="flex items-center gap-3 mb-3 px-2">
-            {userAvatar ? (
-              <Image
-                src={userAvatar} 
-                alt={userName}
-                width={40}
-                height={40}
-                unoptimized
-                className={cn(
-                  "w-10 h-10 rounded-full object-cover border",
-                  isDark ? "border-cyan-400/30" : "border-blue-400/30"
-                )}
-              />
-            ) : (
-              <div className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center text-white font-mono font-bold text-sm border",
-                isDark 
-                  ? "bg-gradient-to-br from-blue-600 to-blue-800 border-blue-400/30"
-                  : "bg-gradient-to-br from-blue-500 to-blue-700 border-blue-400/30"
-              )}>
-                {userName?.charAt(0).toUpperCase() || 'A'}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <div className={cn(
-                "text-sm font-mono truncate",
-                isDark ? "text-white" : "text-gray-900"
-              )}>
-                {userName}
-              </div>
-              <div className={cn(
-                "text-xs font-mono",
-                isDark ? "text-gray-500" : "text-gray-400"
-              )}>
-                {userRole.toUpperCase()}
-              </div>
-            </div>
-          </div>
-          
-          <button type="button"
-            onClick={handleLogout}
-            className={cn(
-              "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-mono text-sm transition-all duration-200",
-              isDark 
-                ? "text-gray-400 hover:text-red-400 hover:bg-red-400/10"
-                : "text-gray-600 hover:text-red-600 hover:bg-red-50"
-            )}
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="whitespace-nowrap">LOGOUT</span>
-          </button>
-        </div>
-      </aside>
+      </motion.nav>
     </>
   )
 }
-

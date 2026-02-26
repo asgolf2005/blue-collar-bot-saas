@@ -2,12 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import type { JobWithDetails } from '@/lib/types'
-
-const ranges = [
-  { key: '7d', label: '7D', days: 7 },
-  { key: '30d', label: '30D', days: 30 },
-  { key: '90d', label: '90D', days: 90 },
-] as const
+import { ADMIN_RANGE_OPTIONS, getRangeLookbackDays, type DateRangeKey } from '@/lib/analytics/dateUtils'
+import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
 
 export default function TechnicianCoverageCard({
   jobs,
@@ -16,14 +12,18 @@ export default function TechnicianCoverageCard({
   jobs: JobWithDetails[]
   technicians: Array<{ id: string; full_name: string | null }>
 }) {
-  const [rangeKey, setRangeKey] = useState<(typeof ranges)[number]['key']>('30d')
-  const activeRange = ranges.find((item) => item.key === rangeKey) || ranges[1]
+  const [rangeKey, setRangeKey] = useState<DateRangeKey>('30d')
+  const activeRange = ADMIN_RANGE_OPTIONS.find((item) => item.key === rangeKey) || ADMIN_RANGE_OPTIONS[2]
 
   const { filteredJobs, techCounts } = useMemo(() => {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - activeRange.days)
-
-    const inRange = jobs.filter((job) => job.scheduled_start && new Date(job.scheduled_start) >= cutoff)
+    const inRange =
+      activeRange.key === 'all'
+        ? jobs
+        : (() => {
+            const cutoff = new Date()
+            cutoff.setDate(cutoff.getDate() - getRangeLookbackDays(activeRange.key))
+            return jobs.filter((job) => job.scheduled_start && new Date(job.scheduled_start) >= cutoff)
+          })()
     const counts = new Map<string, number>()
 
     inRange.forEach((job) => {
@@ -32,7 +32,7 @@ export default function TechnicianCoverageCard({
     })
 
     return { filteredJobs: inRange, techCounts: counts }
-  }, [activeRange.days, jobs])
+  }, [activeRange.key, jobs])
 
   const coverageList = useMemo(() => {
     return [...technicians]
@@ -53,19 +53,16 @@ export default function TechnicianCoverageCard({
         <div>
           <h2 className="text-xl font-semibold text-ink">Technician Coverage</h2>
           <p className="text-sm text-muted">
-            {filteredJobs.length} total jobs • {unassigned} unassigned
+            {filteredJobs.length} total jobs - {unassigned} unassigned
           </p>
         </div>
-        <div className="flex rounded-full border-2 border-surface-200 bg-surface-50 p-1">
-          {ranges.map((item) => (
-            <button type="button"
+        <div className={ADMIN_RANGE_TRACK_CLASS}>
+          {ADMIN_RANGE_OPTIONS.map((item) => (
+            <button
+              type="button"
               key={item.key}
               onClick={() => setRangeKey(item.key)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${
-                item.key === rangeKey
-                  ? 'bg-white text-ink shadow-sm'
-                  : 'text-muted hover:text-ink'
-              }`}
+              className={adminRangeItemClass(item.key === rangeKey)}
             >
               {item.label}
             </button>

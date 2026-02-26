@@ -1,12 +1,16 @@
-﻿import { createClient } from '@/lib/supabase/server'
-import { redirect, notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar } from '@/components/ui/lucide'
 import { format } from 'date-fns'
+import type { ReactNode } from 'react'
+import { ArrowLeft, Briefcase, Mail, MapPin, Phone } from '@/components/ui/lucide'
 
-export default async function TechCustomerPage({ params }: { params: { id: string } }) {
+export default async function TechCustomerPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect('/login')
@@ -25,164 +29,199 @@ export default async function TechCustomerPage({ params }: { params: { id: strin
   const { data: customer, error } = await supabase
     .from('customers')
     .select('id, name, email, phone, address, created_at')
-    .eq('id', params.id)
+    .eq('id', id)
     .single()
 
   if (error || !customer) {
     notFound()
   }
 
-  const { data: jobs } = await supabase
+  const { data: jobsData } = await supabase
     .from('jobs')
-    .select('id, description, status, scheduled_start, scheduled_end')
+    .select('id, description, status, scheduled_start, scheduled_end, total_cost')
     .eq('customer_id', customer.id)
     .eq('technician_id', user.id)
     .order('scheduled_start', { ascending: false })
 
-  const totalJobs = jobs?.length || 0
-  const completedJobs = jobs?.filter(j => j.status === 'completed').length || 0
-  const upcomingJobs = jobs?.filter(j => j.scheduled_start && new Date(j.scheduled_start) > new Date()).length || 0
+  const jobs = jobsData || []
 
-  const statusColors: Record<string, string> = {
-    scheduled: 'bg-primary/10 text-primary border border-primary/20',
-    on_the_way: 'bg-warning/10 text-warning border border-warning/20',
-    arrived: 'bg-info/10 text-info border border-info/20',
-    in_progress: 'bg-warning/10 text-warning border border-warning/20',
-    completed: 'bg-success/10 text-success border border-success/20',
-    cancelled: 'bg-danger/10 text-danger border border-danger/20',
-  }
+  const totalJobs = jobs.length
+  const completedJobs = jobs.filter((job) => job.status === 'completed').length
+  const upcomingJobs = jobs.filter((job) => job.scheduled_start && new Date(job.scheduled_start) > new Date()).length
+  const completedRevenue = jobs
+    .filter((job) => job.status === 'completed')
+    .reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link
-          href="/tech/today"
-          className="p-2 hover:bg-surface-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 text-surface-600" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{customer.name}</h1>
-          <p className="text-surface-500 text-sm">
-            Customer since {format(new Date(customer.created_at), 'MMMM dd, yyyy')}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.16),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.2),transparent_42%)]" />
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <Link
+              href="/tech/today"
+              className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.14em] text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to queue
+            </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="card">
-          <div className="flex items-center justify-between">
+            <h1 className="mt-2 font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-white">
+              {customer.name}
+            </h1>
+            <p className="mt-1 font-sans text-sm text-slate-600 dark:text-slate-300">
+              Customer since {format(new Date(customer.created_at), 'MMMM d, yyyy')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatChip label="Jobs" value={String(totalJobs)} />
+            <StatChip label="Completed" value={String(completedJobs)} />
+            <StatChip label="Upcoming" value={String(upcomingJobs)} />
+            <StatChip label="Revenue" value={`$${completedRevenue.toFixed(0)}`} />
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="font-display text-2xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">Contact</p>
+          <div className="mt-4 space-y-3">
+            <ContactRow icon={<Mail className="h-4 w-4" />} label="Email" value={customer.email || 'No email'} href={customer.email ? `mailto:${customer.email}` : undefined} />
+            <ContactRow icon={<Phone className="h-4 w-4" />} label="Phone" value={customer.phone || 'No phone'} href={customer.phone ? `tel:${customer.phone}` : undefined} />
+            <ContactRow icon={<MapPin className="h-4 w-4" />} label="Address" value={customer.address || 'No address'} />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            {customer.phone ? (
+              <a
+                href={`tel:${customer.phone}`}
+                className="inline-flex items-center justify-center rounded-full bg-cyan-500 px-3 py-2 font-sans text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-400"
+              >
+                Call
+              </a>
+            ) : null}
+            {customer.address ? (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 font-sans text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Route
+              </a>
+            ) : null}
+          </div>
+        </aside>
+
+        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
             <div>
-              <p className="text-sm text-muted">Total Jobs</p>
-              <p className="text-2xl font-bold text-ink">{totalJobs}</p>
+              <p className="font-display text-2xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">Job History</p>
+              <p className="font-sans text-xs text-slate-500 dark:text-slate-400">Assignments you have completed or scheduled for this customer</p>
             </div>
-            <Briefcase className="w-8 h-8 text-primary" />
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              {totalJobs}
+            </span>
           </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted">Completed</p>
-              <p className="text-2xl font-bold text-success">{completedJobs}</p>
+
+          {jobs.length === 0 ? (
+            <div className="p-10 text-center">
+              <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+                <Briefcase className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+              </div>
+              <p className="mt-3 font-sans text-sm text-slate-600 dark:text-slate-300">No technician jobs for this customer yet.</p>
             </div>
-            <Calendar className="w-8 h-8 text-success" />
-          </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted">Upcoming</p>
-              <p className="text-2xl font-bold text-info">{upcomingJobs}</p>
-            </div>
-            <Calendar className="w-8 h-8 text-info" />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="card">
-          <h2 className="text-lg font-semibold text-ink mb-4">Contact Information</h2>
-          <div className="space-y-3">
-            {customer.email && (
-              <div className="flex items-start gap-3">
-                <Mail className="w-5 h-5 text-surface-500 mt-0.5" />
-                <div>
-                  <p className="text-sm text-surface-500">Email</p>
-                  <a href={`mailto:${customer.email}`} className="text-primary hover:text-primary/80">
-                    {customer.email}
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {customer.phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-surface-500 mt-0.5" />
-                <div>
-                  <p className="text-sm text-surface-500">Phone</p>
-                  <a href={`tel:${customer.phone}`} className="text-primary hover:text-primary/80">
-                    {customer.phone}
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {customer.address && (
-              <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-surface-500 mt-0.5" />
-                <div>
-                  <p className="text-sm text-surface-500">Address</p>
-                  <p className="text-ink">{customer.address}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="card lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-ink">Jobs</h2>
-            <span className="text-sm text-muted">{totalJobs} total</span>
-          </div>
-
-          {jobs && jobs.length > 0 ? (
-            <div className="space-y-3">
+          ) : (
+            <div className="space-y-2 p-4">
               {jobs.map((job) => (
                 <Link
                   key={job.id}
                   href={`/tech/jobs/${job.id}`}
-                  className="block p-4 bg-surface-50 hover:bg-surface-100 rounded-lg transition-colors"
+                  className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors hover:border-cyan-300 hover:bg-white dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-cyan-500/35 dark:hover:bg-slate-900"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <p className="font-medium text-ink">{job.description || 'Untitled Job'}</p>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[job.status] || 'bg-surface-200 text-surface-600'}`}>
-                      {job.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-surface-500">
-                    {job.scheduled_start && (
-                      <span>{format(new Date(job.scheduled_start), 'MMM dd, yyyy')}</span>
-                    )}
-                    {job.scheduled_end && (
-                      <span>{format(new Date(job.scheduled_end), 'h:mm a')}</span>
-                    )}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-sans text-sm font-semibold text-slate-800 dark:text-slate-100">
+                        {job.description || 'Service call'}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                        {job.scheduled_start
+                          ? format(new Date(job.scheduled_start), 'EEE, MMM d - h:mm a')
+                          : 'No schedule set'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <StatusPill status={job.status} />
+                      <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                        {job.total_cost ? `$${Number(job.total_cost).toFixed(0)}` : '--'}
+                      </span>
+                    </div>
                   </div>
                 </Link>
               ))}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-surface-100 dark:bg-surface-800 flex items-center justify-center mx-auto mb-4">
-                <Briefcase className="w-8 h-8 text-muted" />
-              </div>
-              <p className="text-ink font-medium mb-1">No jobs yet</p>
-              <p className="text-sm text-muted">Jobs with this customer will appear here</p>
-            </div>
           )}
-        </div>
-      </div>
+        </section>
+      </section>
     </div>
   )
 }
 
+function StatChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/80">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="mt-1 font-mono text-lg font-semibold text-slate-900 dark:text-slate-100">{value}</p>
+    </div>
+  )
+}
 
+function ContactRow({
+  icon,
+  label,
+  value,
+  href,
+}: {
+  icon: ReactNode
+  label: string
+  value: string
+  href?: string
+}) {
+  const content = (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/40">
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
+      <div className="mt-1 flex items-start gap-2">
+        <span className="mt-0.5 text-slate-500 dark:text-slate-300">{icon}</span>
+        <span className="font-sans text-sm text-slate-700 dark:text-slate-200">{value}</span>
+      </div>
+    </div>
+  )
+
+  if (!href) return content
+
+  return (
+    <a href={href} className="block transition-opacity hover:opacity-85">
+      {content}
+    </a>
+  )
+}
+
+function StatusPill({ status }: { status: string }) {
+  const normalized = status.replace(/_/g, ' ')
+  const style =
+    status === 'completed'
+      ? 'border-emerald-300/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+      : status === 'in_progress' || status === 'arrived' || status === 'on_the_way'
+        ? 'border-cyan-300/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
+        : status === 'cancelled'
+          ? 'border-rose-300/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+          : 'border-slate-300/40 bg-slate-500/10 text-slate-700 dark:text-slate-300'
+
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${style}`}>
+      {normalized}
+    </span>
+  )
+}

@@ -31,6 +31,8 @@ export default async function TechNotificationsPage() {
     <NotificationsPageClient
       userId={user.id}
       initialNotifications={notifications || []}
+      variant="tech"
+      title="Field Alerts"
       description="Work updates and reminders from your assignments."
     />
   )

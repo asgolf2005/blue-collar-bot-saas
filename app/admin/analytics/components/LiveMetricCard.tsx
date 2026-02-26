@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { TrendingUp, TrendingDown, Minus, LucideIcon } from '@/components/ui/icons'
+import { TrendingUp, TrendingDown, Minus, LucideIcon } from '@/components/ui/lucide'
 
 interface LiveMetricCardProps {
   label: string
@@ -107,7 +107,7 @@ export default function LiveMetricCard({
   return (
     <div
       className={`
-        rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 
+        admin-card p-5 
         transition-all duration-500 ease-out h-full
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
         hover:shadow-sm
@@ -117,7 +117,7 @@ export default function LiveMetricCard({
         <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
         <Icon className={`w-4 h-4 ${colors.text}`} />
       </div>
-      <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+      <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">
         <AnimatedNumber value={numericValue} prefix={prefix} suffix={suffix} />
       </p>
       <div className={`flex items-center gap-1 mt-1 ${changeColor}`}>
@@ -132,4 +132,5 @@ export default function LiveMetricCard({
     </div>
   )
 }
+
 

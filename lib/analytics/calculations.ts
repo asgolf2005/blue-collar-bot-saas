@@ -10,7 +10,8 @@ import {
   StatusData,
   TechnicianData,
   ServiceData,
-  AnalyticsMetrics
+  AnalyticsMetrics,
+  ForecastData,
 } from './types'
 import { formatDisplayDate, formatSQLDate, generateDateRange, DateRange } from './dateUtils'
 
@@ -195,9 +196,20 @@ export function calculateServiceData(
   const serviceMap = new Map<string, {
     name: string
     icon: string
-    revenue: number
+    totalRevenue: number
     jobs: number
+    completedJobs: number
+    durationHoursTotal: number
+    pricedJobs: number
   }>()
+
+  const estimateDurationHours = (job: JobWithRelations) => {
+    if (!job.scheduled_start || !job.scheduled_end) return 2
+    const startMs = new Date(job.scheduled_start).getTime()
+    const endMs = new Date(job.scheduled_end).getTime()
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return 2
+    return (endMs - startMs) / (1000 * 60 * 60)
+  }
   
   // Build map of job ID to invoice
   const jobInvoiceMap = new Map<string, InvoiceWithRelations>()
@@ -211,7 +223,7 @@ export function calculateServiceData(
   
   // Aggregate by service
   jobs.forEach(job => {
-    if (job.status !== 'completed') return
+    if (job.status === 'cancelled') return
     
     const serviceName = job.service?.name || 'General Service'
     const icon = getServiceIcon(serviceName)
@@ -220,18 +232,29 @@ export function calculateServiceData(
       serviceMap.set(serviceName, {
         name: serviceName,
         icon,
-        revenue: 0,
-        jobs: 0
+        totalRevenue: 0,
+        jobs: 0,
+        completedJobs: 0,
+        durationHoursTotal: 0,
+        pricedJobs: 0,
       })
     }
     
     const service = serviceMap.get(serviceName)!
     service.jobs++
+    service.durationHoursTotal += Math.max(0.25, estimateDurationHours(job))
+    if (job.status === 'completed') {
+      service.completedJobs++
+    }
     
-    // Add revenue from associated paid invoice
+    // Prefer paid invoice totals; fallback to completed job estimate.
     const invoice = jobInvoiceMap.get(job.id)
     if (invoice) {
-      service.revenue += invoice.total || 0
+      service.totalRevenue += invoice.total || 0
+      service.pricedJobs++
+    } else if (job.status === 'completed' && typeof job.total_cost === 'number' && job.total_cost > 0) {
+      service.totalRevenue += job.total_cost
+      service.pricedJobs++
     }
   })
   
@@ -240,13 +263,31 @@ export function calculateServiceData(
       id: `${s.name}-${s.icon}`,
       name: s.name,
       icon: s.icon,
-      revenue: Math.round(s.revenue),
+      revenue: Math.round(s.totalRevenue),
       jobs: s.jobs,
-      avgTicket: s.jobs > 0 ? Math.round(s.revenue / s.jobs) : 0,
-      trend: 0 // Would require historical data
+      avgTicket: s.pricedJobs > 0 ? Math.round(s.totalRevenue / s.pricedJobs) : 0,
+      trend: 0, // Would require historical comparison baseline
+      completedJobs: s.completedJobs,
+      avgDurationHours: s.jobs > 0 ? s.durationHoursTotal / s.jobs : 0,
+      avgPrice: s.pricedJobs > 0 ? Math.round(s.totalRevenue / s.pricedJobs) : 0,
+      totalRevenue: Math.round(s.totalRevenue),
+      revenuePerJob: s.jobs > 0 ? Math.round(s.totalRevenue / s.jobs) : 0,
     }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5)
+    .sort((a, b) => b.totalRevenue - a.totalRevenue || b.jobs - a.jobs)
+}
+
+const DAY_MS = 1000 * 60 * 60 * 24
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function hoursBetween(start: string | null, end: string | null): number {
+  if (!start || !end) return 2
+  const startMs = new Date(start).getTime()
+  const endMs = new Date(end).getTime()
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return 2
+  return (endMs - startMs) / (1000 * 60 * 60)
 }
 
 // ============================================================================
@@ -292,6 +333,131 @@ export function generateDailyRevenueData(
       hours: Math.round(jobsToday.reduce((sum, j) => sum + (j.total_cost || 0), 0) / 100)
     }
   })
+}
+
+// ============================================================================
+// FORECAST CALCULATIONS
+// ============================================================================
+
+export interface ForecastInput {
+  currentJobs: JobWithRelations[]
+  allJobs: JobWithRelations[]
+  currentInvoices: InvoiceWithRelations[]
+  techCount: number
+  rangeStart: Date
+  rangeEnd: Date
+  horizonDays?: number
+  now?: Date
+}
+
+export function calculateForecastData(input: ForecastInput): ForecastData {
+  const {
+    currentJobs,
+    allJobs,
+    currentInvoices,
+    techCount,
+    rangeStart,
+    rangeEnd,
+  } = input
+  const now = input.now ?? new Date()
+  const horizonDays = Math.max(1, input.horizonDays ?? 30)
+  const horizonEnd = new Date(now.getTime() + horizonDays * DAY_MS)
+
+  const openStatuses = new Set(['scheduled', 'on_the_way', 'arrived', 'in_progress'])
+  const closedJobs = currentJobs.filter(job => job.status === 'completed' || job.status === 'cancelled')
+  const completedJobs = closedJobs.filter(job => job.status === 'completed').length
+  const cancelledJobs = closedJobs.filter(job => job.status === 'cancelled').length
+
+  const historicalDemandJobs = currentJobs.filter(job => job.status !== 'cancelled').length
+  const rangeDays = Math.max(1, Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / DAY_MS))
+  const dailyDemandRunRate = historicalDemandJobs / rangeDays
+
+  const pipelineJobs = allJobs.filter(job => {
+    if (!openStatuses.has(job.status)) return false
+    if (!job.scheduled_start) return false
+    const scheduled = new Date(job.scheduled_start)
+    if (Number.isNaN(scheduled.getTime())) return false
+    return scheduled >= now && scheduled <= horizonEnd
+  })
+  const scheduledPipelineJobs = pipelineJobs.length
+
+  const expectedJobVolume = Math.max(
+    scheduledPipelineJobs,
+    Math.round(dailyDemandRunRate * horizonDays)
+  )
+
+  const paidRevenue = calculatePaidRevenue(currentInvoices)
+  const avgRevenuePerCompletedJob = completedJobs > 0 ? paidRevenue / completedJobs : 0
+  const completionRate = closedJobs.length > 0
+    ? completedJobs / closedJobs.length
+    : (historicalDemandJobs > 0 ? completedJobs / historicalDemandJobs : 0.82)
+
+  const projectedCompletedJobs = Math.round(expectedJobVolume * clamp(completionRate, 0.2, 1))
+  const projectedRevenue = Math.round(projectedCompletedJobs * avgRevenuePerCompletedJob)
+
+  const activeWindowJobs = currentJobs.filter(job => openStatuses.has(job.status))
+  const lateStartJobs = activeWindowJobs.filter(job => {
+    if (!job.scheduled_start) return false
+    if (!['scheduled', 'on_the_way', 'arrived'].includes(job.status)) return false
+    return new Date(job.scheduled_start) < now
+  }).length
+  const overdueInProgressJobs = activeWindowJobs.filter(job => {
+    if (job.status !== 'in_progress' || !job.scheduled_end) return false
+    return new Date(job.scheduled_end) < now
+  }).length
+
+  const lateRate = activeWindowJobs.length > 0 ? lateStartJobs / activeWindowJobs.length : 0
+  const overdueRate = activeWindowJobs.length > 0 ? overdueInProgressJobs / activeWindowJobs.length : 0
+
+  const futureUnassigned = pipelineJobs.filter(job => !job.technician?.id).length
+  const unassignedRate = scheduledPipelineJobs > 0 ? futureUnassigned / scheduledPipelineJobs : 0
+
+  const scheduledHours = pipelineJobs.reduce(
+    (sum, job) => sum + Math.max(0.25, hoursBetween(job.scheduled_start, job.scheduled_end)),
+    0
+  )
+  const capacityHours = Math.max(0, techCount * horizonDays * 8)
+  const utilizationPct = capacityHours > 0 ? (scheduledHours / capacityHours) * 100 : 0
+  const utilizationPressure = clamp((utilizationPct - 85) / 15, 0, 1)
+
+  const delayRiskScore = clamp(
+    (lateRate * 35 + overdueRate * 30 + unassignedRate * 20 + utilizationPressure * 15) * 100,
+    0,
+    100
+  )
+
+  const historicalCancellationRate = closedJobs.length > 0
+    ? cancelledJobs / closedJobs.length
+    : 0.05
+  const cancellationRateAdjusted = clamp(
+    historicalCancellationRate + unassignedRate * 0.2 + (delayRiskScore / 100) * 0.08,
+    0.01,
+    0.75
+  )
+  const cancellationRisk = cancellationRateAdjusted * 100
+  const predictedCancelledJobs = Math.round(expectedJobVolume * cancellationRateAdjusted)
+
+  let confidence: ForecastData['confidence'] = 'low'
+  if (closedJobs.length >= 80 && scheduledPipelineJobs >= 30) confidence = 'high'
+  else if (closedJobs.length >= 25 || scheduledPipelineJobs >= 12) confidence = 'medium'
+
+  return {
+    horizonDays,
+    projectedRevenue,
+    expectedJobVolume,
+    delayRiskScore: Math.round(delayRiskScore * 10) / 10,
+    cancellationRisk: Math.round(cancellationRisk * 10) / 10,
+    predictedCancelledJobs,
+    scheduledPipelineJobs,
+    confidence,
+    drivers: {
+      completionRate: Math.round(clamp(completionRate, 0, 1) * 1000) / 10,
+      avgRevenuePerCompletedJob: Math.round(avgRevenuePerCompletedJob),
+      unassignedRate: Math.round(unassignedRate * 1000) / 10,
+      utilizationPct: Math.round(utilizationPct * 10) / 10,
+      historicalCancellationRate: Math.round(historicalCancellationRate * 1000) / 10,
+    },
+  }
 }
 
 // ============================================================================

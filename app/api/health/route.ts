@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getN8nLastReceivedAt } from '@/lib/system-status'
 
 export async function GET() {
+  const n8nLastReceivedAt = getN8nLastReceivedAt()
   const checks = {
     database: false,
     openai: Boolean(process.env.OPENAI_API_KEY),
+    n8n: {
+      configured: Boolean(process.env.N8N_WEBHOOK_SECRET),
+      lastReceivedAt: n8nLastReceivedAt,
+    },
     timestamp: new Date().toISOString(),
   }
 

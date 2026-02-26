@@ -1,8 +1,10 @@
 ﻿'use client'
 
 import { useState, useMemo } from 'react'
-import { Target, DollarSign, TrendingUp, Calendar } from '@/components/ui/icons'
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from 'date-fns'
+import { Target, DollarSign, Calendar } from '@/components/ui/icons'
+import { subDays, subMonths, subYears } from 'date-fns'
+import { ADMIN_RANGE_OPTIONS } from '@/lib/analytics/dateUtils'
+import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
 
 interface Invoice {
   total: number | string
@@ -16,7 +18,7 @@ interface JobRevenueProgressProps {
   invoices: Invoice[]
 }
 
-type TimePeriod = 'all' | 'today' | 'week' | 'month' | 'quarter'
+type TimePeriod = 'all' | '7d' | '14d' | '30d' | '6m' | '1y'
 
 export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('all')
@@ -30,21 +32,25 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
     let endDate: Date
 
     switch (selectedPeriod) {
-      case 'today':
-        startDate = startOfDay(now)
-        endDate = endOfDay(now)
+      case '7d':
+        startDate = subDays(now, 7)
+        endDate = now
         break
-      case 'week':
-        startDate = startOfWeek(now, { weekStartsOn: 1 })
-        endDate = endOfWeek(now, { weekStartsOn: 1 })
+      case '14d':
+        startDate = subDays(now, 14)
+        endDate = now
         break
-      case 'month':
-        startDate = startOfMonth(now)
-        endDate = endOfMonth(now)
+      case '30d':
+        startDate = subDays(now, 30)
+        endDate = now
         break
-      case 'quarter':
-        startDate = startOfQuarter(now)
-        endDate = endOfQuarter(now)
+      case '6m':
+        startDate = subMonths(now, 6)
+        endDate = now
+        break
+      case '1y':
+        startDate = subYears(now, 1)
+        endDate = now
         break
       default:
         return invoices
@@ -71,13 +77,10 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
 
   const collectionPercentage = totalRevenue > 0 ? Math.round((paidRevenue / totalRevenue) * 100) : 0
 
-  const periods = [
-    { value: 'all' as TimePeriod, label: 'All Time' },
-    { value: 'today' as TimePeriod, label: 'Today' },
-    { value: 'week' as TimePeriod, label: 'This Week' },
-    { value: 'month' as TimePeriod, label: 'This Month' },
-    { value: 'quarter' as TimePeriod, label: 'This Quarter' },
-  ]
+  const periods = ADMIN_RANGE_OPTIONS.map((option) => ({
+    value: option.key as TimePeriod,
+    label: option.label,
+  }))
 
   const getPeriodLabel = () => {
     const period = periods.find(p => p.value === selectedPeriod)
@@ -95,24 +98,18 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
             <h3 className="text-lg font-semibold text-ink">Revenue Collection Progress</h3>
             <p className="text-xs text-muted mt-0.5 flex items-center gap-1.5">
               <Calendar className="w-3 h-3" />
-              {getPeriodLabel()} â€¢ {collectionPercentage}% collected
+              {getPeriodLabel()} - {collectionPercentage}% collected
             </p>
           </div>
         </div>
 
         {/* Time Period Selector */}
-        <div className="flex flex-wrap gap-2">
+        <div className={ADMIN_RANGE_TRACK_CLASS}>
           {periods.map((period) => (
             <button type="button"
               key={period.value}
               onClick={() => setSelectedPeriod(period.value)}
-              className={`
-                px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200
-                ${selectedPeriod === period.value
-                  ? 'bg-success/10 text-success ring-2 ring-success/30 shadow-md'
-                  : 'text-muted bg-surface-100 dark:bg-surface-800 hover:bg-surface-200 dark:hover:bg-surface-700 border border-surface-200 dark:border-surface-700'
-                }
-              `}
+              className={adminRangeItemClass(selectedPeriod === period.value)}
             >
               {period.label}
             </button>

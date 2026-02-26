@@ -3,7 +3,46 @@
  * Ensures consistent date handling across all analytics pages
  */
 
-export type DateRangeKey = '7d' | '30d' | '90d' | 'ytd' | 'all'
+export type DateRangeKey = '7d' | '14d' | '30d' | '6m' | '1y' | 'all'
+
+export const ADMIN_RANGE_OPTIONS: Array<{
+  key: DateRangeKey
+  label: string
+  shortLabel: string
+}> = [
+  { key: '7d', label: '7 Days', shortLabel: '7 Days' },
+  { key: '14d', label: '14 Days', shortLabel: '14 Days' },
+  { key: '30d', label: '30 Days', shortLabel: '30 Days' },
+  { key: '6m', label: '6 Months', shortLabel: '6 Months' },
+  { key: '1y', label: '1 Year', shortLabel: '1 Year' },
+  { key: 'all', label: 'All Time', shortLabel: 'All Time' },
+]
+
+export function resolveDateRangeKey(raw: string | string[] | null | undefined, fallback: DateRangeKey = '30d'): DateRangeKey {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (!value) return fallback
+  return ADMIN_RANGE_OPTIONS.some(option => option.key === value)
+    ? (value as DateRangeKey)
+    : fallback
+}
+
+export function getRangeLookbackDays(range: DateRangeKey): number {
+  switch (range) {
+    case '7d':
+      return 7
+    case '14d':
+      return 14
+    case '30d':
+      return 30
+    case '6m':
+      return 180
+    case '1y':
+    case 'all':
+      return 365
+    default:
+      return 30
+  }
+}
 
 export interface DateRange {
   start: Date
@@ -30,17 +69,21 @@ export function getDateRange(range: DateRangeKey): DateRange {
       start.setDate(end.getDate() - 7)
       prevStart.setDate(prevEnd.getDate() - 7)
       break
+    case '14d':
+      start.setDate(end.getDate() - 14)
+      prevStart.setDate(prevEnd.getDate() - 14)
+      break
     case '30d':
       start.setDate(end.getDate() - 30)
       prevStart.setDate(prevEnd.getDate() - 30)
       break
-    case '90d':
-      start.setDate(end.getDate() - 90)
-      prevStart.setDate(prevEnd.getDate() - 90)
+    case '6m':
+      start.setMonth(end.getMonth() - 6)
+      prevStart.setMonth(prevEnd.getMonth() - 6)
       break
-    case 'ytd':
-      start.setMonth(0, 1)
-      prevStart.setFullYear(prevEnd.getFullYear() - 1, 0, 1)
+    case '1y':
+      start.setFullYear(end.getFullYear() - 1)
+      prevStart.setFullYear(prevEnd.getFullYear() - 1)
       break
     case 'all':
       // For 'all', return a very early date

@@ -195,7 +195,7 @@ export default function BillingPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-5xl sm:text-6xl text-slate-900 dark:text-white tracking-wide">
+          <h1 className="admin-page-header">
             BILLING
           </h1>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
@@ -248,14 +248,14 @@ export default function BillingPage() {
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Payment Methods */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="admin-card shadow-sm">
           <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-400/10 flex items-center justify-center">
                 <CreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">
+                <h2 className="admin-section-title">
                   PAYMENT METHODS
                 </h2>
                 <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">
@@ -282,22 +282,22 @@ export default function BillingPage() {
                   <input
                     type="text"
                     placeholder="Card number"
-                    className="w-full px-4 py-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400"
+                    className="w-full px-4 py-2.5 rounded-lg admin-input text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400"
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
                       placeholder="MM/YY"
-                      className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400"
+                      className="px-4 py-2.5 rounded-lg admin-input text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400"
                     />
                     <input
                       type="text"
                       placeholder="CVC"
-                      className="px-4 py-2.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400"
+                      className="px-4 py-2.5 rounded-lg admin-input text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:border-blue-500 dark:focus:border-cyan-400"
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button className="flex-1 bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-4 py-2 rounded-full transition-colors">
+                    <button className="flex-1 admin-btn-primary font-sans text-xs px-4 py-2 rounded-md transition-colors">
                       Add Card
                     </button>
                     <button type="button" 
@@ -382,14 +382,14 @@ export default function BillingPage() {
         </div>
 
         {/* Invoice History */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="admin-card shadow-sm">
           <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-400/10 flex items-center justify-center">
                 <Receipt className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">
+                <h2 className="admin-section-title">
                   INVOICE HISTORY
                 </h2>
                 <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider">
@@ -446,7 +446,7 @@ export default function BillingPage() {
       {/* Plans */}
       <div>
         <div className="flex items-center gap-3 mb-4">
-          <h2 className="font-display text-2xl text-slate-900 dark:text-white tracking-wide">
+          <h2 className="admin-section-title">
             PLANS
           </h2>
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
@@ -518,9 +518,9 @@ export default function BillingPage() {
       </div>
 
       {/* Billing Settings */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="admin-card shadow-sm">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="font-display text-xl text-slate-900 dark:text-white tracking-wide">
+          <h2 className="admin-section-title">
             BILLING SETTINGS
           </h2>
         </div>
@@ -584,4 +584,10 @@ function Toggle({
     </label>
   )
 }
+
+
+
+
+
+
 

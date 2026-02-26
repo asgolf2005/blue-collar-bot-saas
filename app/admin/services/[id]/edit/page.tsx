@@ -1,80 +1,70 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import { 
+import {
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Briefcase,
-  DollarSign,
-  Clock,
-  Tag,
-  FileText,
-  AlertCircle,
   CheckCircle2,
+  Clock,
+  DollarSign,
+  FileText,
   Loader2,
   Trash2,
-  Archive,
-  ArchiveRestore
-} from '@/components/ui/icons'
+  TriangleAlert,
+} from '@/components/ui/lucide'
 import { createClient } from '@/lib/supabase/client'
-
-// Service categories
-const categories = [
-  'Plumbing',
-  'Drain Cleaning',
-  'Heating',
-  'Installation',
-  'Repair',
-  'Emergency',
-  'Maintenance',
-  'Inspection',
-  'Other'
-]
 
 interface Service {
   id: string
   name: string
   description: string | null
-  base_price: number
-  duration_minutes: number
+  base_price: number | null
+  duration_minutes: number | null
   is_active: boolean
-  created_at: string
+}
+
+function toHours(minutes: number | null) {
+  if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes <= 0) return ''
+  return (minutes / 60).toString()
 }
 
 export default function EditServicePage() {
   const router = useRouter()
   const params = useParams()
   const serviceId = params.id as string
-  
+
+  const [service, setService] = useState<Service | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [service, setService] = useState<Service | null>(null)
-  
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     base_price: '',
     duration_hours: '',
-    category: 'Plumbing'
   })
 
-  // Load service data
   useEffect(() => {
+    let mounted = true
+
     async function loadService() {
       try {
         const supabase = createClient()
-        
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
         if (!user) {
-          router.push('/login')
+          router.replace('/login')
           return
         }
 
-        // Get user's business_id and check admin role
         const { data: profile } = await supabase
           .from('users')
           .select('business_id, role')
@@ -82,11 +72,10 @@ export default function EditServicePage() {
           .single()
 
         if (!profile || profile.role !== 'admin') {
-          router.push('/tech/today')
+          router.replace('/tech/today')
           return
         }
 
-        // Get service details
         const { data: serviceData, error: serviceError } = await supabase
           .from('services')
           .select('*')
@@ -95,73 +84,89 @@ export default function EditServicePage() {
           .single()
 
         if (serviceError || !serviceData) {
-          router.push('/admin/services')
+          router.replace('/admin/services')
           return
         }
 
+        if (!mounted) return
         setService(serviceData)
         setFormData({
           name: serviceData.name,
           description: serviceData.description || '',
-          base_price: serviceData.base_price.toString(),
-          duration_hours: (serviceData.duration_minutes / 60).toString(),
-          category: 'Plumbing' // Default since we don't store category separately
+          base_price:
+            typeof serviceData.base_price === 'number' && Number.isFinite(serviceData.base_price)
+              ? serviceData.base_price.toString()
+              : '',
+          duration_hours: toHours(serviceData.duration_minutes),
         })
-      } catch (err) {
-        setError('Failed to load service')
+      } catch {
+        if (mounted) setError('Failed to load service')
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
     loadService()
-  }, [serviceId, router])
+    return () => {
+      mounted = false
+    }
+  }, [router, serviceId])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const parsedValues = useMemo(() => {
+    const rawPrice = formData.base_price.trim()
+    const rawHours = formData.duration_hours.trim()
+
+    const parsedPrice = rawPrice === '' ? null : Number.parseFloat(rawPrice)
+    const parsedHours = rawHours === '' ? null : Number.parseFloat(rawHours)
+
+    return { parsedPrice, parsedHours }
+  }, [formData.base_price, formData.duration_hours])
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setSaving(true)
     setError(null)
 
     try {
       const supabase = createClient()
-      
-      // Validate required fields
+
       if (!formData.name.trim()) {
         throw new Error('Service name is required')
       }
-      if (!formData.base_price || parseFloat(formData.base_price) < 0) {
-        throw new Error('Base price is required')
-      }
-      if (!formData.duration_hours || parseFloat(formData.duration_hours) <= 0) {
-        throw new Error('Duration is required')
+
+      if (parsedValues.parsedPrice !== null) {
+        if (!Number.isFinite(parsedValues.parsedPrice) || parsedValues.parsedPrice < 0) {
+          throw new Error('Price must be a valid number (0 or greater)')
+        }
       }
 
-      // Update service
+      if (parsedValues.parsedHours !== null) {
+        if (!Number.isFinite(parsedValues.parsedHours) || parsedValues.parsedHours <= 0) {
+          throw new Error('Duration must be a positive number of hours')
+        }
+      }
+
       const { error: updateError } = await supabase
         .from('services')
         .update({
           name: formData.name.trim(),
           description: formData.description.trim() || null,
-          base_price: parseFloat(formData.base_price),
-          duration_minutes: Math.round(parseFloat(formData.duration_hours) * 60),
-          updated_at: new Date().toISOString()
+          base_price: parsedValues.parsedPrice,
+          duration_minutes:
+            parsedValues.parsedHours === null ? null : Math.round(parsedValues.parsedHours * 60),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', serviceId)
 
-      if (updateError) {
-        throw new Error(updateError.message)
-      }
+      if (updateError) throw new Error(updateError.message)
 
       setSuccess(true)
-      
-      // Redirect after a brief delay
       setTimeout(() => {
         router.push(`/admin/services/${serviceId}`)
         router.refresh()
-      }, 1000)
-
-    } catch (err: any) {
-      setError(err.message || 'Failed to update service')
+      }, 700)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update service')
     } finally {
       setSaving(false)
     }
@@ -169,62 +174,51 @@ export default function EditServicePage() {
 
   const handleToggleActive = async () => {
     if (!service) return
-    
+    setError(null)
+
     try {
       const supabase = createClient()
-      
       const { error: updateError } = await supabase
         .from('services')
         .update({
           is_active: !service.is_active,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', serviceId)
 
-      if (updateError) {
-        throw new Error(updateError.message)
-      }
-
+      if (updateError) throw new Error(updateError.message)
       setService({ ...service, is_active: !service.is_active })
-    } catch (err: any) {
-      setError(err.message || 'Failed to update status')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update service status')
     }
   }
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this service? This action cannot be undone.')) {
-      return
-    }
+    const confirmed = confirm('Delete this service? This cannot be undone.')
+    if (!confirmed) return
 
+    setError(null)
     try {
       const supabase = createClient()
-      
-      const { error: deleteError } = await supabase
-        .from('services')
-        .delete()
-        .eq('id', serviceId)
-
-      if (deleteError) {
-        throw new Error(deleteError.message)
-      }
-
+      const { error: deleteError } = await supabase.from('services').delete().eq('id', serviceId)
+      if (deleteError) throw new Error(deleteError.message)
       router.push('/admin/services')
       router.refresh()
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete service')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete service')
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="h-64 flex items-center justify-center">
-          <div className="animate-pulse font-mono text-sm text-slate-400">LOADING...</div>
+      <div className="mx-auto max-w-3xl">
+        <div className="admin-card p-8">
+          <p className="font-sans text-sm text-slate-500 dark:text-slate-400">Loading service...</p>
         </div>
       </div>
     )
@@ -232,233 +226,201 @@ export default function EditServicePage() {
 
   if (!service) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="h-64 flex items-center justify-center text-slate-400">
-          Service not found
+      <div className="mx-auto max-w-3xl">
+        <div className="admin-card p-8">
+          <p className="font-sans text-sm text-slate-500 dark:text-slate-400">Service not found.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <Link href={`/admin/services/${serviceId}`}>
-          <Button variant="ghost" className="p-2 h-auto">
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="font-display text-3xl sm:text-4xl text-slate-900 dark:text-white tracking-wide">
-            EDIT SERVICE
-          </h1>
-          <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 tracking-widest">
-            UPDATE SERVICE DETAILS
-          </p>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Link href={`/admin/services/${serviceId}`}>
+            <Button variant="ghost" className="rounded-full p-2">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="admin-page-header mb-1">EDIT SERVICE</h1>
+            <p className="font-sans text-sm text-slate-600 dark:text-slate-400">
+              Keep service details accurate for scheduling and billing.
+            </p>
+          </div>
         </div>
+        <span
+          className={`inline-flex rounded-sm border px-2 py-1 font-sans text-xs font-medium ${
+            service.is_active
+              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+              : 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'
+          }`}
+        >
+          {service.is_active ? 'Active' : 'Archived'}
+        </span>
       </div>
 
-      {/* Form Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-          
-          {/* Error Message */}
+      <div className="admin-card">
+        <form onSubmit={handleSubmit} className="space-y-6 p-6 sm:p-8">
           {error && (
-            <div className="flex items-center gap-2 p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <p className="font-mono text-sm">{error}</p>
+            <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 dark:border-red-500/30 dark:bg-red-500/10">
+              <p className="flex items-center gap-2 font-sans text-sm text-red-700 dark:text-red-300">
+                <TriangleAlert className="h-4 w-4" />
+                {error}
+              </p>
             </div>
           )}
 
-          {/* Success Message */}
           {success && (
-            <div className="flex items-center gap-2 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-              <p className="font-mono text-sm">Service updated successfully! Redirecting...</p>
+            <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <p className="flex items-center gap-2 font-sans text-sm text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" />
+                Service updated successfully.
+              </p>
             </div>
           )}
 
-          {/* Status Badge */}
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <span className="font-mono text-xs text-slate-500 dark:text-slate-400">STATUS:</span>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs ${
-              service.is_active 
-                ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
-            }`}>
-              {service.is_active ? 'ACTIVE' : 'ARCHIVED'}
-            </span>
-          </div>
-
-          {/* Service Name */}
           <div className="space-y-2">
-            <label htmlFor="name" className="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-slate-400 tracking-wider">
-              <Briefcase className="w-4 h-4" />
-              SERVICE NAME *
+            <label
+              htmlFor="name"
+              className="flex items-center gap-2 font-sans text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400"
+            >
+              <Briefcase className="h-4 w-4" />
+              Service name
             </label>
             <input
-              type="text"
               id="name"
               name="name"
+              type="text"
               value={formData.name}
               onChange={handleChange}
-              placeholder="e.g., Emergency Pipe Repair"
-              className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl 
-                         bg-white dark:bg-slate-800 text-slate-900 dark:text-white
-                         placeholder-slate-400 font-mono text-sm
-                         focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                         transition-all"
+              placeholder="Example: Emergency Pipe Repair"
+              className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 font-sans text-sm text-slate-900 outline-none transition focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               required
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
-            <label htmlFor="description" className="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-slate-400 tracking-wider">
-              <FileText className="w-4 h-4" />
-              DESCRIPTION
+            <label
+              htmlFor="description"
+              className="flex items-center gap-2 font-sans text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400"
+            >
+              <FileText className="h-4 w-4" />
+              Description
             </label>
             <textarea
               id="description"
               name="description"
+              rows={4}
               value={formData.description}
               onChange={handleChange}
-              placeholder="Describe what this service includes..."
-              rows={3}
-              className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl 
-                         bg-white dark:bg-slate-800 text-slate-900 dark:text-white
-                         placeholder-slate-400 font-mono text-sm resize-none
-                         focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                         transition-all"
+              placeholder="What is included in this service?"
+              className="w-full resize-none rounded-md border border-slate-300 bg-white px-4 py-3 font-sans text-sm text-slate-900 outline-none transition focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
           </div>
 
-          {/* Price & Duration Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Base Price */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="base_price" className="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-slate-400 tracking-wider">
-                <DollarSign className="w-4 h-4" />
-                BASE PRICE *
+              <label
+                htmlFor="base_price"
+                className="flex items-center gap-2 font-sans text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400"
+              >
+                <DollarSign className="h-4 w-4" />
+                Price (optional)
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">$</span>
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono text-sm text-slate-500">
+                  $
+                </span>
                 <input
-                  type="number"
                   id="base_price"
                   name="base_price"
-                  value={formData.base_price}
-                  onChange={handleChange}
-                  placeholder="0.00"
+                  type="number"
                   min="0"
                   step="0.01"
-                  className="block w-full pl-8 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl 
-                             bg-white dark:bg-slate-800 text-slate-900 dark:text-white
-                             placeholder-slate-400 font-mono text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                             transition-all"
-                  required
+                  value={formData.base_price}
+                  onChange={handleChange}
+                  placeholder="Leave blank for custom quote"
+                  className="w-full rounded-md border border-slate-300 bg-white py-3 pl-8 pr-4 font-mono text-sm text-slate-900 outline-none transition focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </div>
             </div>
 
-            {/* Duration */}
             <div className="space-y-2">
-              <label htmlFor="duration_hours" className="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-slate-400 tracking-wider">
-                <Clock className="w-4 h-4" />
-                DURATION (HOURS) *
+              <label
+                htmlFor="duration_hours"
+                className="flex items-center gap-2 font-sans text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400"
+              >
+                <Clock className="h-4 w-4" />
+                Duration (optional)
               </label>
               <div className="relative">
                 <input
-                  type="number"
                   id="duration_hours"
                   name="duration_hours"
+                  type="number"
+                  min="0.25"
+                  max="24"
+                  step="0.25"
                   value={formData.duration_hours}
                   onChange={handleChange}
-                  placeholder="1.0"
-                  min="0.5"
-                  max="24"
-                  step="0.5"
-                  className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl 
-                             bg-white dark:bg-slate-800 text-slate-900 dark:text-white
-                             placeholder-slate-400 font-mono text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                             transition-all"
-                  required
+                  placeholder="Leave blank for variable duration"
+                  className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 pr-16 font-mono text-sm text-slate-900 outline-none transition focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">Hours</span>
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-sans text-xs text-slate-500 dark:text-slate-400">
+                  hours
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Category */}
-          <div className="space-y-2">
-            <label htmlFor="category" className="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-slate-400 tracking-wider">
-              <Tag className="w-4 h-4" />
-              CATEGORY
-            </label>
-            <select
-              id="category"
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl 
-                         bg-white dark:bg-slate-800 text-slate-900 dark:text-white
-                         font-mono text-sm
-                         focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                         transition-all appearance-none cursor-pointer"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.75rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em', paddingRight: '2.5rem' }}
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Form Actions */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button 
+          <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              <Button
                 type="button"
                 variant="secondary"
                 onClick={handleToggleActive}
-                className="font-mono text-xs px-4 py-2.5 rounded-full border-slate-200 dark:border-slate-700"
+                className="rounded-full px-4 py-2 text-xs font-semibold"
               >
                 {service.is_active ? (
-                  <><Archive className="w-4 h-4 mr-2" /> ARCHIVE</>
+                  <>
+                    <Archive className="h-4 w-4" />
+                    ARCHIVE
+                  </>
                 ) : (
-                  <><ArchiveRestore className="w-4 h-4 mr-2" /> ACTIVATE</>
+                  <>
+                    <ArchiveRestore className="h-4 w-4" />
+                    ACTIVATE
+                  </>
                 )}
               </Button>
-              <Button 
+              <Button
                 type="button"
                 variant="secondary"
                 onClick={handleDelete}
-                className="font-mono text-xs px-4 py-2.5 rounded-full border-red-200 dark:border-red-800 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="admin-btn-danger rounded-full px-4 py-2 text-xs font-semibold"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="h-4 w-4" />
+                DELETE
               </Button>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Link href={`/admin/services/${serviceId}`} className="flex-1 sm:flex-none">
-                <Button 
-                  type="button"
-                  variant="secondary" 
-                  className="w-full sm:w-auto font-mono text-xs px-6 py-2.5 rounded-full border-slate-200 dark:border-slate-700"
-                >
+
+            <div className="flex gap-2">
+              <Link href={`/admin/services/${serviceId}`}>
+                <Button type="button" variant="secondary" className="rounded-full px-4 py-2 text-xs font-semibold">
                   CANCEL
                 </Button>
               </Link>
-              <Button 
+              <Button
                 type="submit"
                 disabled={saving || success}
-                className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-6 py-2.5 rounded-full transition-all disabled:opacity-50"
+                className="admin-btn-primary rounded-full px-5 py-2 text-xs font-semibold"
               >
                 {saving ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    SAVING...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    SAVING
                   </>
                 ) : (
                   'SAVE CHANGES'
@@ -468,12 +430,6 @@ export default function EditServicePage() {
           </div>
         </form>
       </div>
-
-      {/* Help Text */}
-      <p className="text-center font-mono text-[10px] text-slate-400 dark:text-slate-500 mt-6">
-        * Required fields. Changes are saved immediately.
-      </p>
     </div>
   )
 }
-

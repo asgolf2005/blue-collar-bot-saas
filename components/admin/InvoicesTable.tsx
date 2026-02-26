@@ -79,7 +79,7 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
 
       showToast.success(`${selectedCount} invoice${selectedCount > 1 ? 's' : ''} deleted successfully`)
       clearSelection()
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       showToast.error('Failed to delete invoices')
     } finally {
@@ -100,7 +100,7 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
 
       showToast.success(`${selectedCount} invoice${selectedCount > 1 ? 's' : ''} sent successfully`)
       clearSelection()
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       showToast.error('Failed to send invoices')
     } finally {
@@ -121,7 +121,7 @@ export default function InvoicesTable({ invoices }: InvoicesTableProps) {
 
       showToast.success(`${selectedCount} invoice${selectedCount > 1 ? 's' : ''} marked as paid`)
       clearSelection()
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       showToast.error('Failed to mark invoices as paid')
     } finally {

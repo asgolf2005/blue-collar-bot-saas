@@ -92,10 +92,10 @@ export default function StatusButtons({
           error.code === error.PERMISSION_DENIED
             ? 'Location permission denied'
             : error.code === error.POSITION_UNAVAILABLE
-            ? 'Location unavailable'
-            : error.code === error.TIMEOUT
-            ? 'Location request timed out'
-            : 'Location unavailable'
+              ? 'Location unavailable'
+              : error.code === error.TIMEOUT
+                ? 'Location request timed out'
+                : 'Location unavailable'
 
         setLocationError(message)
       },
@@ -107,7 +107,7 @@ export default function StatusButtons({
         lastPositionRef.current = position
         sendLocation(position)
       },
-      () => {},
+      () => { },
       { enableHighAccuracy: true }
     )
 
@@ -315,7 +315,7 @@ export default function StatusButtons({
           </div>
         )}
       </div>
-      
+
       <div className="relative space-y-4">
         {/* Progress Bar */}
         <div className="space-y-2">
@@ -324,7 +324,7 @@ export default function StatusButtons({
             <span className="font-semibold text-slate-900 dark:text-slate-100">{Math.round(progress)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-            <div 
+            <div
               className={`h-full rounded-full transition-all duration-500 ${colors.bg} ${colors.glow}`}
               style={{ width: `${progress}%` }}
             />
@@ -358,18 +358,16 @@ export default function StatusButtons({
 
         {completionNotice && (
           <div
-            className={`rounded-2xl border p-3 ${
-              completionNotice.status === 'block'
-                ? 'border-red-200 bg-red-50/70 dark:border-red-400/25 dark:bg-red-400/10'
-                : 'border-amber-200 bg-amber-50/70 dark:border-amber-400/25 dark:bg-amber-400/10'
-            }`}
+            className={`rounded-2xl border p-3 ${completionNotice.status === 'block'
+              ? 'border-red-200 bg-red-50/70 dark:border-red-400/25 dark:bg-red-400/10'
+              : 'border-amber-200 bg-amber-50/70 dark:border-amber-400/25 dark:bg-amber-400/10'
+              }`}
           >
             <p
-              className={`text-sm font-medium ${
-                completionNotice.status === 'block'
-                  ? 'text-red-800 dark:text-red-200'
-                  : 'text-amber-800 dark:text-amber-200'
-              }`}
+              className={`text-sm font-medium ${completionNotice.status === 'block'
+                ? 'text-red-800 dark:text-red-200'
+                : 'text-amber-800 dark:text-amber-200'
+                }`}
             >
               Completion verification
             </p>

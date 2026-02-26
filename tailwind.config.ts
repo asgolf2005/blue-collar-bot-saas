@@ -5,6 +5,7 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   darkMode: 'class',
   theme: {
@@ -144,9 +145,9 @@ const config: Config = {
          TYPOGRAPHY
          ======================================== */
       fontFamily: {
-        display: ['var(--font-display)', 'Bebas Neue', 'sans-serif'],
-        mono: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
-        sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)'],
+        mono: ['var(--font-mono)'],
+        sans: ['var(--font-sans)'],
       },
       
       fontSize: {

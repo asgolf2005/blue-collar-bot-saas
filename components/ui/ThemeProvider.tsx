@@ -27,7 +27,7 @@ function getStoredTheme(): Theme {
 }
 
 function subscribeSystemTheme(callback: () => void) {
-  if (typeof window === 'undefined') return () => {}
+  if (typeof window === 'undefined') return () => { }
   const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
   mediaQuery.addEventListener('change', callback)
   return () => mediaQuery.removeEventListener('change', callback)
@@ -45,7 +45,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     getSystemThemeSnapshot,
     () => false
   )
-  const resolvedTheme: 'dark' | 'light' = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme
+  const isForcedDark = typeof window !== 'undefined' &&
+    window.location.search.includes('theme=dark')
+
+  const resolvedTheme: 'dark' | 'light' = isForcedDark ? 'dark'
+    : theme === 'system' ? (prefersDark ? 'dark' : 'light')
+      : theme
 
   useEffect(() => {
     const root = document.documentElement

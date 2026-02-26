@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { addDays, differenceInMinutes, endOfDay, format, startOfDay } from 'date-fns'
-import { CalendarDays, ChevronDown, Keyboard, ListChecks, Route as RouteIcon, Wrench } from '@/components/ui/icons'
+import { CalendarDays, ChevronDown, Keyboard, ListChecks, Route as RouteIcon, Sparkles, Wrench } from '@/components/ui/icons'
 
 import { useRealtimeJobsWithRelations } from '@/hooks/useRealtimeJobsWithRelations'
 import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
 import { useGoogleMaps } from '@/hooks/useGoogleMaps'
 import { createClient } from '@/lib/supabase/client'
 import DispatchJobCard from '@/components/tech/DispatchJobCard'
+import TechAIAssistantPanel from '@/components/tech/TechAIAssistantPanel'
 
 interface RawCustomer {
   id?: string
@@ -35,6 +36,7 @@ interface RawJob {
   total_cost?: number | null
   customer?: RawCustomer | RawCustomer[] | null
   service?: RawService | RawService[] | null
+  services?: Array<{ service?: RawService | RawService[] | null }> | null
 }
 
 interface NormalizedJob {
@@ -65,7 +67,7 @@ interface TomorrowJob {
   status: string
   description: string | null
   customer?: RawCustomer | RawCustomer[] | null
-  service?: RawService | RawService[] | null
+  services?: Array<{ service?: RawService | RawService[] | null }> | null
 }
 
 const activeStatuses = new Set(['on_the_way', 'arrived', 'in_progress'])
@@ -87,7 +89,9 @@ function normalizeJob(job: RawJob): NormalizedJob | null {
   if (!job.scheduled_start || !job.id) return null
 
   const customer = relationFirst(job.customer)
-  const service = relationFirst(job.service)
+  const directService = relationFirst(job.service)
+  const mappedService = relationFirst(relationFirst(job.services)?.service)
+  const service = directService || mappedService
 
   return {
     id: job.id,
@@ -117,6 +121,7 @@ function RouteMap({ jobs }: { jobs: NormalizedJob[] }) {
   const mapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
   const routeRef = useRef<google.maps.Polyline | null>(null)
+  const geocodeCacheRef = useRef<Map<string, google.maps.LatLngLiteral>>(new Map())
   const { isLoaded, loadError } = useGoogleMaps()
 
   useEffect(() => {
@@ -151,15 +156,24 @@ function RouteMap({ jobs }: { jobs: NormalizedJob[] }) {
     Promise.all(
       withAddress.map(async (job, index) => {
         try {
-          const result = await geocoder.geocode({ address: job.customer.address! })
-          const location = result.results?.[0]?.geometry?.location
-          if (!location) return null
+          const address = job.customer.address || ''
+          let cached = geocodeCacheRef.current.get(address)
 
-          bounds.extend(location)
+          if (!cached) {
+            const result = await geocoder.geocode({ address })
+            const location = result.results?.[0]?.geometry?.location
+            if (!location) return null
+            cached = { lat: location.lat(), lng: location.lng() }
+            geocodeCacheRef.current.set(address, cached)
+          }
+
+          const point = new google.maps.LatLng(cached.lat, cached.lng)
+
+          bounds.extend(point)
 
           const marker = new google.maps.Marker({
             map,
-            position: location,
+            position: point,
             label: {
               text: String(index + 1),
               color: '#ffffff',
@@ -188,7 +202,7 @@ function RouteMap({ jobs }: { jobs: NormalizedJob[] }) {
 
           marker.addListener('click', () => infoWindow.open(map, marker))
           markersRef.current.push(marker)
-          return location
+          return point
         } catch {
           return null
         }
@@ -256,10 +270,10 @@ function KpiCard({
   helper: string
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 font-display text-3xl text-slate-900 dark:text-white">{value}</p>
-      <p className="mt-1 font-mono text-xs text-slate-500 dark:text-slate-400">{helper}</p>
+      <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{value}</p>
+      <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">{helper}</p>
     </div>
   )
 }
@@ -284,7 +298,7 @@ function CollapsiblePanel({
   return (
     <section
       className={cx(
-        'group overflow-hidden rounded-3xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm transition-all dark:border-slate-800 dark:bg-slate-900/70',
+        'group overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm transition-all dark:border-slate-800 dark:bg-slate-900/70',
         open && 'shadow-[0_18px_50px_-35px_rgba(2,132,199,0.35)] dark:shadow-[0_24px_60px_-40px_rgba(34,211,238,0.25)]'
       )}
     >
@@ -294,11 +308,11 @@ function CollapsiblePanel({
         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/80"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white/80 text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200">
             <Icon className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="font-display text-lg tracking-wide text-slate-900 dark:text-white">{title}</p>
+              <p className="font-display text-lg uppercase tracking-[0.08em] text-slate-900 dark:text-white">{title}</p>
             {subtitle ? (
               <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                 {subtitle}
@@ -311,7 +325,7 @@ function CollapsiblePanel({
           {right}
           <span
             className={cx(
-              'inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white/80 text-slate-600 shadow-sm transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300',
+              'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white/80 text-slate-600 shadow-sm transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300',
               open && 'rotate-180'
             )}
             aria-hidden="true"
@@ -354,6 +368,7 @@ export default function TodayViewClient({
   today: Date
 }) {
   const [tomorrowJobs, setTomorrowJobs] = useState<TomorrowJob[]>([])
+  const supabase = useMemo(() => createClient(), [])
   const startOfTodayDate = useMemo(() => startOfDay(today), [today])
   const endOfTodayDate = useMemo(() => endOfDay(today), [today])
 
@@ -379,10 +394,11 @@ export default function TodayViewClient({
   }, [allJobs, endOfTodayDate, startOfTodayDate, userId])
 
   useEffect(() => {
+    let active = true
+
     async function fetchTomorrowJobs() {
       if (!businessId) return
 
-      const supabase = createClient()
       const tomorrow = addDays(today, 1)
       const startOfTomorrow = startOfDay(tomorrow)
       const endOfTomorrow = endOfDay(tomorrow)
@@ -395,8 +411,8 @@ export default function TodayViewClient({
           scheduled_start,
           status,
           description,
-          customer:customers(name, address),
-          service:services(name)
+          customer:customers(id, name, address),
+          services:job_services(service:services(name, category))
         `
         )
         .eq('technician_id', userId)
@@ -405,40 +421,100 @@ export default function TodayViewClient({
         .order('scheduled_start', { ascending: true })
         .limit(5)
 
+      if (!active) return
       setTomorrowJobs((data || []) as TomorrowJob[])
     }
 
     fetchTomorrowJobs()
-  }, [businessId, today, userId])
 
-  const now = new Date()
-  const totalJobs = jobs.length
-  const completedCount = jobs.filter((job) => job.status === 'completed').length
-  const activeCount = jobs.filter((job) => activeStatuses.has(job.status)).length
-  const scheduledCount = jobs.filter((job) => job.status === 'scheduled').length
-  const completionRate = totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 0
+    return () => {
+      active = false
+    }
+  }, [businessId, supabase, today, userId])
 
-  const nextJob = jobs.find((job) => !['completed', 'cancelled'].includes(job.status)) || null
-  const totalRevenue = jobs.reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
-  const earnedRevenue = jobs
-    .filter((job) => job.status === 'completed')
-    .reduce((sum, job) => sum + (Number(job.total_cost) || 0), 0)
+  const jobSummary = useMemo(() => {
+    const now = new Date()
+    let completed = 0
+    let active = 0
+    let scheduled = 0
+    let totalRevenueLocal = 0
+    let earnedRevenueLocal = 0
+    let overdueActiveLocal = 0
+    let dueSoonLocal = 0
+    let next: NormalizedJob | null = null
 
-  const shiftStart = jobs[0]?.scheduled_start || null
-  const shiftEnd = jobs[Math.max(jobs.length - 1, 0)]?.scheduled_end || null
-  const overdueActive = jobs.filter(
-    (job) => activeStatuses.has(job.status) && job.scheduled_end && new Date(job.scheduled_end) < now
-  ).length
-  const dueSoon = jobs.filter((job) => {
-    if (job.status !== 'scheduled') return false
-    const mins = differenceInMinutes(new Date(job.scheduled_start), now)
-    return mins >= 0 && mins <= 90
-  }).length
+    for (const job of jobs) {
+      const cost = Number(job.total_cost) || 0
+      totalRevenueLocal += cost
+
+      if (!next && !['completed', 'cancelled'].includes(job.status)) {
+        next = job
+      }
+
+      if (job.status === 'completed') {
+        completed += 1
+        earnedRevenueLocal += cost
+      }
+
+      if (job.status === 'scheduled') {
+        scheduled += 1
+        const mins = differenceInMinutes(new Date(job.scheduled_start), now)
+        if (mins >= 0 && mins <= 90) dueSoonLocal += 1
+      }
+
+      if (activeStatuses.has(job.status)) {
+        active += 1
+        if (job.scheduled_end && new Date(job.scheduled_end) < now) {
+          overdueActiveLocal += 1
+        }
+      }
+    }
+
+    const total = jobs.length
+    return {
+      totalJobs: total,
+      completedCount: completed,
+      activeCount: active,
+      scheduledCount: scheduled,
+      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+      nextJob: next,
+      totalRevenue: totalRevenueLocal,
+      earnedRevenue: earnedRevenueLocal,
+      shiftStart: jobs[0]?.scheduled_start || null,
+      shiftEnd: jobs[Math.max(jobs.length - 1, 0)]?.scheduled_end || null,
+      overdueActive: overdueActiveLocal,
+      dueSoon: dueSoonLocal,
+    }
+  }, [jobs])
+
+  const {
+    totalJobs,
+    completedCount,
+    activeCount,
+    scheduledCount,
+    completionRate,
+    nextJob,
+    totalRevenue,
+    earnedRevenue,
+    shiftStart,
+    shiftEnd,
+    overdueActive,
+    dueSoon,
+  } = jobSummary
+  const [queueMode, setQueueMode] = useState<'all' | 'active' | 'scheduled' | 'completed'>('all')
+
+  const queueJobs = useMemo(() => {
+    if (queueMode === 'active') return jobs.filter((job) => activeStatuses.has(job.status))
+    if (queueMode === 'scheduled') return jobs.filter((job) => job.status === 'scheduled')
+    if (queueMode === 'completed') return jobs.filter((job) => job.status === 'completed')
+    return jobs
+  }, [jobs, queueMode])
 
   const [panels, setPanels] = useState(() => ({
     queue: true,
     route: false,
     tomorrow: false,
+    ai: initialJobs.length > 0,
     tools: false,
     shortcuts: false,
   }))
@@ -447,15 +523,30 @@ export default function TodayViewClient({
     setPanels((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
+  const aiJobOptions = useMemo(
+    () =>
+      jobs.map((job) => ({
+        id: job.id,
+        customerName: job.customer.name,
+        serviceName: job.service.name,
+        scheduledStart: job.scheduled_start,
+        status: job.status,
+        description: job.description,
+      })),
+    [jobs]
+  )
+
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.14),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.2),transparent_42%)]" />
+    <div className="space-y-5">
+      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.18),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.24),transparent_42%)]" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Field Operations</p>
-            <h1 className="mt-2 font-display text-4xl tracking-wide text-slate-900 dark:text-white sm:text-5xl">Today Dispatch Board</h1>
-            <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+            <h1 className="mt-2 font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-white sm:text-5xl">
+              Dispatch Command
+            </h1>
+            <p className="mt-1 font-sans text-sm text-slate-600 dark:text-slate-300">
               {format(today, 'EEEE, d MMM yyyy')}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -480,13 +571,13 @@ export default function TodayViewClient({
           <div className="flex flex-wrap gap-2">
             <Link
               href="/tech/schedule"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Full Schedule
             </Link>
             <Link
               href="/tech/stats"
-              className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 font-mono text-xs uppercase tracking-[0.12em] text-white transition-colors hover:bg-blue-700 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+              className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-950 transition-colors hover:bg-cyan-400"
             >
               Performance
             </Link>
@@ -505,31 +596,79 @@ export default function TodayViewClient({
         <KpiCard label="Revenue Today" value={`$${earnedRevenue.toFixed(0)}`} helper={`$${totalRevenue.toFixed(0)} total booked`} />
       </section>
 
+      {totalJobs === 0 ? (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="font-display text-2xl uppercase tracking-[0.08em] text-slate-900 dark:text-slate-100">
+            No Jobs Scheduled Today
+          </p>
+          <p className="mt-1 font-sans text-sm text-slate-600 dark:text-slate-300">
+            Check tomorrow queue or open full schedule to review upcoming assignments.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/tech/schedule"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Open Schedule
+            </Link>
+            <button
+              type="button"
+              onClick={() => setPanels((prev) => ({ ...prev, tomorrow: true }))}
+              className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-950 transition-colors hover:bg-cyan-400"
+            >
+              Show Tomorrow Queue
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           <CollapsiblePanel
             title="Queue"
-            subtitle={`${totalJobs} jobs · ${scheduledCount} scheduled · ${activeCount} active`}
+            subtitle={`${totalJobs} jobs - ${scheduledCount} scheduled - ${activeCount} active`}
             icon={ListChecks}
             open={panels.queue}
             onToggle={() => togglePanel('queue')}
             right={
               <Link
                 href="/tech/schedule"
-                className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 onClick={(e) => e.stopPropagation()}
               >
                 Calendar
               </Link>
             }
           >
-            {jobs.length === 0 ? (
+            <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
+              {([
+                { key: 'all', label: `All ${jobs.length}` },
+                { key: 'active', label: `Active ${activeCount}` },
+                { key: 'scheduled', label: `Scheduled ${scheduledCount}` },
+                { key: 'completed', label: `Done ${completedCount}` },
+              ] as const).map((mode) => (
+                <button
+                  key={mode.key}
+                  type="button"
+                  onClick={() => setQueueMode(mode.key)}
+                  className={`rounded-full px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                    queueMode === mode.key
+                      ? 'bg-cyan-500 text-slate-950'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+
+            {queueJobs.length === 0 ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <p className="font-mono text-sm text-slate-600 dark:text-slate-300">No jobs assigned for today.</p>
+                <p className="font-sans text-sm text-slate-600 dark:text-slate-300">No jobs match this queue filter.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {jobs.map((job, idx) => (
+                {queueJobs.map((job, idx) => (
                   <div key={job.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(idx * 35, 240)}ms` }}>
                     <DispatchJobCard job={job} />
                   </div>
@@ -541,7 +680,7 @@ export default function TodayViewClient({
               <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                 Critical Watch
               </p>
-              <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
+              <p className="mt-1 font-sans text-xs text-slate-600 dark:text-slate-300">
                 {overdueActive > 0
                   ? `${overdueActive} active jobs are running behind scheduled end times`
                   : 'No active delays detected in today queue'}
@@ -585,7 +724,7 @@ export default function TodayViewClient({
               <div className="space-y-2">
                 {tomorrowJobs.map((job) => {
                   const customer = relationFirst(job.customer)
-                  const service = relationFirst(job.service)
+                  const service = relationFirst(relationFirst(job.services)?.service)
                   return (
                     <div
                       key={job.id}
@@ -605,6 +744,16 @@ export default function TodayViewClient({
                 })}
               </div>
             )}
+          </CollapsiblePanel>
+
+          <CollapsiblePanel
+            title="AI Copilot"
+            subtitle={aiJobOptions.length ? `${aiJobOptions.length} jobs available` : 'No jobs available'}
+            icon={Sparkles}
+            open={panels.ai}
+            onToggle={() => togglePanel('ai')}
+          >
+            <TechAIAssistantPanel jobs={aiJobOptions} embedded />
           </CollapsiblePanel>
 
           <CollapsiblePanel

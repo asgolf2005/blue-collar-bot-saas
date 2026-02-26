@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
-import { 
+import { ActionIconButton } from '@/components/ui/ActionSystem'
+import {
   Plus, 
   Briefcase, 
   DollarSign,
@@ -17,8 +18,9 @@ import {
   Wrench,
   PlusCircle,
   AlertTriangle,
-  ArrowRight
-} from '@/components/ui/icons'
+  ArrowRight,
+  X,
+} from '@/components/ui/lucide'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect } from 'react'
 
@@ -27,13 +29,16 @@ interface Service {
   id: string
   name: string
   description: string | null
-  base_price: number
+  base_price: number | null
   duration_minutes: number | null
   is_active: boolean
   created_at: string
   times_booked?: number
   times_completed?: number
 }
+
+const NEW_SERVICE_BUTTON_CLASS =
+  'text-xs px-5 py-2.5 transition-all whitespace-nowrap flex-nowrap rounded-full border border-cyan-400/50 bg-slate-900 text-cyan-300 font-mono shadow-[inset_0_0_0_1px_rgba(34,211,238,0.15)] hover:bg-cyan-500/10 dark:border-cyan-300/60 dark:bg-slate-950 dark:text-cyan-200'
 
 // Contextual icon mapping based on service name keywords
 function getServiceIcon(serviceName: string) {
@@ -240,11 +245,13 @@ export default function ServicesPage() {
             SYS.TIME: {sysTime}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-start gap-2 sm:items-end">
           <Link href="/admin/services/new">
-            <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white font-mono text-xs px-5 py-2.5 rounded-full transition-all whitespace-nowrap flex-nowrap">
-              <Plus className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span className="whitespace-nowrap">NEW SERVICE</span>
+            <Button
+              className={NEW_SERVICE_BUTTON_CLASS}
+              icon={<Plus className="h-4 w-4" />}
+            >
+              NEW SERVICE
             </Button>
           </Link>
         </div>
@@ -295,12 +302,16 @@ export default function ServicesPage() {
                      transition-all"
         />
         {searchQuery && (
-          <button type="button"
+          <ActionIconButton
+            stylePreset="ambient"
+            intent="ghost"
+            size="xs"
             onClick={() => setSearchQuery('')}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-          >
-            <span className="text-xs">Ã—</span>
-          </button>
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500"
+            aria-label="Clear search"
+            title="Clear search"
+            icon={<X className="h-3.5 w-3.5" />}
+          />
         )}
       </div>
 
@@ -395,7 +406,10 @@ function ServiceCard({ service }: { service: Service }) {
   const colors = colorClasses[color]
 
   // Format price range (show as range if duration exists, or single price)
-  const formattedPrice = parseFloat(service.base_price.toString()).toFixed(0)
+  const formattedPrice =
+    typeof service.base_price === 'number' && Number.isFinite(service.base_price)
+      ? service.base_price.toFixed(0)
+      : '--'
 
   return (
     <Link href={`/admin/services/${service.id}`}>

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { fileToDataUrl, parseJsonFromModel, withTimeout } from '@/lib/ai/utils'
 import { Models, openai, isOpenAIConfigured } from '@/lib/ai/openai'
 import { toReadableSentence, toTitleCase, normalizeWhitespace } from '@/lib/utils/text'
-import { checkRateLimit } from '@/lib/rate-limit'
+import { checkCooldown, checkRateLimit } from '@/lib/rate-limit'
 import { trackAICost } from '@/lib/ai/cost-tracker'
 
 interface PartAnalysisResponse {
@@ -23,6 +23,7 @@ interface ServiceRow {
 }
 
 const MAX_IMAGE_SIZE_BYTES = 12 * 1024 * 1024
+const AI_IDENTIFY_PART_COOLDOWN_MS = 10_000
 
 const normalizeText = (value: string) =>
   value
@@ -104,6 +105,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 })
     }
 
+    if (profile.role !== 'admin' && profile.role !== 'tech') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const rateLimit = checkRateLimit(`${user.id}:ai:identify-part`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -111,6 +116,17 @@ export async function POST(request: Request) {
         {
           status: 429,
           headers: { 'Retry-After': String(rateLimit.retryAfter) },
+        }
+      )
+    }
+
+    const cooldown = checkCooldown(`${user.id}:ai:identify-part:${jobId}`, AI_IDENTIFY_PART_COOLDOWN_MS)
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        { error: `Please wait ${cooldown.retryAfter}s before running another part analysis for this job.` },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(cooldown.retryAfter) },
         }
       )
     }
@@ -128,6 +144,13 @@ export async function POST(request: Request) {
 
     if (profile.role === 'tech' && job.technician_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (!String(job.description || '').trim()) {
+      return NextResponse.json(
+        { error: 'Add a job description before using identify part.' },
+        { status: 400 }
+      )
     }
 
     if (!isOpenAIConfigured || !openai) {

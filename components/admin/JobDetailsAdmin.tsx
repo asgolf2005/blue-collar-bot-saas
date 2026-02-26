@@ -2,15 +2,15 @@
 
 import { JobWithDetails, User } from '@/lib/types'
 import { format, parseISO, isPast } from 'date-fns'
-import { 
-  ArrowLeft, Phone, MapPin, Calendar, Clock, Image as ImageIcon, 
-  MessageSquare, Send, FileText, Plus, User as UserIcon, 
+import {
+  ArrowLeft, Phone, MapPin, Calendar, Clock, Image as ImageIcon,
+  MessageSquare, Send, FileText, Plus, User as UserIcon,
   AlertCircle, CheckCircle, Truck, Play, Circle, XCircle,
   ExternalLink, MessageCircle, Receipt, ChevronRight, Briefcase, Trash2
 } from '@/components/ui/icons'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import JobNotes from '@/components/tech/JobNotes'
 import { showToast } from '@/lib/utils/toast'
@@ -108,50 +108,67 @@ function toLocalDateTimeInputValue(value?: string | null) {
 
 function StatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.scheduled
-  
+
   return (
-    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${config.bg} ${config.border} border`}>
+    <div
+      data-test="assigned-badge"
+      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${config.bg} ${config.border} border`}
+    >
       <span className={config.color}>{config.icon}</span>
       <span className={`font-medium text-sm ${config.color}`}>{config.label}</span>
     </div>
   )
 }
 
-function Card({ 
-  children, 
+function Card({
+  children,
   className = '',
   title,
   icon,
-  action
-}: { 
+  action,
+  dataTest,
+  delay = 0,
+}: {
   children: React.ReactNode
   className?: string
   title?: string
   icon?: React.ReactNode
   action?: React.ReactNode
+  dataTest?: string
+  delay?: number
 }) {
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden ${className}`}>
-      {(title || icon) && (
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            {icon && <div className="text-slate-400">{icon}</div>}
-            <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+      className={`relative group rounded-[2rem] border border-white/5 bg-white/5 p-1 shadow-2xl backdrop-blur-xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-cyan-500/10 hover:border-white/10 ${className}`}
+      data-test={dataTest}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+
+      <div className="relative z-10 bg-slate-900/40 rounded-[1.75rem] h-full overflow-hidden">
+        {(title || icon) && (
+          <div className="flex items-center justify-between px-6 py-5 border-b border-white/5 bg-white/5">
+            <div className="flex items-center gap-3">
+              {icon && <div className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">{icon}</div>}
+              <h3 className="font-display font-bold tracking-widest text-white uppercase text-sm drop-shadow-sm">{title}</h3>
+            </div>
+            {action}
           </div>
-          {action}
-        </div>
-      )}
-      <div className="p-6">{children}</div>
-    </div>
+        )}
+        <div className="p-6">{children}</div>
+      </div>
+    </motion.div>
   )
 }
 
-function InfoItem({ 
-  label, 
-  value, 
+function InfoItem({
+  label,
+  value,
   icon,
   href
-}: { 
+}: {
   label: string
   value: React.ReactNode
   icon?: React.ReactNode
@@ -167,17 +184,18 @@ function InfoItem({
       </div>
     </div>
   )
-  
+
   if (href) {
     return <Link href={href} className="block hover:bg-slate-50 dark:hover:bg-slate-800/50 -mx-2 px-2 py-2 rounded-xl transition-colors">{content}</Link>
   }
-  
+
   return content
 }
 
 // ========================================
 // MAIN COMPONENT
 // ========================================
+import { motion, AnimatePresence } from 'framer-motion'
 
 export default function JobDetailsAdmin({
   job,
@@ -204,10 +222,16 @@ export default function JobDetailsAdmin({
   const [urgency, setUrgency] = useState<EditableUrgency>(toEditableUrgency(job.urgency))
   const [invoice, setInvoice] = useState<any>(null)
   const [loadingInvoice, setLoadingInvoice] = useState(true)
+  const [noteActivity, setNoteActivity] = useState<Array<{
+    id: string
+    content: string
+    created_at: string
+    user?: { full_name?: string | null } | null
+  }>>([])
   const deleteHoldIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const deleteHoldStartedAtRef = useRef<number | null>(null)
   const deleteTriggeredRef = useRef(false)
-  
+
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.scheduled
   const currentStartDate = scheduledStart ? new Date(scheduledStart) : parseISO(job.scheduled_start)
   const isOverdue =
@@ -261,6 +285,27 @@ export default function JobDetailsAdmin({
     if (deleteTriggeredRef.current) return
     stopDeleteHold(true)
   }
+
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const response = await fetch(`/api/jobs/${job.id}/notes`, { credentials: 'include' })
+        if (!response.ok) return
+        const payload = (await response.json()) as {
+          notes?: Array<{
+            id: string
+            content: string
+            created_at: string
+            user?: { full_name?: string | null } | null
+          }>
+        }
+        setNoteActivity(payload.notes?.slice(0, 6) || [])
+      } catch {
+        setNoteActivity([])
+      }
+    }
+    void fetchNotes()
+  }, [job.id])
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -390,67 +435,117 @@ export default function JobDetailsAdmin({
     ? Math.round((new Date(job.scheduled_end).getTime() - new Date(job.scheduled_start).getTime()) / (1000 * 60 * 60) * 10) / 10
     : null
 
+  const createdByLabel = job.source === 'ai_caller' ? 'AI Receptionist' : 'Admin Portal'
+  const lastModifiedByLabel = noteActivity[0]?.user?.full_name || 'Admin Update'
+  const lastModifiedAt = noteActivity[0]?.created_at || job.updated_at
+
+  const auditEvents = useMemo(() => {
+    const events: Array<{
+      id: string
+      label: string
+      detail: string
+      timestamp: string
+    }> = [
+        {
+          id: 'created',
+          label: 'Job created',
+          detail: `Created by ${createdByLabel}`,
+          timestamp: job.created_at,
+        },
+        {
+          id: 'status',
+          label: 'Status updated',
+          detail: `Current status: ${status.replace(/_/g, ' ')}`,
+          timestamp: job.updated_at,
+        },
+      ]
+
+    const assignedTech = technicians.find((tech) => tech.id === (technicianId || job.technician_id))
+    if (assignedTech) {
+      events.push({
+        id: 'assignment',
+        label: 'Technician assignment',
+        detail: `Assigned to ${assignedTech.full_name}`,
+        timestamp: job.updated_at,
+      })
+    }
+
+    noteActivity.forEach((note) => {
+      events.push({
+        id: `note-${note.id}`,
+        label: 'Note added',
+        detail: `${note.user?.full_name || 'Team'}: ${note.content}`,
+        timestamp: note.created_at,
+      })
+    })
+
+    return events
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 8)
+  }, [createdByLabel, job.created_at, job.technician_id, job.updated_at, noteActivity, status, technicianId, technicians])
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 relative rounded-[2.5rem] bg-[#0f172a]/60 backdrop-blur-3xl border border-white/10 p-4 sm:p-8"
+    >
+      {/* 2026 Global Spatial Orbs specific to this section */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-cyan-500/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none -translate-y-1/2 translate-x-1/3" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
+
       {/* Back Link & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <Link 
-          href="/admin/jobs" 
-          className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Link
+          href="/admin/jobs"
+          className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors group"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm font-medium">Back to Jobs</span>
+          <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </div>
+          <span className="text-sm font-medium font-mono uppercase tracking-widest">Back to Hub</span>
         </Link>
-        
+
         <div className="flex items-center gap-3">
           {isOverdue && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800">
-              <AlertCircle className="w-4 h-4 text-rose-500" />
-              <span className="text-sm font-medium text-rose-700 dark:text-rose-300">Overdue</span>
-            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+            >
+              <AlertCircle className="w-4 h-4 text-rose-400 animate-pulse" />
+              <span className="text-sm font-medium text-rose-300 tracking-wider">CRITICAL DELAY</span>
+            </motion.div>
           )}
           <StatusBadge status={status} />
         </div>
       </div>
 
-      {/* Job Title */}
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${statusConfig.bg} ${statusConfig.border} border`}>
-            <Briefcase className={`w-6 h-6 ${statusConfig.color}`} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{job.customer?.name}</h1>
-            <p className="text-slate-500 dark:text-slate-400">Job #{job.id.slice(0, 8).toUpperCase()}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-10">
         {/* LEFT COLUMN - Main Info */}
         <div className="xl:col-span-2 space-y-6">
           {/* Customer Info Card */}
-          <Card title="Customer Details" icon={<UserIcon className="w-5 h-5" />}>
+          <Card title="Customer Details" icon={<UserIcon className="w-5 h-5" />} delay={0.1}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <InfoItem 
+              <InfoItem
                 label="Customer"
                 value={job.customer?.name}
                 icon={<UserIcon className="w-4 h-4" />}
                 href={`/admin/customers/${job.customer?.id}`}
               />
-              <InfoItem 
+              <InfoItem
                 label="Phone"
                 value={job.customer?.phone || 'No phone'}
                 icon={<Phone className="w-4 h-4" />}
               />
               {job.customer?.address && (
-                <InfoItem 
+                <InfoItem
                   label="Address"
                   value={job.customer.address}
                   icon={<MapPin className="w-4 h-4" />}
                 />
               )}
-              <InfoItem 
+              <InfoItem
                 label="Job Source"
                 value={job.source === 'ai_caller' ? 'AI Caller' : 'Manual Entry'}
                 icon={<Circle className="w-4 h-4" />}
@@ -459,7 +554,7 @@ export default function JobDetailsAdmin({
           </Card>
 
           {/* Schedule Card */}
-          <Card title="Schedule" icon={<Calendar className="w-5 h-5" />}>
+          < Card title="Schedule" icon={< Calendar className="w-5 h-5" />} delay={0.2} >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">Start Time</label>
@@ -480,23 +575,27 @@ export default function JobDetailsAdmin({
                 />
               </div>
             </div>
-            {duration && (
-              <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
-                <Clock className="w-4 h-4" />
-                <span>Estimated duration: <strong className="text-slate-700 dark:text-slate-300">{duration} hours</strong></span>
-              </div>
-            )}
+            {
+              duration && (
+                <div className="mt-4 flex items-center gap-2 text-sm text-slate-500">
+                  <Clock className="w-4 h-4" />
+                  <span>Estimated duration: <strong className="text-slate-700 dark:text-slate-300">{duration} hours</strong></span>
+                </div>
+              )
+            }
             <p className="mt-3 text-xs text-slate-400">Times are saved in your local timezone</p>
-          </Card>
+          </Card >
 
           {/* Description Card */}
-          <Card title="Job Description" icon={<Briefcase className="w-5 h-5" />}>
+          < Card title="Job Description" icon={< Briefcase className="w-5 h-5" />} delay={0.3} >
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">
                   Description
                 </label>
                 <textarea
+                  id="description"
+                  data-test="description-input"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
@@ -538,64 +637,98 @@ export default function JobDetailsAdmin({
                 </div>
               </div>
             </div>
-          </Card>
+          </Card >
 
           {/* Photos */}
-          {job.media && job.media.length > 0 && (
-            <Card title="Photos" icon={<ImageIcon className="w-5 h-5" />}>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                {job.media.map((media) => (
-                  <a
-                    key={media.id}
-                    href={media.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 hover:ring-2 ring-cyan-500 transition-all group"
-                  >
-                    <Image
-                      src={media.file_url}
-                      alt="Job photo"
-                      width={320}
-                      height={320}
-                      unoptimized
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </a>
-                ))}
-              </div>
-            </Card>
-          )}
+          {
+            job.media && job.media.length > 0 && (
+              <Card title="Photos" icon={<ImageIcon className="w-5 h-5" />} delay={0.4}>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  {job.media.map((media) => (
+                    <a
+                      key={media.id}
+                      href={media.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 hover:ring-2 ring-cyan-500 transition-all group"
+                    >
+                      <Image
+                        src={media.file_url}
+                        alt="Job photo"
+                        width={320}
+                        height={320}
+                        unoptimized
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    </a>
+                  ))}
+                </div>
+              </Card>
+            )
+          }
 
           {/* Notes */}
-          <Card title="Notes & Activity" icon={<MessageSquare className="w-5 h-5" />}>
+          <Card title="Notes & Activity" icon={<MessageSquare className="w-5 h-5" />} delay={0.5}>
             <JobNotes jobId={job.id} embedded />
           </Card>
 
           {/* SMS History */}
-          <Card title="SMS History" icon={<MessageSquare className="w-5 h-5" />}>
+          <Card title="SMS History" icon={<MessageSquare className="w-5 h-5" />} delay={0.6}>
             <SMSHistory jobId={job.id} />
           </Card>
-        </div>
+        </div >
 
         {/* RIGHT COLUMN - Actions */}
-        <div className="space-y-6">
+        < div className="space-y-6" >
+          <Card title="Audit Trail" icon={<FileText className="w-5 h-5" />}>
+            <div className="space-y-4">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Created by</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{createdByLabel}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(job.created_at), 'MMM d, yyyy h:mm a')}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Last modified by</p>
+                <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{lastModifiedByLabel}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(lastModifiedAt), 'MMM d, yyyy h:mm a')}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 dark:border-slate-700">
+                <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Activity log</p>
+                </div>
+                <div className="max-h-56 space-y-2 overflow-y-auto p-3">
+                  {auditEvents.map((event) => (
+                    <div key={event.id} className="rounded-md border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/60">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">{event.label}</p>
+                      <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{event.detail}</p>
+                      <p className="mt-1 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                        {format(new Date(event.timestamp), 'MMM d, h:mm a')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+
           {/* Manage Job */}
           <Card title="Manage Job" icon={<CheckCircle className="w-5 h-5" />}>
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">Status</label>
                 <select
+                  data-test="status-dropdown"
                   value={status}
                   onChange={(e) => setStatus(e.target.value as any)}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all appearance-none cursor-pointer"
                   style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
                 >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="on_the_way">On the Way</option>
-                  <option value="arrived">Arrived</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="scheduled" data-test="status-scheduled">Scheduled</option>
+                  <option value="on_the_way" data-test="status-on-the-way">On the Way</option>
+                  <option value="arrived" data-test="status-arrived">Arrived</option>
+                  <option value="in_progress" data-test="status-in-progress">In Progress</option>
+                  <option value="completed" data-test="status-completed">Completed</option>
+                  <option value="cancelled" data-test="status-cancelled">Cancelled</option>
                 </select>
                 {STATUS_CONFIG[status] && (
                   <p className="mt-2 text-xs text-slate-500">{STATUS_CONFIG[status].description}</p>
@@ -603,23 +736,30 @@ export default function JobDetailsAdmin({
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">Assign Technician</label>
-                <select
-                  value={technicianId}
-                  onChange={(e) => setTechnicianId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all appearance-none cursor-pointer"
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-                >
-                  <option value="">Unassigned</option>
-                  {technicians.map((tech) => (
-                    <option key={tech.id} value={tech.id}>
-                      {tech.full_name}
-                    </option>
-                  ))}
-                </select>
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2 block">
+                  Assign Technician
+                </label>
+                <div data-test="tech-list">
+                  <select
+                    data-test="tech-select"
+                    value={technicianId}
+                    onChange={(e) => setTechnicianId(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all appearance-none cursor-pointer"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
+                  >
+                    <option value="" data-test="tech-item">Unassigned</option>
+                    {technicians.map((tech) => (
+                      <option key={tech.id} value={tech.id} data-test="tech-item">
+                        {tech.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <button type="button"
+              <button
+                type="button"
+                data-test="assign-tech"
                 onClick={handleUpdateJob}
                 disabled={saving || !hasChanges}
                 className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:bg-slate-300 text-white font-medium transition-all hover:shadow-lg active:scale-[0.98]"
@@ -681,7 +821,7 @@ export default function JobDetailsAdmin({
           </Card>
 
           {/* Invoice */}
-          <Card title="Invoice" icon={<Receipt className="w-5 h-5" />}>
+          <Card title="Invoice" icon={<Receipt className="w-5 h-5" />} dataTest="invoice-form">
             {loadingInvoice ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -691,12 +831,11 @@ export default function JobDetailsAdmin({
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-slate-500">Invoice #{invoice.invoice_number || invoice.id.slice(0, 8).toUpperCase()}</span>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
                       invoice.status === 'sent' ? 'bg-blue-100 text-blue-700' :
-                      invoice.status === 'overdue' ? 'bg-rose-100 text-rose-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
+                        invoice.status === 'overdue' ? 'bg-rose-100 text-rose-700' :
+                          'bg-slate-100 text-slate-700'
+                      }`}>
                       {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                     </span>
                   </div>
@@ -704,7 +843,7 @@ export default function JobDetailsAdmin({
                     ${Number(invoice.total).toFixed(2)}
                   </p>
                 </div>
-                
+
                 <Link
                   href={`/admin/invoices/${invoice.id}`}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition-all"
@@ -722,15 +861,28 @@ export default function JobDetailsAdmin({
                 {['arrived', 'in_progress', 'completed'].includes(job.status) ? (
                   <Link
                     href={`/admin/invoices/new?job=${job.id}`}
+                    data-test="create-invoice"
+                    aria-label="Create Invoice"
                     className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-medium transition-all hover:shadow-lg"
                   >
                     <Plus className="w-4 h-4" />
                     Create Invoice
                   </Link>
                 ) : (
-                  <p className="text-xs text-slate-400 px-4">
-                    Job must be at least &quot;Arrived&quot; status to create an invoice
-                  </p>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      data-test="create-invoice"
+                      disabled
+                      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-slate-300 text-white font-medium cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Invoice
+                    </button>
+                    <p className="text-xs text-slate-400 px-4">
+                      Job must be at least &quot;Arrived&quot; status to create an invoice
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -793,7 +945,8 @@ export default function JobDetailsAdmin({
           </Card>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
+
 

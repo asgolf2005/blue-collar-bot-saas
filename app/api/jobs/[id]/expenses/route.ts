@@ -1,6 +1,44 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+type UserProfile = {
+  business_id: string
+  role: string
+}
+
+async function canAccessJobExpenses(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  jobId: string
+  userId: string
+  userProfile: UserProfile
+}) {
+  const { supabase, jobId, userId, userProfile } = args
+
+  const { data: job } = await supabase
+    .from('jobs')
+    .select('id, business_id, technician_id')
+    .eq('id', jobId)
+    .single()
+
+  if (!job) {
+    return { ok: false as const, status: 404, error: 'Job not found' }
+  }
+
+  if (!userProfile.business_id || userProfile.business_id !== job.business_id) {
+    return { ok: false as const, status: 403, error: 'Unauthorized' }
+  }
+
+  if (userProfile.role === 'admin') {
+    return { ok: true as const, businessId: job.business_id }
+  }
+
+  if (userProfile.role === 'tech' && job.technician_id === userId) {
+    return { ok: true as const, businessId: job.business_id }
+  }
+
+  return { ok: false as const, status: 403, error: 'Forbidden' }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -35,31 +73,30 @@ export async function POST(
       )
     }
 
-    // Verify user has access to this job
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('id, business_id')
-      .eq('id', id)
-      .single()
-
-    if (!job) {
-      return NextResponse.json(
-        { error: 'Job not found' },
-        { status: 404 }
-      )
-    }
-
-    // Get user's business to verify access
     const { data: userProfile } = await supabase
       .from('users')
       .select('business_id, role')
       .eq('id', user.id)
       .single()
 
-    if (!userProfile || userProfile.business_id !== job.business_id) {
+    if (!userProfile) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
+        { error: 'User profile not found' },
+        { status: 404 }
+      )
+    }
+
+    const access = await canAccessJobExpenses({
+      supabase,
+      jobId: id,
+      userId: user.id,
+      userProfile: userProfile as UserProfile,
+    })
+
+    if (!access.ok) {
+      return NextResponse.json(
+        { error: access.error },
+        { status: access.status }
       )
     }
 
@@ -68,7 +105,7 @@ export async function POST(
       .from('job_expenses')
       .insert({
         job_id: id,
-        business_id: job.business_id,
+        business_id: access.businessId,
         category,
         description: description.trim(),
         amount,
@@ -125,17 +162,17 @@ export async function GET(
       )
     }
 
-    // Verify job belongs to user's business
-    const { data: job } = await supabase
-      .from('jobs')
-      .select('id, business_id')
-      .eq('id', id)
-      .single()
+    const access = await canAccessJobExpenses({
+      supabase,
+      jobId: id,
+      userId: user.id,
+      userProfile: userProfile as UserProfile,
+    })
 
-    if (!job || job.business_id !== userProfile.business_id) {
+    if (!access.ok) {
       return NextResponse.json(
-        { error: 'Job not found' },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       )
     }
 

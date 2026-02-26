@@ -1,9 +1,9 @@
 'use client'
 
 import { useLoadScript, Autocomplete } from '@react-google-maps/api'
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 
-const libraries: ("places")[] = ["places"]
+const libraries: ('places')[] = ['places']
 
 interface AddressAutocompleteProps {
   value: string
@@ -11,14 +11,16 @@ interface AddressAutocompleteProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  showApiHint?: boolean
 }
 
 export default function AddressAutocomplete({
   value,
   onChange,
-  placeholder = "Enter address",
-  className = "",
+  placeholder = 'Enter address',
+  className = '',
   disabled = false,
+  showApiHint = true,
 }: AddressAutocompleteProps) {
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
@@ -33,16 +35,15 @@ export default function AddressAutocomplete({
   }
 
   const onPlaceChanged = () => {
-    if (autocomplete) {
-      const place = autocomplete.getPlace()
-      if (place.formatted_address) {
-        onChange(place.formatted_address)
-      }
+    if (!autocomplete) return
+    const place = autocomplete.getPlace()
+    if (place.formatted_address) {
+      onChange(place.formatted_address)
     }
   }
 
   if (loadError) {
-    // Fallback to regular input if Maps API fails to load
+    // Fallback to regular input if Maps API fails to load.
     return (
       <input
         ref={inputRef}
@@ -67,7 +68,7 @@ export default function AddressAutocomplete({
     )
   }
 
-  // If no API key is set, use regular input
+  // If no API key is set, use regular input with optional helper note.
   if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
     return (
       <div>
@@ -80,9 +81,11 @@ export default function AddressAutocomplete({
           className={className}
           disabled={disabled}
         />
-        <p className="text-xs text-gray-500 mt-1">
-          💡 Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable autocomplete
-        </p>
+        {showApiHint && (
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable autocomplete
+          </p>
+        )}
       </div>
     )
   }

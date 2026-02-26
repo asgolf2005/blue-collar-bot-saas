@@ -98,7 +98,7 @@ export default function PremiumJobsTable({ jobs }: PremiumJobsTableProps) {
 
       showToast.success(`${selectedCount} job${selectedCount > 1 ? 's' : ''} deleted successfully`)
       clearSelection()
-      window.location.reload()
+      router.refresh()
     } catch (error) {
       showToast.error('Failed to delete jobs')
     } finally {
