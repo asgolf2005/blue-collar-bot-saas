@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Image from 'next/image'
 import Link from 'next/link'
@@ -95,7 +95,7 @@ export default function AdminNav({
               "w-8 h-8 rounded-xl flex items-center justify-center",
               isDark ? "bg-indigo-500/20 text-indigo-400" : "bg-indigo-100 text-indigo-600"
             )}>
-              <HardHat className="w-4 h-4" />
+              <HardHat className="icon-sm" strokeWidth={1.5} />
             </div>
             <div className="font-display font-bold tracking-wider text-sm">
               BCB<span className="text-indigo-500">2.0</span>
@@ -103,9 +103,10 @@ export default function AdminNav({
           </div>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? <X className="icon-md" strokeWidth={1.5} /> : <Menu className="icon-md" strokeWidth={1.5} />}
           </button>
         </div>
       </header>
@@ -127,15 +128,16 @@ export default function AdminNav({
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
-                      'flex items-center gap-4 px-4 py-4 rounded-2xl transition-all',
+                      'flex items-center gap-4 px-4 py-4 rounded-2xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50',
                       isActive
                         ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/25'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                     )}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="icon-md" strokeWidth={1.5} />
                     <span className="font-medium">{item.label}</span>
                   </Link>
                 )
@@ -172,7 +174,7 @@ export default function AdminNav({
               "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-transform",
               isDark ? "bg-indigo-500 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]" : "bg-indigo-600 text-white shadow-lg"
             )}>
-              <HardHat className="w-5 h-5" />
+              <HardHat className="icon-md" strokeWidth={1.5} />
             </div>
             <motion.div
               className="flex-col whitespace-nowrap"
@@ -200,7 +202,8 @@ export default function AdminNav({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="relative flex items-center gap-4 px-3 py-3 rounded-2xl group"
+                    prefetch={false}
+                    className="relative flex items-center gap-4 px-3 py-3 rounded-2xl group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
                   >
                     {/* Active Background Pill */}
                     {isActive && (
@@ -222,12 +225,15 @@ export default function AdminNav({
                     )} />
 
                     <div className="relative z-10 w-6 h-6 flex items-center justify-center shrink-0">
-                      <Icon className={cn(
-                        "w-5 h-5 transition-colors",
-                        isActive
-                          ? (isDark ? "text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" : "text-indigo-600")
-                          : "text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
-                      )} />
+                      <Icon
+                        className={cn(
+                          "icon-md transition-colors",
+                          isActive
+                            ? (isDark ? "text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" : "text-indigo-600")
+                            : "text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white"
+                        )}
+                        strokeWidth={1.5}
+                      />
                     </div>
 
                     <motion.span
@@ -252,10 +258,11 @@ export default function AdminNav({
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="w-full relative flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group"
+                className="w-full relative flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 <div className="w-6 h-6 flex items-center justify-center shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                  {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                  {isDark ? <Sun className="icon-md" strokeWidth={1.5} /> : <Moon className="icon-md" strokeWidth={1.5} />}
                 </div>
                 <motion.span
                   className="whitespace-nowrap font-medium text-sm text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors"
@@ -269,10 +276,11 @@ export default function AdminNav({
               {/* Logout */}
               <button
                 onClick={handleLogout}
-                className="w-full relative flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors group"
+                className="w-full relative flex items-center gap-4 px-3 py-3 rounded-2xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
+                aria-label="Sign out"
               >
                 <div className="w-6 h-6 flex items-center justify-center shrink-0 text-slate-500 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="icon-md" strokeWidth={1.5} />
                 </div>
                 <motion.span
                   className="whitespace-nowrap font-medium text-sm text-slate-500 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors"

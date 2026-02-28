@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
@@ -15,7 +15,13 @@ function cn(...inputs: ClassValue[]) {
 
 /**
  * Button variants using class-variance-authority
- * Follows the new design system specifications
+ * Follows the design system specifications
+ * 
+ * Standard variants:
+ * - primary: bg-cyan-600 text-white hover:bg-cyan-700
+ * - secondary: bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-white
+ * - ghost: bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800
+ * - danger: bg-rose-600 text-white hover:bg-rose-700
  */
 const buttonVariants = cva(
   // Base styles - applied to all button variants
@@ -23,57 +29,54 @@ const buttonVariants = cva(
     'relative inline-flex items-center justify-center gap-2',
     'whitespace-nowrap flex-nowrap',
     'font-medium transition-all duration-200 ease-out',
-    'focus:outline-none focus:ring-2 focus:ring-offset-2',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900',
     'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none',
     'active:scale-[0.98]',
   ],
   {
     variants: {
       /**
-       * Visual style variant
+       * Visual style variant - standardized to design system
        */
       variant: {
         primary: [
-          'bg-primary text-white',
+          'bg-cyan-600 text-white',
           'border border-transparent',
           'shadow-sm',
-          'hover:bg-primary/90',
+          'hover:bg-cyan-700',
           'hover:shadow-md',
           'hover:-translate-y-0.5',
-          'focus:ring-primary/50',
         ],
         secondary: [
-          'bg-white text-surface-700',
-          'border border-gray-200',
+          'bg-slate-100 text-slate-900',
+          'border border-transparent',
           'shadow-sm',
-          'hover:bg-gray-50',
-          'hover:border-gray-300',
+          'hover:bg-slate-200',
           'hover:-translate-y-0.5',
-          'focus:ring-surface-400/50',
+          'dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700',
         ],
         outline: [
-          'bg-transparent text-surface-700',
-          'border border-gray-300',
+          'bg-transparent text-slate-700',
+          'border border-slate-300',
           'shadow-sm',
-          'hover:bg-gray-50',
-          'hover:border-gray-400',
-          'focus:ring-surface-400/50',
+          'hover:bg-slate-50',
+          'hover:border-slate-400',
+          'dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-800',
         ],
         danger: [
-          'bg-danger text-white',
+          'bg-rose-600 text-white',
           'border border-transparent',
           'shadow-sm',
-          'hover:bg-danger/90',
+          'hover:bg-rose-700',
           'hover:shadow-md',
           'hover:-translate-y-0.5',
-          'focus:ring-danger/50',
         ],
         ghost: [
-          'bg-transparent text-surface-600',
+          'bg-transparent text-slate-600',
           'border border-transparent',
-          'hover:bg-gray-100',
-          'hover:text-surface-700',
-          'focus:ring-surface-400/50',
+          'hover:bg-slate-100',
+          'hover:text-slate-900',
+          'dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
         ],
         glass: [
           'bg-white/80 text-slate-700',
@@ -83,24 +86,21 @@ const buttonVariants = cva(
           'shadow-sm',
           'hover:bg-white dark:hover:bg-slate-800',
           'hover:-translate-y-0.5 hover:shadow-md',
-          'focus:ring-slate-400/50',
         ],
         glassPrimary: [
-          'bg-blue-600/90 text-white',
-          'dark:bg-cyan-500/90',
+          'bg-cyan-600/90 text-white',
+          'dark:bg-cyan-600/90',
           'backdrop-blur-sm',
-          'border border-blue-400/30 dark:border-cyan-400/30',
-          'shadow-sm shadow-blue-500/20 dark:shadow-cyan-500/20',
-          'hover:bg-blue-600 dark:hover:bg-cyan-500',
+          'border border-cyan-400/30',
+          'shadow-sm shadow-cyan-500/20',
+          'hover:bg-cyan-600 dark:hover:bg-cyan-600',
           'hover:-translate-y-0.5 hover:shadow-md',
-          'focus:ring-blue-500/50 dark:focus:ring-cyan-500/50',
         ],
         industrial: [
           'bg-slate-900 text-cyan-200',
           'border border-cyan-400/55',
           'shadow-[inset_0_0_0_1px_rgba(34,211,238,0.18)]',
           'hover:bg-cyan-500/10',
-          'focus:ring-cyan-400/50',
         ],
         editorial: [
           'bg-white text-slate-900',
@@ -108,21 +108,18 @@ const buttonVariants = cva(
           'uppercase tracking-[0.08em]',
           'hover:bg-slate-100',
           'dark:bg-slate-900 dark:text-slate-100 dark:border-slate-100 dark:hover:bg-slate-800',
-          'focus:ring-slate-500/40',
         ],
         ambient: [
           'bg-gradient-to-r from-sky-400/90 via-cyan-400/90 to-emerald-400/90 text-slate-950',
           'border border-cyan-300/50',
           'shadow-[0_12px_28px_-18px_rgba(6,182,212,0.95)]',
           'hover:brightness-110',
-          'focus:ring-cyan-300/60',
         ],
         success: [
           'bg-emerald-500/15 text-emerald-700',
           'border border-emerald-400/60',
           'hover:bg-emerald-500/25',
           'dark:text-emerald-300',
-          'focus:ring-emerald-400/50',
         ],
       },
       /**
@@ -181,13 +178,17 @@ export interface ButtonProps
  * A comprehensive, reusable button component with multiple variants, sizes,
  * and states. Supports loading states, icons, and full accessibility features.
  *
+ * Design System:
+ * - Icons should use .icon-sm (w-4 h-4) when used inside buttons
+ * - All buttons have consistent focus rings via focus-ring utility
+ *
  * @example
  * ```tsx
  * // Primary button
  * <Button>Click me</Button>
  *
  * // Secondary button with icon
- * <Button variant="secondary" icon={<Plus size={16} />}>
+ * <Button variant="secondary" icon={<Plus className="icon-sm" />}>
  *   Add Item
  * </Button>
  *
@@ -254,7 +255,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
         {/* Icon - hidden when loading to avoid clutter */}
         {!loading && icon && (
-          <span className="shrink-0 flex items-center" aria-hidden="true">
+          <span className="shrink-0 flex items-center icon-sm" aria-hidden="true">
             {icon}
           </span>
         )}
@@ -271,4 +272,3 @@ Button.displayName = 'Button'
 
 export { Button, buttonVariants }
 export default Button
-

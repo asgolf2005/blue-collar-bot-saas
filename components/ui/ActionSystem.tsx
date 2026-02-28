@@ -41,8 +41,12 @@ const iconSizeClasses: Record<ActionSize, string> = {
   md: 'h-9 w-9',
 }
 
+/**
+ * Base action class with standardized focus ring
+ * Uses design system .focus-ring equivalent
+ */
 const baseActionClass =
-  'inline-flex items-center justify-center gap-1.5 rounded-full font-sans font-semibold tracking-wide transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex items-center justify-center gap-1.5 rounded-full font-sans font-semibold tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 disabled:cursor-not-allowed disabled:opacity-50'
 
 const styleIntentClass: Record<ActionStyle, Record<ActionIntent, string>> = {
   industrial: {
@@ -83,6 +87,17 @@ const styleIntentClass: Record<ActionStyle, Record<ActionIntent, string>> = {
   },
 }
 
+/**
+ * ActionButton - Standardized action button component
+ * 
+ * Icon sizing:
+ * - Use .icon-sm (w-4 h-4) for button icons
+ * 
+ * @example
+ * <ActionButton intent="primary" icon={<Plus className="icon-sm" />}>
+ *   Add Item
+ * </ActionButton>
+ */
 export function ActionButton({
   stylePreset = 'industrial',
   intent = 'primary',
@@ -99,12 +114,17 @@ export function ActionButton({
       className={cn(baseActionClass, sizeClasses[size], styleIntentClass[stylePreset][intent], className)}
       {...props}
     >
-      {icon ? <span className="inline-flex items-center justify-center">{icon}</span> : null}
+      {icon ? <span className="inline-flex items-center justify-center icon-sm">{icon}</span> : null}
       {children}
     </button>
   )
 }
 
+/**
+ * ActionIconButton - Icon-only action button
+ * 
+ * Icons use .icon-md (w-5 h-5) as standalone elements
+ */
 export function ActionIconButton({
   stylePreset = 'industrial',
   intent = 'secondary',
@@ -126,11 +146,16 @@ export function ActionIconButton({
       )}
       {...props}
     >
-      <span className="inline-flex items-center justify-center">{icon}</span>
+      <span className="inline-flex items-center justify-center icon-md">{icon}</span>
     </button>
   )
 }
 
+/**
+ * ActionFilterChip - Filter chip component with remove action
+ * 
+ * Uses design system badge-muted styling as base
+ */
 export function ActionFilterChip({
   label,
   onRemove,
@@ -154,10 +179,10 @@ export function ActionFilterChip({
         <button
           type="button"
           onClick={onRemove}
-          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-current opacity-70 transition hover:opacity-100"
+          className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-current opacity-70 transition hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50"
           aria-label={`Remove ${label}`}
         >
-          <X className="h-3 w-3" />
+          <X className="icon-sm" />
         </button>
       ) : null}
     </span>
