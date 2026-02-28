@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { ActionIconButton } from '@/components/ui/ActionSystem'
 import {
@@ -15,8 +16,10 @@ import {
   X,
   Activity,
   Gauge,
+  ChevronDown,
 } from '@/components/ui/lucide'
 import { createClient } from '@/lib/supabase/client'
+import { getDateRange, formatDisplayDate, resolveDateRangeKey, type DateRangeKey } from '@/lib/analytics/dateUtils'
 
 type ServiceMaturity = 'Draft' | 'Early' | 'Established' | 'Scaled'
 
@@ -72,6 +75,29 @@ const PAGE_SIZE = 1000
 
 const NEW_SERVICE_BUTTON_CLASS =
   'text-xs px-5 py-2.5 transition-all whitespace-nowrap flex-nowrap rounded-full border border-cyan-400/50 bg-slate-900 text-cyan-300 font-mono shadow-[inset_0_0_0_1px_rgba(34,211,238,0.15)] hover:bg-cyan-500/10 dark:border-cyan-300/60 dark:bg-slate-950 dark:text-cyan-200'
+
+// Range options matching analytics pattern plus 14D
+const RANGE_OPTIONS: { key: DateRangeKey | '14d'; label: string }[] = [
+  { key: '7d', label: '7 Days' },
+  { key: '14d', label: '14 Days' },
+  { key: '30d', label: '30 Days' },
+  { key: '6m', label: '6 Months' },
+  { key: '1y', label: '1 Year' },
+  { key: 'all', label: 'All Time' },
+]
+
+// Helper to check if date is within range
+function isDateInRange(dateStr: string | null, start: Date, end: Date): boolean {
+  if (!dateStr) return false
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return false
+  return date >= start && date <= end
+}
+
+// Get job date (scheduled_start or fallback to created_at)
+function getJobDate(job: JobRow | UsageJobRow): string {
+  return job.scheduled_start || (job as JobRow).created_at || ''
+}
 
 function toSingle<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
@@ -312,13 +338,44 @@ async function fetchInvoicesForJobs(
 }
 
 export default function ServicesPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
+  
   const [services, setServices] = useState<Service[]>([])
   const [totalJobsAllTime, setTotalJobsAllTime] = useState(0)
   const [totalBilledAllTime, setTotalBilledAllTime] = useState(0)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [rangeMenuOpen, setRangeMenuOpen] = useState(false)
+  
+  // Get range from URL or default to 'all'
+  const requestedRange = searchParams.get('range') as DateRangeKey | '14d' | null
+  const selectedRange = RANGE_OPTIONS.find(r => r.key === requestedRange) || RANGE_OPTIONS.find(r => r.key === 'all')!
+  const dateRange = useMemo(() => getDateRange(selectedRange.key as DateRangeKey), [selectedRange.key])
 
+  // Close range menu on outside click
+  useEffect(() => {
+    if (!rangeMenuOpen) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-range-menu]')) setRangeMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [rangeMenuOpen])
+  
+  const handleRangeChange = (range: DateRangeKey | '14d') => {
+    setRangeMenuOpen(false)
+    const params = new URLSearchParams(searchParams)
+    params.set('range', range)
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
+  }
+  
   useEffect(() => {
     async function loadServices() {
       const supabase = createClient()
@@ -355,10 +412,19 @@ export default function ServicesPage() {
           fetchAllBusinessJobs(supabase, profile.business_id),
           fetchAllBusinessInvoices(supabase, profile.business_id),
         ])
+        
+        // Filter jobs by date range
+        const filteredJobs = allJobs.filter(job => isDateInRange(getJobDate(job), dateRange.start, dateRange.end))
 
-        setTotalJobsAllTime(allJobs.length)
+        setTotalJobsAllTime(filteredJobs.length)
 
-        const jobIds = Array.from(new Set(usageRows.map((row) => row.job_id)))
+        // Filter usage rows to only include jobs in date range
+        const filteredUsageRows = usageRows.filter(row => {
+          const job = allJobs.find(j => j.id === row.job_id)
+          return job && isDateInRange(getJobDate(job), dateRange.start, dateRange.end)
+        })
+        
+        const jobIds = Array.from(new Set(filteredUsageRows.map((row) => row.job_id)))
         const mappedJobIds = new Set(jobIds)
         const jobsById = new Map(allJobs.map((job) => [job.id, job]))
 
@@ -385,17 +451,17 @@ export default function ServicesPage() {
           billedByJob.set(job.id, billedValue)
         }
 
-        const totalBilled = allJobs.reduce((sum, job) => sum + (billedByJob.get(job.id) || 0), 0)
+        const totalBilled = filteredJobs.reduce((sum, job) => sum + (billedByJob.get(job.id) || 0), 0)
         setTotalBilledAllTime(totalBilled)
 
         const mappedBilled = Array.from(mappedJobIds).reduce((sum, jobId) => sum + (billedByJob.get(jobId) || 0), 0)
         const serviceLinkCountByJob = new Map<string, number>()
-        for (const row of usageRows) {
+        for (const row of filteredUsageRows) {
           serviceLinkCountByJob.set(row.job_id, (serviceLinkCountByJob.get(row.job_id) || 0) + 1)
         }
 
         const servicesWithStats: Service[] = (servicesData || []).map((service) => {
-          const usageForService = usageRows.filter((row) => row.service_id === service.id)
+          const usageForService = filteredUsageRows.filter((row) => row.service_id === service.id)
           const usageJobs = usageForService.map((row) => ({
             jobId: row.job_id,
             job: toSingle(row.jobs),
@@ -453,7 +519,7 @@ export default function ServicesPage() {
     }
 
     void loadServices()
-  }, [])
+  }, [selectedRange.key, dateRange.start, dateRange.end])
 
   const filteredServices = useMemo(() => {
     if (!searchQuery.trim()) return services
@@ -485,17 +551,20 @@ export default function ServicesPage() {
     return map
   }, [dedupedFilteredServices])
 
-  const totalJobs30d = services.reduce((sum, service) => sum + service.jobs_30d, 0)
-  const totalCompleted30d = services.reduce((sum, service) => sum + service.completed_30d, 0)
-  const totalBilled30d = services.reduce((sum, service) => sum + service.billed_30d, 0)
-  const avgCompletionRate30d = totalJobs30d > 0 ? (totalCompleted30d / totalJobs30d) * 100 : 0
+  const totalJobsPeriod = services.reduce((sum, service) => sum + service.jobs_30d, 0)
+  const totalCompletedPeriod = services.reduce((sum, service) => sum + service.completed_30d, 0)
+  const totalBilledPeriod = services.reduce((sum, service) => sum + service.billed_30d, 0)
+  const avgCompletionRatePeriod = totalJobsPeriod > 0 ? (totalCompletedPeriod / totalJobsPeriod) * 100 : 0
   const atRiskServices = services.filter((service) => {
     if (service.jobs_30d < 3) return false
     const cancelRate = service.jobs_30d > 0 ? service.cancelled_30d / service.jobs_30d : 0
     return cancelRate >= 0.2 || service.completion_rate_30d < 65
   }).length
   const displayedServiceCount = services.length
-  const jobsAcrossAllTime = totalJobsAllTime
+  const jobsAcrossPeriod = totalJobsAllTime
+  
+  // Period label for display
+  const periodLabel = selectedRange.key === 'all' ? 'ALL TIME' : selectedRange.label.toUpperCase()
 
   const now = new Date()
   const sysTime = now
@@ -560,18 +629,59 @@ export default function ServicesPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 mb-4">
-        <p className="font-sans text-sm text-slate-500 dark:text-slate-400">
-          All-time performance metrics
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+          <p className="font-sans text-sm text-slate-500 dark:text-slate-400">
+            {selectedRange.key === 'all' ? 'All-time performance metrics' : `Performance metrics for ${selectedRange.label.toLowerCase()}`}
+          </p>
+        </div>
+        
+        {/* Range Selector */}
+        <div className="relative" data-range-menu>
+          <button
+            type="button"
+            onClick={() => setRangeMenuOpen(!rangeMenuOpen)}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 shadow-sm transition-colors hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
+          >
+            <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-200">
+              {selectedRange.label}
+            </span>
+            <ChevronDown className={`h-3.5 w-3.5 text-slate-500 transition-transform ${rangeMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {rangeMenuOpen && (
+            <div className="absolute right-0 top-full z-30 mt-2 w-40 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+              {RANGE_OPTIONS.map((range) => {
+                const active = range.key === selectedRange.key
+                return (
+                  <button
+                    type="button"
+                    key={range.key}
+                    onClick={() => handleRangeChange(range.key)}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-sans text-xs font-semibold transition-colors ${
+                      active
+                        ? 'bg-cyan-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.3)] dark:bg-cyan-400'
+                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{range.label}</span>
+                    {active && (
+                      <span className="font-mono text-[9px] uppercase tracking-wider">Current</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <MetricCard label="SERVICES" value={displayedServiceCount} icon={Briefcase} color="blue" />
         <MetricCard label="ACTIVE" value={displayedActiveBeforeSearch} icon={CheckCircle2} color="emerald" />
-        <MetricCard label="JOBS (ALL TIME)" value={jobsAcrossAllTime} icon={Activity} color="cyan" />
-        <MetricCard label="BILLED (ALL TIME)" value={formatMoneyCompact(totalBilledAllTime)} icon={DollarSign} color="purple" />
-        <MetricCard label="COMPLETION (ALL TIME)" value={`${Math.round(avgCompletionRate30d)}%`} icon={Gauge} color="amber" />
+        <MetricCard label={`JOBS (${periodLabel})`} value={jobsAcrossPeriod} icon={Activity} color="cyan" />
+        <MetricCard label={`BILLED (${periodLabel})`} value={formatMoneyCompact(totalBilledPeriod)} icon={DollarSign} color="purple" />
+        <MetricCard label={`COMPLETION (${periodLabel})`} value={`${Math.round(avgCompletionRatePeriod)}%`} icon={Gauge} color="amber" />
       </div>
 
       <div className="relative max-w-md">

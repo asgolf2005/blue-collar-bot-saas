@@ -7,7 +7,7 @@ import {
   User,
   Target,
   TrendingUp,
-  Award,
+  XCircle,
 } from '@/components/ui/lucide'
 import { getDateRange, formatDisplayDate, resolveDateRangeKey, type DateRangeKey } from '@/lib/analytics/dateUtils'
 import {
@@ -89,7 +89,15 @@ export default async function CompletionDetailPage({
 
   const totalJobs = filteredJobs.length
   const completedJobs = filteredJobs.filter((job) => job.status === 'completed')
+  const cancelledJobs = filteredJobs.filter((job) => job.status === 'cancelled')
   const completionRate = totalJobs > 0 ? Math.round((completedJobs.length / totalJobs) * 100) : 0
+
+  // Completion Breakdown metrics
+  const completedAmount = completedJobs.reduce((sum, job) => sum + (job.total_cost || 0), 0)
+  const cancelledAmount = cancelledJobs.reduce((sum, job) => sum + (job.total_cost || 0), 0)
+  const resolvedCount = completedJobs.length + cancelledJobs.length
+  const completedShare = resolvedCount > 0 ? Math.round((completedJobs.length / resolvedCount) * 100) : 0
+  const cancelledShare = resolvedCount > 0 ? Math.round((cancelledJobs.length / resolvedCount) * 100) : 0
 
   const techStats = new Map<string, {
     name: string
@@ -114,10 +122,7 @@ export default async function CompletionDetailPage({
   })
 
   const technicianBreakdown = Array.from(techStats.values()).sort((a, b) => b.completed - a.completed)
-  const recentCompleted = filteredJobs
-    .filter((job) => job.status === 'completed')
-    .sort((a, b) => new Date(b.completed_at || b.created_at).getTime() - new Date(a.completed_at || a.created_at).getTime())
-    .slice(0, 5)
+  // Removed: recent completed jobs list - replaced with Completion Breakdown
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-US', {
@@ -251,60 +256,89 @@ export default async function CompletionDetailPage({
         <div className="admin-card p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 flex items-center justify-center">
-                <Award className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </div>
               <div>
-                <h2 className="admin-section-title">Recently Completed</h2>
-                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Last 5 finished jobs</p>
+                <h2 className="admin-section-title">Completion Breakdown</h2>
+                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Completed vs cancelled in selected period</p>
               </div>
             </div>
-            <Link
-              href="/admin/jobs?status=completed"
-              className="font-mono text-xs text-cyan-600 hover:text-cyan-700 dark:text-cyan-400"
-            >
-              View All
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/jobs?status=completed"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-mono text-xs hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Completed Jobs
+              </Link>
+              <Link
+                href="/admin/jobs?status=cancelled"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-400 font-mono text-xs hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+                Cancelled Jobs
+              </Link>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {recentCompleted.length === 0 ? (
-              <p className="font-mono text-sm text-slate-500 text-center py-8">No completed jobs</p>
-            ) : (
-              recentCompleted.map((job, index) => (
-                <Link
-                  key={job.id}
-                  href={`/admin/jobs/${job.id}`}
-                  className="block p-3 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-400/20 flex items-center justify-center flex-shrink-0">
-                        <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                          #{index + 1}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="font-mono text-sm text-slate-900 dark:text-white">
-                          {job.customer_name}
-                        </p>
-                        <p className="font-mono text-xs text-slate-500">
-                          {job.service_name}
-                        </p>
-                        <p className="font-mono text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                          {formatCurrency(job.total_cost || 0)}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="font-mono text-xs text-slate-400">
-                      {job.completed_at
-                        ? new Date(job.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                        : 'No date'}
-                    </span>
-                  </div>
-                </Link>
-              ))
-            )}
+          <div className="space-y-4">
+            {/* Completed row */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Completed</p>
+                  <p className="font-display text-2xl text-slate-900 dark:text-white">{completedJobs.length}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Total Value</p>
+                <p className="font-display text-xl text-emerald-600 dark:text-emerald-400">{formatCurrency(completedAmount)}</p>
+              </div>
+            </div>
+
+            {/* Cancelled row */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
+                  <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs text-rose-600 dark:text-rose-400 uppercase tracking-wider">Cancelled</p>
+                  <p className="font-display text-2xl text-slate-900 dark:text-white">{cancelledJobs.length}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Total Value</p>
+                <p className="font-display text-xl text-rose-600 dark:text-rose-400">{formatCurrency(cancelledAmount)}</p>
+              </div>
+            </div>
+
+            {/* Stacked bar */}
+            <div className="pt-2">
+              <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-500"
+                  style={{ width: `${completedShare}%` }}
+                />
+                <div
+                  className="h-full bg-rose-500 transition-all duration-500"
+                  style={{ width: `${cancelledShare}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Footer microcopy */}
+            <p className="font-mono text-xs text-slate-500 dark:text-slate-400 text-center">
+              Resolved jobs: <span className="font-medium text-slate-700 dark:text-slate-300">{resolvedCount}</span>
+              <span className="mx-2">•</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{completedShare}% completed</span>
+              <span className="mx-2">•</span>
+              <span className="text-rose-600 dark:text-rose-400">{cancelledShare}% cancelled</span>
+            </p>
           </div>
         </div>
       </div>
