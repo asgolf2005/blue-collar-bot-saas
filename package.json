@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typegen": "next typegen",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "e2e:seed:tech": "node scripts/e2e/seed-tech-user.cjs",
     "e2e:tech": "playwright test e2e/tech-ui-redesign.spec.ts",
     "e2e:tech:headed": "playwright test e2e/tech-ui-redesign.spec.ts --headed",

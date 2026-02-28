@@ -1016,7 +1016,7 @@ function CompactDateRail({
   }, [miniCalendarMonth])
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-testid="date-rail" className="flex flex-wrap items-center gap-2">
       {/* Main Rail */}
       <div className="flex items-center rounded-xl border border-slate-200/80 bg-white/90 dark:border-slate-700 dark:bg-slate-900/90 overflow-hidden">
         {/* Previous */}
@@ -1057,6 +1057,7 @@ function CompactDateRail({
         <div ref={jumpCalendarRef} className="relative">
           <button
             type="button"
+            data-testid="jump-button"
             onClick={onJumpToggle}
             className={cn(
               'h-9 px-3 flex items-center gap-1.5 text-xs font-mono font-medium border-l border-slate-100 dark:border-slate-800 transition-colors',
@@ -1073,6 +1074,7 @@ function CompactDateRail({
           <AnimatePresence>
             {isJumpOpen && (
               <motion.div
+                data-testid="jump-popover"
                 initial={{ opacity: 0, y: 8, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -1252,6 +1254,7 @@ function SummaryCards({
       {/* Unassigned Card - clickable filter */}
       <button
         type="button"
+        data-testid="unassigned-card"
         onClick={() => onFocusChange(focus === 'unassigned' ? 'all' : 'unassigned')}
         className={cn(
           "admin-card admin-card-compact text-left transition-all duration-150",
@@ -2376,7 +2379,7 @@ export default function SchedulePage() {
               </div>
 
               {activeFilterChips.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                <div data-testid="filter-active" className="flex flex-wrap gap-1.5">
                   {activeFilterChips.map((chip) => (
                     <ActionFilterChip
                       key={`rail-${chip.key}`}
@@ -2405,6 +2408,7 @@ export default function SchedulePage() {
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-3">
               <div
+                data-testid="calendar-view"
                 data-test="calendar"
                 className="relative z-0 bg-white/40 dark:bg-slate-900/30 rounded-[28px] border border-white/20 dark:border-white/5 overflow-hidden shadow-2xl backdrop-blur-md"
               >

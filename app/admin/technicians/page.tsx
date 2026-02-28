@@ -786,12 +786,14 @@ export default async function TechniciansPage(props: {
           value={totals.jobsAssigned}
           icon={Briefcase}
           accent="blue"
+          valueTestId="assigned-count"
         />
         <KpiCard
           label="Unassigned Jobs"
           value={totals.jobsUnassigned}
           icon={Hourglass}
           accent="amber"
+          valueTestId="unassigned-count"
         />
         <KpiCard
           label="Hours Worked"
@@ -800,10 +802,11 @@ export default async function TechniciansPage(props: {
           accent="purple"
         />
         <KpiCard
-          label="Collected Revenue"
-          value={asMoney(totals.collectedRevenue)}
-          icon={DollarSign}
+          label="Total Jobs"
+          value={totals.jobsAssigned + totals.jobsUnassigned}
+          icon={Briefcase}
           accent="emerald"
+          valueTestId="total-jobs-count"
         />
       </div>
 
@@ -836,7 +839,7 @@ export default async function TechniciansPage(props: {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        <div data-testid="technicians-grid" className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
           {filteredTechnicianMetrics.map((tech) => {
             const completionMeter = clampPercent(tech.completionRate)
             const utilizationMeter = clampPercent(tech.utilizationRate)
@@ -1041,12 +1044,14 @@ function KpiCard({
   label, 
   value, 
   icon: Icon, 
-  accent 
+  accent,
+  valueTestId
 }: { 
   label: string
   value: string | number
   icon: React.ComponentType<{ className?: string }>
   accent: 'cyan' | 'blue' | 'amber' | 'purple' | 'emerald'
+  valueTestId?: string
 }) {
   const accentMap = {
     cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400' },
@@ -1058,7 +1063,7 @@ function KpiCard({
   const styles = accentMap[accent]
 
   return (
-    <div className="admin-card p-4 h-[100px] flex flex-col justify-between">
+    <div data-testid="kpi-strip-card" className="admin-card p-4 h-[100px] flex flex-col justify-between">
       <div className="flex items-center justify-between">
         <p className="font-sans text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {label}
@@ -1067,7 +1072,7 @@ function KpiCard({
           <Icon className={`w-3.5 h-3.5 ${styles.text}`} />
         </div>
       </div>
-      <p className="font-display text-2xl font-semibold text-slate-900 dark:text-white truncate">
+      <p data-testid={valueTestId} className="font-display text-2xl font-semibold text-slate-900 dark:text-white truncate">
         {value}
       </p>
     </div>

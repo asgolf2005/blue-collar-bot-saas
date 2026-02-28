@@ -377,7 +377,7 @@ export function OpsTriageBoard({ selectedDate }: { selectedDate: Date }) {
     return (
         <div className="flex flex-col gap-5 h-full">
             {/* Recent Updates */}
-            <div className="admin-card overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
+            <div data-testid="recent-updates" className="admin-card overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
                 {/* Header - Fixed h-10 height */}
                 <button
                     type="button"

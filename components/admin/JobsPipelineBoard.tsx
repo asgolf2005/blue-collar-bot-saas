@@ -216,6 +216,7 @@ export function JobsPipelineBoard({
 
   return (
     <div
+      data-testid="pipeline-board"
       data-test="job-list"
       className="flex gap-3 h-full min-h-[500px] w-full items-stretch relative"
     >
@@ -515,6 +516,7 @@ function PipelineColumn({
                 return (
                   <div
                     key={job.id}
+                    data-testid="job-card"
                     data-test="job-card"
                     draggable={!isPending}
                     onDragStart={(event) => onCardDragStart(job.id, currentStatus, event as unknown as DragEvent<HTMLDivElement>)}

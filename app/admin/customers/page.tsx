@@ -380,7 +380,7 @@ export default function CustomersPage() {
       ) : (
         <>
           {/* Customers Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div data-testid="customer-table" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedCustomers.map((customer) => (
               <CustomerCard key={customer.id} customer={customer} />
             ))}
@@ -544,6 +544,7 @@ function CustomerCard({ customer }: { customer: Customer }) {
           <span>View</span>
         </Link>
         <Link
+          data-testid="edit-customer-button"
           href={`/admin/customers/${customer.id}?edit=true`}
           className="group/action inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center font-sans text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         >

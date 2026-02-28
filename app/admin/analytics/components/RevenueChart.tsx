@@ -174,7 +174,7 @@ export default function RevenueChart({ data, onDataPointClick, dateRangeHint }: 
   }
 
   return (
-    <div className="admin-card p-5">
+    <div data-testid="revenue-chart" className="admin-card p-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>

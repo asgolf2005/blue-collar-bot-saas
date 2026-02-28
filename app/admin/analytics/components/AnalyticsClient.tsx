@@ -157,7 +157,7 @@ export default function AnalyticsClient({
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2">
             {/* Range Selector - Standard Pattern */}
-            <details className="relative group/range z-20">
+            <details data-testid="range-selector" className="relative group/range z-20">
               <summary
                 title="Select report period"
                 aria-label="Select report period"
@@ -235,7 +235,7 @@ export default function AnalyticsClient({
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
-          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block h-full">
+          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block h-full" data-testid="kpi-card">
             <LiveMetricCard
               label="Revenue"
               value={`$${metrics.revenue.toLocaleString()}`}
@@ -246,7 +246,7 @@ export default function AnalyticsClient({
               delay={0}
             />
           </Link>
-          <Link href={`/admin/analytics/jobs?${rangeQuery}`} className="block h-full">
+          <Link href={`/admin/analytics/jobs?${rangeQuery}`} className="block h-full" data-testid="kpi-card">
             <LiveMetricCard
               label="Jobs"
               value={metrics.jobs}
@@ -257,7 +257,7 @@ export default function AnalyticsClient({
               delay={100}
             />
           </Link>
-          <Link href={`/admin/analytics/completion?${rangeQuery}`} className="block h-full">
+          <Link href={`/admin/analytics/completion?${rangeQuery}`} className="block h-full" data-testid="kpi-card">
             <LiveMetricCard
               label="Completion"
               value={`${metrics.completionRate}%`}
@@ -268,7 +268,7 @@ export default function AnalyticsClient({
               delay={200}
             />
           </Link>
-          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block h-full">
+          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block h-full" data-testid="kpi-card">
             <LiveMetricCard
               label="Avg Ticket"
               value={`$${metrics.avgTicket}`}

@@ -313,6 +313,7 @@ export function JobsPageClient({
             <div className="flex items-center gap-3 ml-8">
               <button
                 type="button"
+                data-testid="ai-dispatch-button"
                 onClick={() => void handleDayDispatch()}
                 disabled={dispatching}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/70 bg-transparent text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:border-slate-600/50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"

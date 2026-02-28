@@ -701,7 +701,7 @@ function ServiceCard({
 
   return (
     <Link href={`/admin/services/${service.id}`} prefetch={false}>
-      <div className="group relative p-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all h-full flex flex-col">
+      <div data-testid="service-card" className="group relative p-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-all h-full flex flex-col">
         {/* Rank badge - top left */}
         <span className={`absolute top-4 left-4 inline-flex items-center rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-wider ${rankTone}`}>
           {rankLabel}
@@ -721,19 +721,19 @@ function ServiceCard({
         <div className="mt-auto grid grid-cols-2 gap-3">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Revenue</p>
-            <p className="font-mono text-lg text-slate-900 dark:text-white">{formatMoneyCompact(service.billed_30d)}</p>
+            <p data-testid="metric-value" className="font-mono text-lg text-slate-900 dark:text-white">{formatMoneyCompact(service.billed_30d)}</p>
           </div>
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Jobs</p>
-            <p className="font-mono text-lg text-slate-900 dark:text-white">{service.jobs_30d}</p>
+            <p data-testid="metric-value" className="font-mono text-lg text-slate-900 dark:text-white">{service.jobs_30d}</p>
           </div>
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Avg Ticket</p>
-            <p className="font-mono text-lg text-slate-900 dark:text-white">{formatMoneyCompact(avgTicket)}</p>
+            <p data-testid="metric-value" className="font-mono text-lg text-slate-900 dark:text-white">{formatMoneyCompact(avgTicket)}</p>
           </div>
           <div>
             <p className="font-mono text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Completion</p>
-            <p className="font-mono text-lg text-slate-900 dark:text-white">{service.completion_rate_30d.toFixed(0)}%</p>
+            <p data-testid="metric-value" className="font-mono text-lg text-slate-900 dark:text-white">{service.completion_rate_30d.toFixed(0)}%</p>
           </div>
         </div>
       </div>
