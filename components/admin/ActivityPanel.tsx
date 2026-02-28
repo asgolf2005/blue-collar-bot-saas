@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useCallback } from 'react'
 import { 
@@ -11,7 +11,7 @@ import {
   Inbox,
   MoreHorizontal,
   Loader2
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 import { cn } from '@/lib/utils'
 import StatusBadge from '@/components/ui/StatusBadge'
 
@@ -405,4 +405,5 @@ export default function ActivityPanel({
     </div>
   )
 }
+
 

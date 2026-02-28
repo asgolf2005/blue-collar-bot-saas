@@ -30,8 +30,8 @@ export default async function AdminLayout({
     <div className="min-h-screen bg-white dark:bg-[#030712] text-slate-900 dark:text-slate-200 transition-colors duration-500 overflow-x-hidden">
       {/* 2026 Spatial Lighting Effects */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-cyan-500/10 blur-[150px] rounded-full mix-blend-screen" />
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/8 blur-[72px] rounded-full mix-blend-screen" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-cyan-500/8 blur-[96px] rounded-full mix-blend-screen" />
 
         {/* Subtle grid mesh */}
         <div

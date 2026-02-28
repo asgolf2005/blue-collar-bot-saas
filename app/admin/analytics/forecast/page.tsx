@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import {
   AlertTriangle,
   CalendarDays,
+  ChevronDown,
   DollarSign,
   Gauge,
   TrendingDown,
@@ -28,7 +29,6 @@ import {
   fetchJobsInWindow,
   fetchOpenJobsInScheduledWindow,
 } from '@/lib/analytics/server-queries'
-import RangeMenuSelector from '../components/RangeMenuSelector'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -71,17 +71,25 @@ function DriverBar({
   helper,
   barPercent,
   barColor,
+  riskLevel,
 }: {
   label: string
   valueLabel: string
   helper: string
   barPercent: number
   barColor: string
+  riskLevel?: 'low' | 'medium' | 'high'
 }) {
+  const riskIcon = riskLevel === 'high' ? <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> : 
+                   riskLevel === 'medium' ? <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> : null
+  
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+    <div className="admin-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-sans text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+        <div className="flex items-center gap-2">
+          <p className="font-sans text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+          {riskIcon}
+        </div>
         <p className="font-display text-2xl text-slate-900 dark:text-white">{valueLabel}</p>
       </div>
       <div className="mt-3 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden">
@@ -106,11 +114,12 @@ function MetricCard({
   valueClass?: string
 }) {
   return (
-    <div className="admin-card p-5">
+    <div className="admin-card p-5 flex flex-col h-full">
       <div className="flex items-center justify-between">
         <p className="font-sans text-sm text-slate-500 dark:text-slate-400">{label}</p>
-        <Icon className="w-4 h-4 text-cyan-500" />
+        <Icon className="w-4 h-4 text-slate-400 dark:text-slate-500" />
       </div>
+      <div className="flex-1" />
       <p className={`mt-2 font-display text-4xl ${valueClass}`}>{value}</p>
       <p className="mt-1 font-mono text-[11px] text-slate-500 dark:text-slate-400">{detail}</p>
     </div>
@@ -144,18 +153,24 @@ export default async function AnalyticsForecastPage({
   const now = new Date()
   const horizonEnd = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000)
 
+  // For 'all' range, fetch a wider window to find earliest job date
+  const fetchStart = range === 'all' 
+    ? new Date('2000-01-01') 
+    : dateRange.start
+  const fetchEnd = dateRange.end
+
   const [currentJobsRaw, currentInvoicesRaw, futureOpenJobsRaw] = await Promise.all([
     fetchJobsInWindow({
       supabase,
       businessId,
-      start: dateRange.start,
-      end: dateRange.end,
+      start: fetchStart,
+      end: fetchEnd,
     }),
     fetchInvoicesInWindow({
       supabase,
       businessId,
-      start: dateRange.start,
-      end: dateRange.end,
+      start: fetchStart,
+      end: fetchEnd,
     }),
     fetchOpenJobsInScheduledWindow({
       supabase,
@@ -173,7 +188,32 @@ export default async function AnalyticsForecastPage({
 
   const usersMap = new Map(users.map((row) => [row.id, row.full_name || 'Unknown']))
 
-  const currentJobs: JobWithRelations[] = currentJobsRaw.map((job) => ({
+  // Find earliest job date for 'all' range
+  function safeDate(value: string | null | undefined): Date | null {
+    if (!value) return null
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  const earliestJobDate = range === 'all'
+    ? currentJobsRaw
+        .map((job) => safeDate(job.scheduled_start || job.created_at))
+        .filter((value): value is Date => value instanceof Date)
+        .sort((a, b) => a.getTime() - b.getTime())[0] || null
+    : null
+
+  const effectiveDateRange = earliestJobDate
+    ? { ...dateRange, start: earliestJobDate }
+    : dateRange
+
+  const currentJobs: JobWithRelations[] = currentJobsRaw.filter((job) => {
+    // For 'all' range, filter to only include jobs from earliest date
+    if (range === 'all' && earliestJobDate) {
+      const jobDate = safeDate(job.scheduled_start || job.created_at)
+      if (!jobDate || jobDate < earliestJobDate) return false
+    }
+    return true
+  }).map((job) => ({
     id: job.id,
     status: (job.status || 'scheduled') as JobWithRelations['status'],
     total_cost: job.total_cost,
@@ -343,6 +383,14 @@ export default async function AnalyticsForecastPage({
   const safeguardedRevenue = forecast.projectedRevenue + Math.round(cancellationsToPrevent * forecast.drivers.avgRevenuePerCompletedJob)
   const stretchRevenue = safeguardedRevenue + Math.round(Math.max(0, scheduledGap) * forecast.drivers.avgRevenuePerCompletedJob * 0.8)
 
+  // Format date range hint
+  const formatDateHint = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  const dateRangeHint = range === 'all' && earliestJobDate
+    ? `Showing data from ${formatDateHint(earliestJobDate)} to ${formatDateHint(effectiveDateRange.end)}`
+    : null
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -353,6 +401,11 @@ export default async function AnalyticsForecastPage({
           <p className="font-mono text-xs tracking-widest text-slate-500 dark:text-slate-400 mt-1">
             Forecast Model - {selectedRange.label.toUpperCase()} Baseline - Next <span className="font-display">{forecast.horizonDays}</span> Days
           </p>
+          {dateRangeHint && (
+            <p className="helper-text mt-1">
+              {dateRangeHint}
+            </p>
+          )}
           <div className="mt-3 inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-1">
             <Link
               href={`/admin/analytics?${rangeQuery}`}
@@ -362,7 +415,7 @@ export default async function AnalyticsForecastPage({
             </Link>
             <Link
               href={`/admin/analytics/forecast?${rangeQuery}`}
-              className="rounded-full px-3 py-1.5 font-mono text-xs bg-cyan-600 dark:bg-cyan-500 text-white"
+              className="rounded-full px-3 py-1.5 font-mono text-xs bg-slate-800 text-white dark:bg-slate-700"
             >
               Forecast
             </Link>
@@ -370,7 +423,42 @@ export default async function AnalyticsForecastPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <RangeMenuSelector selectedRange={range} />
+          {/* Range Selector - Standard Pattern */}
+          <details className="relative group/range z-20">
+            <summary
+              title="Select report period"
+              aria-label="Select report period"
+              className="list-none cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl px-4 py-2.5 shadow-lg shadow-slate-200/20 dark:shadow-cyan-500/10 transition-colors hover:border-cyan-400/40"
+            >
+              <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Period
+              </span>
+              <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-slate-800 dark:text-cyan-200">
+                {selectedRange.label}
+              </span>
+              <ChevronDown className="h-4 w-4 text-slate-500 dark:text-cyan-300 transition-transform duration-300 group-open/range:rotate-180" />
+            </summary>
+            <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl p-1.5 shadow-xl shadow-slate-200/30 dark:shadow-cyan-500/10">
+              {ADMIN_RANGE_OPTIONS.map((option) => {
+                const active = option.key === range
+                return (
+                  <Link
+                    key={option.key}
+                    href={`/admin/analytics/forecast?range=${option.key}`}
+                    className={`flex items-center justify-between rounded-xl px-3 py-2 font-sans text-xs font-semibold transition-colors ${
+                      active
+                        ? 'bg-slate-800 text-white dark:bg-slate-700'
+                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{option.label}</span>
+                    {active ? <span className="font-mono text-[9px] uppercase tracking-widest">Current</span> : null}
+                  </Link>
+                )
+              })}
+            </div>
+          </details>
+
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 flex items-center gap-3">
             <div className="relative h-16 w-5 rounded-full border border-slate-300 dark:border-slate-700 bg-gradient-to-t from-rose-500 via-amber-400 to-emerald-500 overflow-hidden">
               <div
@@ -438,7 +526,7 @@ export default async function AnalyticsForecastPage({
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         <div className="admin-card p-5 xl:col-span-3">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-cyan-500" />
+            <TrendingUp className="w-4 h-4 text-slate-400 dark:text-slate-500" />
             <h2 className="admin-section-title">Forecast Drivers</h2>
           </div>
           <p className="font-sans text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -451,32 +539,36 @@ export default async function AnalyticsForecastPage({
               valueLabel={`${forecast.drivers.completionRate.toFixed(1)}%`}
               helper="Target: >= 90%"
               barPercent={forecast.drivers.completionRate}
-              barColor="bg-gradient-to-r from-emerald-400 to-emerald-500"
+              barColor="bg-slate-600 dark:bg-slate-500"
+              riskLevel={forecast.drivers.completionRate < 80 ? 'medium' : forecast.drivers.completionRate < 60 ? 'high' : undefined}
             />
             <DriverBar
               label="Unassigned Pipeline"
               valueLabel={`${forecast.drivers.unassignedRate.toFixed(1)}%`}
               helper="Target: <= 10%"
               barPercent={100 - clampPct(forecast.drivers.unassignedRate)}
-              barColor="bg-gradient-to-r from-amber-400 to-orange-500"
+              barColor="bg-slate-600 dark:bg-slate-500"
+              riskLevel={forecast.drivers.unassignedRate > 20 ? 'high' : forecast.drivers.unassignedRate > 10 ? 'medium' : undefined}
             />
             <DriverBar
               label="Capacity Utilization"
               valueLabel={`${forecast.drivers.utilizationPct.toFixed(1)}%`}
               helper="Target band: 70-90%"
               barPercent={forecast.drivers.utilizationPct}
-              barColor="bg-gradient-to-r from-cyan-400 to-blue-500"
+              barColor="bg-slate-600 dark:bg-slate-500"
+              riskLevel={forecast.drivers.utilizationPct > 95 || forecast.drivers.utilizationPct < 50 ? 'medium' : undefined}
             />
             <DriverBar
               label="Historical Cancel Rate"
               valueLabel={`${forecast.drivers.historicalCancellationRate.toFixed(1)}%`}
               helper="Target: <= 5%"
               barPercent={100 - clampPct(forecast.drivers.historicalCancellationRate * 5)}
-              barColor="bg-gradient-to-r from-rose-400 to-rose-500"
+              barColor="bg-slate-600 dark:bg-slate-500"
+              riskLevel={forecast.drivers.historicalCancellationRate > 10 ? 'high' : forecast.drivers.historicalCancellationRate > 5 ? 'medium' : undefined}
             />
           </div>
 
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+          <div className="admin-card mt-4 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-300">Revenue per Planned Job</p>
               <p className="font-display text-3xl text-slate-900 dark:text-white">
@@ -491,14 +583,14 @@ export default async function AnalyticsForecastPage({
 
         <div className="admin-card p-5 xl:col-span-2">
           <div className="flex items-center gap-2">
-            <Wrench className="w-4 h-4 text-amber-500" />
+            <Wrench className="w-4 h-4 text-slate-400 dark:text-slate-500" />
             <h2 className="admin-section-title">Action Queue</h2>
           </div>
           <p className="font-sans text-sm text-slate-500 dark:text-slate-400 mt-1">
             Highest-impact operations moves to improve forecast confidence and delivery outcomes.
           </p>
 
-          <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+          <div className="mt-3 admin-card px-3 py-2">
             <div className="flex items-center justify-between">
               <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Confidence Path</p>
               <p className="font-display text-xl text-slate-900 dark:text-white">
@@ -514,7 +606,7 @@ export default async function AnalyticsForecastPage({
 
           <div className="mt-3 space-y-2.5">
             {actionItems.map((item) => (
-              <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+              <div key={item.id} className="admin-card p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-sans text-sm font-semibold text-slate-900 dark:text-white">{item.title}</p>
                   <span className={`px-2 py-0.5 rounded-full border font-mono text-[10px] uppercase ${priorityClass(item.priority)}`}>
@@ -542,23 +634,23 @@ export default async function AnalyticsForecastPage({
           <p className="mt-2 font-display text-3xl text-slate-900 dark:text-white">${forecast.projectedRevenue.toLocaleString()}</p>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Current model output with existing risk profile.</p>
         </div>
-        <div className="admin-card p-5 border-amber-200/70 dark:border-amber-500/30">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-300">Safeguarded Scenario</p>
-          <p className="mt-2 font-display text-3xl text-amber-700 dark:text-amber-300">${safeguardedRevenue.toLocaleString()}</p>
+        <div className="admin-card p-5">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Safeguarded Scenario</p>
+          <p className="mt-2 font-display text-3xl text-slate-900 dark:text-white">${safeguardedRevenue.toLocaleString()}</p>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
             Assumes cancellation prevention actions recover ~{cancellationsToPrevent} jobs.
           </p>
         </div>
-        <div className="admin-card p-5 border-emerald-200/70 dark:border-emerald-500/30">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Stretch Scenario</p>
-          <p className="mt-2 font-display text-3xl text-emerald-700 dark:text-emerald-300">${stretchRevenue.toLocaleString()}</p>
+        <div className="admin-card p-5">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Stretch Scenario</p>
+          <p className="mt-2 font-display text-3xl text-slate-900 dark:text-white">${stretchRevenue.toLocaleString()}</p>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
             Adds pipeline gap closure and cancellation safeguards on top of baseline.
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <div className="admin-card p-4">
         <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Interpretation Notes</p>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
           This forecast is driver-based and intended for operational planning. It is most reliable when history depth is healthy, forward pipeline visibility is high, and assignment quality is controlled.

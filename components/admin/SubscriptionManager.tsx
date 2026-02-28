@@ -1,8 +1,8 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, CheckCircle, AlertCircle, TrendingUp, TrendingDown, X } from '@/components/ui/icons'
+import { CreditCard, CheckCircle, AlertCircle, TrendingUp, TrendingDown, X } from '@/components/ui/lucide'
 import { showToast } from '@/lib/utils/toast'
 
 interface SubscriptionData {
@@ -37,7 +37,7 @@ const TIER_INFO = {
     price: 299,
     features: [
       'Everything in Starter',
-      'âœ¨ AI Phone Receptionist',
+      '✨ AI Phone Receptionist',
       'Unlimited AI calls (200/mo)',
       'Priority support',
       'Call recordings & transcripts',
@@ -293,4 +293,5 @@ export default function SubscriptionManager({ subscription, businessId }: Subscr
     </div>
   )
 }
+
 

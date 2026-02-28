@@ -1,7 +1,7 @@
 ﻿import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NewJobForm from '@/components/admin/NewJobForm'
-import { ArrowLeft, Sparkles, Users, Wrench } from '@/components/ui/lucide'
+import { ArrowLeft } from '@/components/ui/lucide'
 import Link from 'next/link'
 
 export default async function NewJobPage({
@@ -85,38 +85,16 @@ export default async function NewJobPage({
         </Link>
       </div>
 
-      <div className="relative overflow-hidden rounded-[28px] border border-border bg-gradient-to-br from-bg-secondary via-bg-secondary to-cyan-50/70 p-6 shadow-glass dark:to-cyan-500/10 sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-cyan-300/25 blur-3xl dark:bg-cyan-500/20" />
-        <div className="pointer-events-none absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-emerald-300/20 blur-3xl dark:bg-emerald-500/15" />
-
-        <div className="relative z-10">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-100/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
-            <Sparkles className="h-3.5 w-3.5" />
-            Next-Gen Job Composer
-          </div>
-
-          <h1 className="admin-page-header">
-            Create a new job in seconds
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-text-secondary sm:text-base">
-            Assign the right customer, technician, services, and schedule in one sleek workflow optimized for dispatch speed.
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2.5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-secondary/85 px-3 py-1.5 text-xs text-text-secondary">
-              <Users className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-              {customers?.length || 0} customers
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-secondary/85 px-3 py-1.5 text-xs text-text-secondary">
-              <Wrench className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-              {technicians?.length || 0} technicians
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-secondary/85 px-3 py-1.5 text-xs text-text-secondary">
-              <Sparkles className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-              {services?.length || 0} active services
-            </div>
-          </div>
-        </div>
+      <div className="rounded-[28px] border border-slate-200/70 bg-white/85 p-6 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/50 sm:p-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+          Job Creation
+        </p>
+        <h1 className="mt-3 font-display text-4xl tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+          Create Job
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-300 sm:text-base">
+          Set customer, schedule, scope, and assignment in one focused flow.
+        </p>
       </div>
 
       <div className="mt-6">
@@ -140,4 +118,3 @@ export default async function NewJobPage({
     </div>
   )
 }
-

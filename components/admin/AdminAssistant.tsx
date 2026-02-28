@@ -1,7 +1,7 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react'
-import { PlusCircle, BarChart3, Users, Paperclip, Image as ImageIcon, Mic, Send } from '@/components/ui/icons'
+import { PlusCircle, BarChart3, Users, Paperclip, Image as ImageIcon, Mic, Send } from '@/components/ui/lucide'
 
 interface AdminAssistantProps {
   userName?: string
@@ -227,4 +227,5 @@ export default function AdminAssistant({ userName = 'Admin' }: AdminAssistantPro
     </div>
   )
 }
+
 

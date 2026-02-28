@@ -21,10 +21,13 @@ type MetricCardProps = {
 
 function MetricCard({ label, value, helper }: MetricCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{value}</p>
-      <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">{helper}</p>
+    <div className="relative min-h-[120px] overflow-hidden rounded-[2rem] bg-white/30 p-4 shadow-sm ring-1 ring-slate-200/50 backdrop-blur-xl transition-all duration-300 group hover:ring-cyan-500/30 hover:shadow-[0_0_30px_rgba(34,211,238,0.1)] dark:bg-slate-900/30 dark:ring-slate-800/50 sm:p-5">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-cyan-400/10 blur-2xl transition-all group-hover:bg-cyan-400/20" />
+      <p className="relative font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{label}</p>
+      <p className="relative mt-2 break-words font-display-soft text-[1.7rem] font-bold leading-none tracking-tight text-slate-900 drop-shadow-sm dark:text-white sm:text-3xl">
+        {value}
+      </p>
+      <p className="relative mt-1 line-clamp-2 font-sans text-[10px] font-medium text-slate-500 dark:text-slate-400/80 sm:text-[11px]">{helper}</p>
     </div>
   )
 }
@@ -69,7 +72,7 @@ export default async function TechStatsPage() {
       .order('scheduled_start', { ascending: false }),
     supabase
       .from('jobs')
-      .select('id, status, scheduled_start')
+      .select('id, status, scheduled_start, scheduled_end')
       .eq('technician_id', user.id)
       .gte('scheduled_start', weekStart.toISOString())
       .order('scheduled_start', { ascending: true }),
@@ -132,29 +135,40 @@ export default async function TechStatsPage() {
       const time = new Date(job.scheduled_start)
       return time >= day && time <= dayEnd && job.status === 'completed'
     }).length
+    const completedHours = safeWeekJobs.reduce((sum, job) => {
+      const time = new Date(job.scheduled_start)
+      if (!(time >= day && time <= dayEnd && job.status === 'completed')) return sum
+      if (!job.scheduled_end) return sum
+      const startMs = new Date(job.scheduled_start).getTime()
+      const endMs = new Date(job.scheduled_end).getTime()
+      const duration = Math.max(0, (endMs - startMs) / (1000 * 60 * 60))
+      return Number.isFinite(duration) ? sum + duration : sum
+    }, 0)
+
     return {
       label: format(day, 'EEE'),
       total,
       completed,
+      completedHours: Number(completedHours.toFixed(1)),
       isToday: format(day, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd'),
     }
   })
   const maxBars = Math.max(...sevenDaySeries.map((d) => d.total), 1)
 
   return (
-    <div className="space-y-5">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:px-6 sm:py-6">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.17),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.22),transparent_42%)]" />
+    <div className="space-y-6 px-4 pb-24">
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-white/30 px-5 py-7 shadow-2xl ring-1 ring-slate-200/50 backdrop-blur-2xl dark:bg-slate-900/30 dark:ring-slate-800/50 sm:px-8 sm:py-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.15),transparent_60%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.25),transparent_60%)]" />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Performance Intelligence</p>
-            <h1 className="mt-2 font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-white">Tech Metrics</h1>
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-500 dark:text-cyan-400">Performance Intelligence</p>
+            <h1 className="mt-2 font-display-soft text-4xl font-black tracking-tighter text-slate-900 dark:text-white sm:text-5xl">Telemetry</h1>
             <p className="mt-1 font-sans text-sm text-slate-600 dark:text-slate-300">
               Personal productivity, revenue quality, and delivery reliability in one board.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label="Completed"
               value={String(completedJobs.length)}
@@ -179,8 +193,8 @@ export default async function TechStatsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-white/30 p-5 shadow-xl ring-1 ring-slate-200/50 backdrop-blur-xl dark:bg-slate-900/30 dark:ring-slate-800/50 sm:p-6 xl:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="font-display text-2xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">7-Day Throughput</p>
@@ -189,37 +203,49 @@ export default async function TechStatsPage() {
             <BarChart3 className="h-5 w-5 text-cyan-500" />
           </div>
 
-          <div className="grid grid-cols-7 gap-2">
-            {sevenDaySeries.map((day) => {
-              const totalHeight = Math.max((day.total / maxBars) * 100, day.total > 0 ? 12 : 0)
-              const completedHeight = day.total > 0 ? (day.completed / day.total) * totalHeight : 0
+          <div className="overflow-x-auto pb-2">
+            <div className="grid min-w-[520px] grid-cols-7 gap-2">
+              {sevenDaySeries.map((day) => {
+                const totalHeight = Math.max((day.total / maxBars) * 100, day.total > 0 ? 12 : 0)
+                const completedHeight = day.total > 0 ? (day.completed / day.total) * totalHeight : 0
 
-              return (
-                <div key={day.label} className="flex flex-col items-center gap-2">
-                  <div className="flex h-36 w-full items-end justify-center rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-950/40">
-                    <div className="relative h-full w-full overflow-hidden rounded-md bg-slate-200 dark:bg-slate-800">
-                      <div
-                        className="absolute inset-x-0 bottom-0 rounded-md bg-slate-400 dark:bg-slate-600"
-                        style={{ height: `${totalHeight}%` }}
-                      />
-                      <div
-                        className="absolute inset-x-0 bottom-0 rounded-md bg-cyan-500"
-                        style={{ height: `${completedHeight}%` }}
-                      />
-                    </div>
+                return (
+                  <div key={day.label} className="group flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label={`${day.label}: ${day.completed} completed jobs, ${day.completedHours.toFixed(1)} hours worked`}
+                      title={`${day.completed} completed jobs, ${day.completedHours.toFixed(1)}h worked`}
+                      className="group relative flex h-40 w-full items-end justify-center rounded-2xl bg-gradient-to-b from-cyan-50/80 to-cyan-100/60 p-1.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ring-1 ring-cyan-200/70 touch-manipulation transition-all duration-200 hover:ring-cyan-300/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:from-cyan-950/40 dark:to-cyan-900/30 dark:ring-cyan-700/45 dark:hover:ring-cyan-500/40"
+                    >
+                      <div className="relative h-full w-full overflow-hidden rounded-xl bg-gradient-to-b from-cyan-100/80 to-cyan-200/60 dark:from-cyan-900/50 dark:to-cyan-950/45">
+                        <div
+                          className="absolute inset-x-0 bottom-0 rounded-xl bg-cyan-400/35 transition-all duration-700 dark:bg-cyan-400/30"
+                          style={{ height: `${totalHeight}%` }}
+                        />
+                        <div
+                          className="absolute inset-x-0 bottom-0 rounded-xl bg-gradient-to-t from-cyan-700 via-cyan-500 to-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.55)] transition-all duration-700 ease-out dark:from-cyan-500/85 dark:via-cyan-400/85 dark:to-cyan-200/80"
+                          style={{ height: `${completedHeight}%` }}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20" />
+                        </div>
+                      </div>
+                      <div className="pointer-events-none absolute bottom-[104%] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-700 opacity-0 shadow-sm transition-all duration-150 group-hover:-translate-y-1 group-hover:opacity-100 group-focus:-translate-y-1 group-focus:opacity-100 group-active:-translate-y-1 group-active:opacity-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                        {day.completed} completed | {day.completedHours.toFixed(1)}h
+                      </div>
+                    </button>
+                    <p className={`font-mono text-[11px] ${day.isToday ? 'text-cyan-600 dark:text-cyan-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {day.label}
+                    </p>
+                    <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{day.completed}/{day.total}</p>
                   </div>
-                  <p className={`font-mono text-[11px] ${day.isToday ? 'text-cyan-600 dark:text-cyan-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {day.label}
-                  </p>
-                  <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{day.completed}/{day.total}</p>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="space-y-6">
+          <div className="relative overflow-hidden rounded-[2.5rem] bg-white/30 p-5 shadow-xl ring-1 ring-slate-200/50 backdrop-blur-xl dark:bg-slate-900/30 dark:ring-slate-800/50 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <p className="font-display text-xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">Ops Pulse</p>
               <Gauge className="h-5 w-5 text-cyan-500" />
@@ -232,7 +258,7 @@ export default async function TechStatsPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="relative overflow-hidden rounded-[2.5rem] bg-white/30 p-5 shadow-xl ring-1 ring-slate-200/50 backdrop-blur-xl dark:bg-slate-900/30 dark:ring-slate-800/50 sm:p-6">
             <p className="font-display text-xl uppercase tracking-[0.1em] text-slate-900 dark:text-white">Top Work Types</p>
             <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">Based on completed job descriptions</p>
 
@@ -241,7 +267,7 @@ export default async function TechStatsPage() {
             ) : (
               <div className="mt-4 space-y-2">
                 {topServices.map(([name, count], index) => (
-                  <div key={`${name}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div key={`${name}-${index}`} className="flex items-center justify-between rounded-2xl bg-white/50 px-4 py-3 ring-1 ring-slate-200/50 transition-colors hover:bg-white/80 dark:bg-slate-950/20 dark:ring-slate-800/50 dark:hover:bg-slate-950/40">
                     <p className="truncate font-sans text-sm text-slate-700 dark:text-slate-200">{name}</p>
                     <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{count}</span>
                   </div>
@@ -276,14 +302,14 @@ function PulseRow({
           : 'border-rose-300/40 bg-rose-500/10 text-rose-700 dark:text-rose-300'
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/40">
-      <div className="flex items-center gap-2">
-        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${toneClass}`}>
+    <div className="flex items-center justify-between rounded-2xl bg-white/50 px-4 py-3 ring-1 ring-slate-200/50 transition-colors hover:bg-white/80 dark:bg-slate-950/20 dark:ring-slate-800/50 dark:hover:bg-slate-950/40">
+      <div className="flex items-center gap-3">
+        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${toneClass} shadow-sm`}>
           {icon}
         </span>
-        <span className="font-sans text-sm text-slate-700 dark:text-slate-200">{label}</span>
+        <span className="font-sans text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>
       </div>
-      <span className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</span>
+      <span className="font-mono text-sm font-black tracking-tight text-slate-900 dark:text-white drop-shadow-sm">{value}</span>
     </div>
   )
 }

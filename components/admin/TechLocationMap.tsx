@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useGoogleMaps } from '@/hooks/useGoogleMaps'
-import { MapPin, Navigation, RefreshCw } from '@/components/ui/icons'
+import { MapPin, Navigation, RefreshCw } from '@/components/ui/lucide'
 
 interface TechLocation {
   tech_id: string
@@ -144,7 +144,7 @@ export default function TechLocationMap() {
                 jobMarker = new google.maps.Marker({
                   map,
                   position: jobPos,
-                  label: { text: 'ðŸ“', fontSize: '24px' },
+                  label: { text: '📍', fontSize: '24px' },
                   title: location.job.customer.name
                 })
                 jobMarkers.set(location.job_id, jobMarker)
@@ -203,17 +203,17 @@ export default function TechLocationMap() {
               <div style="padding: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 8px 0; font-weight: 600;">${location.tech_name}</h3>
                 <p style="margin: 0 0 4px 0; font-size: 13px; color: #666;">
-                  ðŸ“ ${minutesAgo === 0 ? 'Just now' : `${minutesAgo} min ago`}
+                  📍 ${minutesAgo === 0 ? 'Just now' : `${minutesAgo} min ago`}
                 </p>
                 ${location.speed ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #666;">
-                  ðŸš— ${Math.round((location.speed || 0) * 3.6)} km/h
+                  🚗 ${Math.round((location.speed || 0) * 3.6)} km/h
                 </p>` : ''}
                 ${etaInfo ? `
                   <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb;">
                     <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 600;">En route to:</p>
                     <p style="margin: 0 0 6px 0; font-size: 13px;">${location.job?.customer?.name || 'Unknown'}</p>
                     <p style="margin: 0; font-size: 13px; color: #059669;">
-                      ðŸ“ ${etaInfo.distance} â€¢ â±ï¸ ${etaInfo.duration} (${etaInfo.eta})
+                      📏 ${etaInfo.distance} • ⏱️ ${etaInfo.duration} (${etaInfo.eta})
                     </p>
                   </div>
                 ` : ''}
@@ -365,12 +365,12 @@ export default function TechLocationMap() {
                 {etaInfo && location.job?.customer?.name && (
                   <div className="ml-6 mt-2 text-xs space-y-1">
                     <div className="flex items-center gap-2 text-muted">
-                      <span>â†’</span>
+                      <span>→</span>
                       <span className="font-medium text-ink">{location.job.customer.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-success">
-                      <span>ðŸ“ {etaInfo.distance}</span>
-                      <span>â±ï¸ {etaInfo.duration}</span>
+                      <span>📏 {etaInfo.distance}</span>
+                      <span>⏱️ {etaInfo.duration}</span>
                       <span className="text-muted">ETA: {etaInfo.eta}</span>
                     </div>
                   </div>
@@ -383,4 +383,5 @@ export default function TechLocationMap() {
     </div>
   )
 }
+
 

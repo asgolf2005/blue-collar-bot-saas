@@ -293,8 +293,8 @@ export default function CustomerTable({ customers }: { customers: Customer[] }) 
                           onClick: () => router.push(`/admin/customers/${customer.id}`),
                         },
                         {
-                          label: 'Edit Customer',
-                          onClick: () => router.push(`/admin/customers/${customer.id}`),
+                          label: 'Portal Access',
+                          onClick: () => router.push(`/admin/customers/${customer.id}?tab=edit`),
                         },
                         {
                           label: customer.portal_access ? 'Disable Portal' : 'Enable Portal',

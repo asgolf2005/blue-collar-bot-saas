@@ -34,6 +34,17 @@ const JOBS_LIST_SELECT = `
   technician:users(id,full_name),
   services:job_services(service:services(id,name))
 `
+const JOBS_WINDOW_PAST_DAYS = 14
+const JOBS_WINDOW_FUTURE_DAYS = 60
+
+function getOperationalWindowIso(now: Date) {
+  const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - JOBS_WINDOW_PAST_DAYS)
+  const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + JOBS_WINDOW_FUTURE_DAYS, 23, 59, 59, 999)
+  return {
+    rangeStartIso: rangeStart.toISOString(),
+    rangeEndIso: rangeEnd.toISOString(),
+  }
+}
 
 function hasJobChanged(prev: Job, next: Job): boolean {
   if (
@@ -137,12 +148,16 @@ export function useRealtimeJobsUnified({
 
     setConnectionStatus('connecting')
     try {
+      const { rangeStartIso, rangeEndIso } = getOperationalWindowIso(new Date())
       const { data, error: fetchError } = await supabase
         .from('jobs')
         .select(JOBS_LIST_SELECT)
         .eq('business_id', businessId)
+        .or(
+          `and(scheduled_start.gte.${rangeStartIso},scheduled_start.lte.${rangeEndIso}),and(scheduled_start.is.null,created_at.gte.${rangeStartIso})`
+        )
         .order('scheduled_start', { ascending: true })
-        .limit(1000)
+        .limit(900)
 
       if (fetchError) throw fetchError
 

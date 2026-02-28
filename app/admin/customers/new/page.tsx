@@ -1,7 +1,7 @@
-﻿import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NewCustomerForm from '@/components/admin/NewCustomerForm'
-import { ArrowLeft, Sparkles, Users } from '@/components/ui/lucide'
+import { ArrowLeft, Users } from '@/components/ui/lucide'
 import Link from 'next/link'
 
 export default async function NewCustomerPage() {
@@ -29,7 +29,7 @@ export default async function NewCustomerPage() {
     .eq('business_id', profile.business_id)
 
   return (
-    <div className="mx-auto w-full max-w-[1300px] space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-5">
       <div>
         <Link
           href="/admin/customers"
@@ -40,32 +40,16 @@ export default async function NewCustomerPage() {
         </Link>
       </div>
 
-      <section className="relative overflow-hidden rounded-[28px] border border-border bg-gradient-to-br from-bg-secondary via-bg-secondary to-cyan-50/70 p-6 shadow-glass dark:to-cyan-500/10 sm:p-8">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-cyan-300/25 blur-3xl dark:bg-cyan-500/20" />
-        <div className="pointer-events-none absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-emerald-300/20 blur-3xl dark:bg-emerald-500/15" />
-
-        <div className="relative z-10">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-cyan-100/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300">
-            <Sparkles className="h-3.5 w-3.5" />
-            Customer Onboarding
-          </div>
-
-          <h1 className="admin-page-header">
-            Create a customer profile
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-text-secondary sm:text-base">
-            Capture clean contact details up front so jobs, invoices, and reminders stay fast and reliable.
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2.5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-secondary/85 px-3 py-1.5 text-xs text-text-secondary">
-              <Users className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-              {customerCount || 0} customers on file
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-bg-secondary/85 px-3 py-1.5 text-xs text-text-secondary">
-              Required: full name and phone
-            </div>
-          </div>
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+        <h1 className="font-display text-3xl uppercase tracking-[0.08em] text-slate-900 dark:text-white">
+          New Customer
+        </h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Create a new customer record.
+        </p>
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <Users className="h-3.5 w-3.5" />
+          {customerCount || 0} customers on file
         </div>
       </section>
 
@@ -73,5 +57,3 @@ export default async function NewCustomerPage() {
     </div>
   )
 }
-
-

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -15,7 +15,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 import { createClient } from '@/lib/supabase/client'
 
 interface Customer {

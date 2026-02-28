@@ -10,7 +10,7 @@ import { type ControlPreset } from '@/lib/ui/control-presets'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { showToast } from '@/lib/utils/toast'
-import { Archive, ChevronLeft, ChevronRight, HardHat, Sparkles, Loader2, Clock3 } from 'lucide-react'
+import { Archive, ChevronLeft, ChevronRight, HardHat, Sparkles, Loader2, Clock3, Bot } from 'lucide-react'
 
 interface JobInvoiceSummary {
   job_id: string
@@ -25,14 +25,16 @@ interface JobsPageClientProps {
   technicianFilterId: string | null
   technicianFilterName: string | null
   jobInvoices: JobInvoiceSummary[]
+  allTimeJobCount: number
 }
 
 const OpsTriageBoard = dynamic(
   () => import('@/components/admin/OpsTriageBoard').then((mod) => mod.OpsTriageBoard),
   {
+    ssr: false,
     loading: () => (
       <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-4 dark:border-slate-800/50 dark:bg-slate-900/40 backdrop-blur-xl">
-        <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">Loading Triage Telemetry...</p>
+        <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">Loading Recent Updates...</p>
       </div>
     ),
   }
@@ -41,6 +43,7 @@ const OpsTriageBoard = dynamic(
 const JobsPipelineBoard = dynamic(
   () => import('@/components/admin/JobsPipelineBoard').then((mod) => mod.JobsPipelineBoard),
   {
+    ssr: false,
     loading: () => (
       <div className="rounded-2xl border border-slate-200/50 bg-white/60 p-8 text-center dark:border-slate-800/50 dark:bg-slate-900/40 backdrop-blur-xl">
         <div className="inline-block w-8 h-8 rounded-full border-t-2 border-r-2 border-indigo-500 animate-spin" />
@@ -55,14 +58,14 @@ export function JobsPageClient({
   technicianFilterId,
   technicianFilterName,
   jobInvoices,
+  allTimeJobCount,
 }: JobsPageClientProps) {
   const { jobs, refetch } = useRealtimeJobsContext()
   const [financeCollapsed, setFinanceCollapsed] = useState(false)
   const [dispatching, setDispatching] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [selectedDate, setSelectedDate] = useState(() => new Date())
-  const cardVariant = 'v4' as const
-  const prismTypography = 't5' as const
+
   const uiPresetQuery = uiPreset === 'option1' ? '1' : uiPreset === 'option2' ? '2' : '3'
 
   useEffect(() => {
@@ -116,6 +119,14 @@ export function JobsPageClient({
       const isActiveTravel = job.status === 'on_the_way' || job.status === 'arrived' || job.status === 'in_progress'
       const updatedMs = new Date(job.updated_at || job.scheduled_start || '').getTime()
       const activeDurationMs = isActiveTravel && Number.isFinite(updatedMs) ? Math.max(0, nowMs - updatedMs) : 0
+      const startMs = new Date(job.scheduled_start || '').getTime()
+      const endMs = job.scheduled_end ? new Date(job.scheduled_end).getTime() : NaN
+      const fallbackEndMs = Number.isFinite(startMs) ? startMs + 2 * 60 * 60 * 1000 : NaN
+      const resolvedEndMs = Number.isFinite(endMs) && endMs > startMs ? endMs : fallbackEndMs
+      const plannedDurationMs =
+        Number.isFinite(startMs) && Number.isFinite(resolvedEndMs)
+          ? Math.max(30 * 60 * 1000, resolvedEndMs - startMs)
+          : 0
       const amount = Number(invoice?.total ?? job.total_cost ?? 0)
 
       return {
@@ -126,6 +137,7 @@ export function JobsPageClient({
         invoiceStatus: invoice?.status || 'missing',
         amount,
         activeDurationMs,
+        plannedDurationMs,
       }
     }).sort((a, b) => {
       const aTime = a.scheduledStart ? new Date(a.scheduledStart).getTime() : 0
@@ -140,10 +152,12 @@ export function JobsPageClient({
         if (row.invoiceStatus === 'paid') acc.paid += row.amount
         else if (row.invoiceStatus === 'missing') acc.uninvoiced += row.amount
         else acc.outstanding += row.amount
-        acc.activeHours += row.activeDurationMs / (1000 * 60 * 60)
+        if (row.status !== 'cancelled') {
+          acc.workHours += row.plannedDurationMs / (1000 * 60 * 60)
+        }
         return acc
       },
-      { paid: 0, outstanding: 0, uninvoiced: 0, activeHours: 0 }
+      { paid: 0, outstanding: 0, uninvoiced: 0, workHours: 0 }
     )
   }, [dayFinanceRows])
 
@@ -235,20 +249,21 @@ export function JobsPageClient({
             <MetricBadge label="SCHED" value={jobsByStatus.scheduled.length} color="indigo" />
             <MetricBadge label="ACTIVE" value={jobsByStatus.on_the_way.length + jobsByStatus.in_progress.length} color="cyan" />
             <MetricBadge label="DONE" value={jobsByStatus.completed.length} color="emerald" />
+            <MetricBadge label="ALL TIME" value={allTimeJobCount} color="purple" />
           </div>
 
           <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 hidden sm:block" />
 
           {/* New Actions */}
           <div className="flex items-center gap-2">
-            <Link href="/admin/jobs/archive">
+            <Link href="/admin/jobs/archive" prefetch={false}>
               <button className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-mono text-[10px] tracking-widest uppercase font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                 <Archive className="w-4 h-4" />
                 Archive
               </button>
             </Link>
 
-            <Link href="/admin/jobs/new" className="shrink-0">
+            <Link href="/admin/jobs/new" prefetch={false} className="shrink-0">
               <button className="relative group overflow-hidden bg-gradient-to-br from-indigo-500 to-cyan-500 text-white rounded-2xl px-6 py-2.5 font-mono text-xs uppercase tracking-widest font-bold shadow-lg shadow-indigo-500/25 transition-all hover:scale-105 active:scale-95">
                 <div className="absolute inset-0 w-full h-full opacity-0 group-hover:opacity-20 transition-opacity bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
                 <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[150%] group-hover:animate-[shimmer_1.5s_infinite]" />
@@ -276,6 +291,7 @@ export function JobsPageClient({
             </span>
             <Link
               href={`/admin/jobs?ui=${uiPresetQuery}`}
+              prefetch={false}
               className="text-[11px] font-mono tracking-widest text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors uppercase border-b border-dotted border-slate-400"
             >
               Clear Filter
@@ -299,10 +315,10 @@ export function JobsPageClient({
                 type="button"
                 onClick={() => void handleDayDispatch()}
                 disabled={dispatching}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-200/70 bg-indigo-50/80 text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:border-cyan-400/20 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20"
-                title="Smart dispatch for selected day"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/70 bg-transparent text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:border-slate-600/50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                title="AI Dispatch"
               >
-                {dispatching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {dispatching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
               </button>
               <div className="bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl px-4 py-2 border border-slate-200/50 dark:border-white/5 backdrop-blur-md">
                 <ConnectionStatus />
@@ -311,14 +327,14 @@ export function JobsPageClient({
           </div>
 
           <div className="relative z-10 flex-1 p-2 overflow-x-auto overflow-y-hidden">
-            <JobsPipelineBoard jobs={visibleJobs} cardVariant={cardVariant} prismTypography={prismTypography} />
+            <JobsPipelineBoard jobs={visibleJobs} />
           </div>
         </div>
       </div>
 
       {/* Supporting Cards - 2 per row on desktop */}
-      <div className="relative z-10 grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
-        <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200/50 dark:border-white/10 shadow-xl shadow-slate-200/20 dark:shadow-indigo-500/5 rounded-[2.5rem] overflow-hidden relative p-5 min-h-[320px]">
+      <div className="relative z-10 grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch content-auto">
+        <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200/50 dark:border-white/10 shadow-xl shadow-slate-200/20 dark:shadow-indigo-500/5 rounded-[2.5rem] overflow-hidden relative p-5 min-h-[320px] content-auto">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent pointer-events-none" />
           <div className="relative z-10 h-full">
             <OpsTriageBoard selectedDate={selectedDate} />
@@ -327,7 +343,8 @@ export function JobsPageClient({
 
         <div className={cn(
           "bg-white/60 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200/50 dark:border-white/10 shadow-xl shadow-slate-200/20 dark:shadow-indigo-500/5 rounded-[2.5rem] overflow-hidden relative flex flex-col transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]",
-          financeCollapsed ? "h-[74px] flex-none shrink-0" : "min-h-[320px]"
+          financeCollapsed ? "h-[74px] flex-none shrink-0" : "min-h-[320px]",
+          "content-auto"
         )}>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-100/50 to-transparent dark:from-indigo-500/5 dark:to-transparent pointer-events-none z-0" />
 
@@ -362,8 +379,8 @@ export function JobsPageClient({
                 <p className="font-display text-xl text-indigo-700 dark:text-indigo-300">${financeSummary.uninvoiced.toFixed(0)}</p>
               </div>
               <div className="rounded-xl border border-cyan-200/60 bg-cyan-50/70 px-3 py-2 dark:border-cyan-400/20 dark:bg-cyan-500/10">
-                <p className="font-mono text-[9px] uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Active Travel</p>
-                <p className="font-display text-xl text-cyan-700 dark:text-cyan-300">{financeSummary.activeHours.toFixed(1)}h</p>
+                <p className="font-mono text-[9px] uppercase tracking-wider text-cyan-700 dark:text-cyan-300">Total Work Hours</p>
+                <p className="font-display text-xl text-cyan-700 dark:text-cyan-300">{financeSummary.workHours.toFixed(1)}h</p>
               </div>
             </div>
 
@@ -422,6 +439,7 @@ function MetricBadge({ label, value, color }: { label: string, value: number, co
     indigo: "text-indigo-600 dark:text-indigo-400",
     cyan: "text-cyan-600 dark:text-cyan-400",
     emerald: "text-emerald-600 dark:text-emerald-400",
+    purple: "text-purple-600 dark:text-purple-400",
   }
 
   return (

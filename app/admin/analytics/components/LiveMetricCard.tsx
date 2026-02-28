@@ -102,30 +102,37 @@ export default function LiveMetricCard({
   }, [delay])
 
   const ChangeIcon = change > 0 ? TrendingUp : change < 0 ? TrendingDown : Minus
-  const changeColor = change > 0 ? 'text-emerald-600 dark:text-emerald-400' : change < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'
+  const changeColor = change > 0 
+    ? 'text-emerald-600 dark:text-emerald-400' 
+    : change < 0 
+      ? 'text-rose-600 dark:text-rose-400' 
+      : 'text-slate-500 dark:text-slate-400'
+
+  const formattedChange = `${change > 0 ? '+' : ''}${change.toFixed(1)}%`
 
   return (
     <div
       className={`
         admin-card p-5 
-        transition-all duration-500 ease-out h-full
+        transition-all duration-500 ease-out h-full flex flex-col
         ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
         hover:shadow-sm
       `}
     >
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
-        <Icon className={`w-4 h-4 ${colors.text}`} />
+      <p className="font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+      <div className="flex items-center justify-between mt-1">
+        <p className="font-display text-3xl font-semibold text-slate-900 dark:text-white">
+          <AnimatedNumber value={numericValue} prefix={prefix} suffix={suffix} />
+        </p>
+        <Icon className={`w-6 h-6 ${colors.text}`} />
       </div>
-      <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">
-        <AnimatedNumber value={numericValue} prefix={prefix} suffix={suffix} />
-      </p>
-      <div className={`flex items-center gap-1 mt-1 ${changeColor}`}>
-        <ChangeIcon className="w-3.5 h-3.5" />
+      <div className="flex-1" />
+      <div className={`flex items-center gap-1.5 mt-2 ${changeColor}`}>
+        <ChangeIcon className="w-3.5 h-3.5 shrink-0" />
         <span className="font-mono text-xs font-medium">
-          {change > 0 ? '+' : ''}{change}%
+          {formattedChange}
         </span>
-        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 ml-1">
+        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
           {changeLabel}
         </span>
       </div>

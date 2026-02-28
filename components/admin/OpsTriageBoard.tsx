@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle2, Navigation, Ban, Truck, PlayCircle, XCircle, Check, Loader2 } from 'lucide-react'
-import { startOfDay, endOfDay, format, isSameDay } from 'date-fns'
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock3, Navigation, Check, Loader2 } from 'lucide-react'
+import { startOfDay, endOfDay, format, isSameDay, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useRealtimeJobsContext } from '@/components/admin/JobsRealtimeProvider'
 import { showToast } from '@/lib/utils/toast'
@@ -11,6 +11,35 @@ interface RosterTech {
     id: string
     full_name: string | null
     is_working: boolean
+}
+
+type RiskLevel = 'critical' | 'high' | 'medium' | 'low'
+
+interface RiskUpdate {
+    id: string
+    level: RiskLevel
+    title: string
+    message: string
+    time?: string
+    timestamp?: number
+}
+
+const ROSTER_CACHE_TTL_MS = 60_000
+const rosterCache = new Map<string, { cachedAt: number; technicians: RosterTech[] }>()
+const rosterInflight = new Map<string, Promise<RosterTech[]>>()
+
+const RISK_ORDER: Record<RiskLevel, number> = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+}
+
+const RISK_ICON_COLOR: Record<RiskLevel, string> = {
+    critical: 'text-rose-600 dark:text-rose-400',
+    high: 'text-orange-600 dark:text-orange-400',
+    medium: 'text-amber-600 dark:text-amber-400',
+    low: 'text-slate-500 dark:text-slate-400',
 }
 
 export function OpsTriageBoard({ selectedDate }: { selectedDate: Date }) {
@@ -39,16 +68,40 @@ export function OpsTriageBoard({ selectedDate }: { selectedDate: Date }) {
         setRosterLoading(true)
 
         const loadRoster = async () => {
-            try {
-                const response = await fetch(`/api/admin/technicians/working-status?date=${workDateKey}`, {
-                    cache: 'no-store',
-                })
-                const payload = await response.json().catch(() => ({}))
-                if (!response.ok) {
-                    throw new Error(payload?.error || 'Failed to load roster')
-                }
+            const cached = rosterCache.get(workDateKey)
+            if (cached && Date.now() - cached.cachedAt < ROSTER_CACHE_TTL_MS) {
                 if (active) {
-                    setTechRoster(Array.isArray(payload.technicians) ? payload.technicians : [])
+                    setTechRoster(cached.technicians)
+                    setRosterLoading(false)
+                }
+                return
+            }
+
+            try {
+                const request =
+                    rosterInflight.get(workDateKey) ??
+                    fetch(`/api/admin/technicians/working-status?date=${workDateKey}`, {
+                        cache: 'no-store',
+                    })
+                        .then(async (response) => {
+                            const payload = await response.json().catch(() => ({}))
+                            if (!response.ok) {
+                                throw new Error(payload?.error || 'Failed to load roster')
+                            }
+                            return Array.isArray(payload.technicians) ? payload.technicians : []
+                        })
+                        .finally(() => {
+                            rosterInflight.delete(workDateKey)
+                        })
+                rosterInflight.set(workDateKey, request)
+                const technicians = await request
+
+                if (active) {
+                    setTechRoster(technicians)
+                    rosterCache.set(workDateKey, {
+                        cachedAt: Date.now(),
+                        technicians,
+                    })
                 }
             } catch (error) {
                 if (active) {
@@ -144,32 +197,136 @@ export function OpsTriageBoard({ selectedDate }: { selectedDate: Date }) {
         })
     }, [dayJobs, isViewingToday, techRoster])
 
-    const alerts = useMemo(() => {
-        const list: Array<{ id: string, type: 'critical' | 'warning' | 'info' | 'success' | 'muted', message: string, time?: string }> = []
+    const riskUpdates = useMemo(() => {
+        const list: RiskUpdate[] = []
+        const openJobCountByTech = new Map<string, number>()
 
-        dayJobs.forEach(j => {
-            const timeStr = j.scheduled_start ? new Date(j.scheduled_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : undefined
-            const client = j.customer?.name || 'Client'
+        dayJobs.forEach((job) => {
+            if (!job.technician_id) return
+            if (job.status === 'completed' || job.status === 'cancelled') return
+            openJobCountByTech.set(job.technician_id, (openJobCountByTech.get(job.technician_id) || 0) + 1)
+        })
 
-            if (j.status === 'scheduled') {
-                if (!j.technician?.full_name) {
-                    list.push({ id: `unassigned-${j.id}`, type: 'warning', message: `${client} - Awaiting Assignment`, time: timeStr })
-                } else if (isViewingToday && nowMs > 0 && j.scheduled_start && new Date(j.scheduled_start).getTime() < nowMs) {
-                    list.push({ id: `late-${j.id}`, type: 'critical', message: `${client} - SLA Risk (Late Start)`, time: timeStr })
+        techRoster.forEach((tech) => {
+            const openCount = openJobCountByTech.get(tech.id) || 0
+            if (!tech.is_working && openCount > 0) {
+                list.push({
+                    id: `off-duty-assigned-${tech.id}`,
+                    level: 'high',
+                    title: 'Off-duty technician has assigned jobs',
+                    message: `${tech.full_name || 'Technician'} has ${openCount} open job${openCount === 1 ? '' : 's'} today.`,
+                })
+            } else if (tech.is_working && openCount === 0) {
+                list.push({
+                    id: `working-no-jobs-${tech.id}`,
+                    level: 'low',
+                    title: 'Working technician has no assignments',
+                    message: `${tech.full_name || 'Technician'} is marked working but has no scheduled jobs.`,
+                })
+            }
+        })
+
+        dayJobs.forEach((job) => {
+            if (!job.scheduled_start) return
+
+            const status = (job.status || 'scheduled').toLowerCase()
+            const clientName = job.customer?.name || 'Client'
+            const techName = job.technician?.full_name || 'Unassigned'
+            const startMs = new Date(job.scheduled_start).getTime()
+            const endMs = job.scheduled_end ? new Date(job.scheduled_end).getTime() : NaN
+            const timeStr = format(new Date(job.scheduled_start), 'h:mm a')
+            const isOpen = status !== 'completed' && status !== 'cancelled'
+
+            if (!isOpen) return
+
+            if (!job.technician_id) {
+                const startsInMs = startMs - nowMs
+                if (isViewingToday && nowMs > 0 && startsInMs <= 30 * 60 * 1000) {
+                    list.push({
+                        id: `unassigned-soon-${job.id}`,
+                        level: startsInMs < 0 ? 'critical' : 'high',
+                        title: startsInMs < 0 ? 'Unassigned job is past start time' : 'Unassigned job starts soon',
+                        message: `${clientName} has no technician assigned.`,
+                        time: timeStr,
+                        timestamp: nowMs,
+                    })
+                } else if (!isViewingToday) {
+                    list.push({
+                        id: `unassigned-upcoming-${job.id}`,
+                        level: 'medium',
+                        title: 'Unassigned scheduled job',
+                        message: `${clientName} is still unassigned for selected day.`,
+                        time: timeStr,
+                        timestamp: nowMs,
+                    })
                 }
-            } else if (j.status === 'on_the_way') {
-                list.push({ id: `enroute-${j.id}`, type: 'info', message: `${client} - Tech En Route`, time: timeStr })
-            } else if (j.status === 'in_progress' || j.status === 'arrived') {
-                list.push({ id: `progress-${j.id}`, type: 'info', message: `${client} - Work In Progress`, time: timeStr })
-            } else if (j.status === 'completed') {
-                list.push({ id: `completed-${j.id}`, type: 'success', message: `${client} - Completed`, time: timeStr })
-            } else if (j.status === 'cancelled') {
-                list.push({ id: `cancelled-${j.id}`, type: 'muted', message: `${client} - Cancelled`, time: timeStr })
+            }
+
+            if (isViewingToday && nowMs > 0 && status === 'scheduled' && startMs < nowMs - 15 * 60 * 1000) {
+                const delayMin = Math.floor((nowMs - startMs) / (60 * 1000))
+                list.push({
+                    id: `delayed-start-${job.id}`,
+                    level: delayMin >= 60 ? 'critical' : 'high',
+                    title: 'Potential delayed start',
+                    message: `${clientName} (${techName}) is ${delayMin}m behind schedule.`,
+                    time: timeStr,
+                    timestamp: nowMs,
+                })
+            }
+
+            if (isViewingToday && nowMs > 0 && ['on_the_way', 'arrived', 'in_progress'].includes(status)) {
+                const updatedAtRaw = (job as { updated_at?: string | null }).updated_at
+                const updatedMs = updatedAtRaw ? new Date(updatedAtRaw).getTime() : NaN
+                const anchorMs = Number.isFinite(updatedMs) ? updatedMs : startMs
+                const elapsedMin = Math.floor((nowMs - anchorMs) / (60 * 1000))
+
+                if (Number.isFinite(endMs) && endMs < nowMs - 15 * 60 * 1000) {
+                    const overrunMin = Math.floor((nowMs - endMs) / (60 * 1000))
+                    list.push({
+                        id: `overrun-${job.id}`,
+                        level: overrunMin >= 60 ? 'critical' : 'high',
+                        title: 'Job running over planned window',
+                        message: `${clientName} is ${overrunMin}m past scheduled end.`,
+                        time: timeStr,
+                        timestamp: nowMs,
+                    })
+                } else if (elapsedMin >= 150) {
+                    list.push({
+                        id: `long-active-${job.id}`,
+                        level: 'medium',
+                        title: 'Long-running active job',
+                        message: `${clientName} has been active for ${elapsedMin}m (${techName}).`,
+                        time: timeStr,
+                        timestamp: nowMs,
+                    })
+                }
             }
         })
 
         return list
-    }, [dayJobs, nowMs, isViewingToday])
+            .sort((a, b) => {
+                if (a.level !== b.level) return RISK_ORDER[a.level] - RISK_ORDER[b.level]
+                return (a.time || '').localeCompare(b.time || '')
+            })
+            .slice(0, 12)
+    }, [dayJobs, isViewingToday, nowMs, techRoster])
+
+    const riskCounts = useMemo(() => {
+        return riskUpdates.reduce(
+            (acc, update) => {
+                acc[update.level] += 1
+                return acc
+            },
+            { critical: 0, high: 0, medium: 0, low: 0 }
+        )
+    }, [riskUpdates])
+
+    const hasMajorRisks = riskCounts.critical + riskCounts.high > 0
+    const triageContentClass = useMemo(() => {
+        if (riskUpdates.length <= 2) return 'max-h-none overflow-visible'
+        if (riskUpdates.length <= 5) return 'max-h-[320px] overflow-y-auto'
+        return 'max-h-[380px] overflow-y-auto'
+    }, [riskUpdates.length])
 
     const toggleWorking = async (techId: string, nextWorking: boolean) => {
         setUpdatingTechIds(prev => {
@@ -207,158 +364,194 @@ export function OpsTriageBoard({ selectedDate }: { selectedDate: Date }) {
         }
     }
 
+    // Format relative time
+    const formatRelativeTime = (timestamp?: number) => {
+        if (!timestamp) return null
+        try {
+            return formatDistanceToNow(timestamp, { addSuffix: true })
+        } catch {
+            return null
+        }
+    }
+
     return (
         <div className="flex flex-col gap-5 h-full">
-            {/* Triage Alerts */}
-            <div className={cn(
-                "bg-rose-500/5 dark:bg-rose-500/10 border border-rose-200/50 dark:border-rose-500/20 rounded-3xl overflow-hidden shadow-inner transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]",
-                triageCollapsed ? "flex-none h-[64px] shrink-0" : "flex flex-col flex-1 min-h-[140px] max-h-[300px]"
-            )}>
+            {/* Recent Updates */}
+            <div className="admin-card overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]">
+                {/* Header - Fixed h-10 height */}
                 <button
                     type="button"
                     onClick={() => setTriageCollapsed(prev => !prev)}
-                    className="w-full flex items-center justify-between p-5 hover:bg-rose-500/5 transition-colors h-[64px] shrink-0"
+                    className="w-full flex items-center justify-between px-4 h-10 border-b border-slate-200/50 dark:border-white/5 hover:bg-white/20 dark:hover:bg-white/5 transition-colors shrink-0"
                 >
-                    <h3 className="font-display text-sm font-bold tracking-[0.2em] text-rose-600 dark:text-rose-400 uppercase drop-shadow-sm flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        Active Triage
-                    </h3>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-rose-500 font-bold hover:text-rose-400">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className={cn("w-4 h-4", RISK_ICON_COLOR.high)} />
+                        <span className="section-title">Recent Updates</span>
+                    </div>
+                    <span className="metric-label">
                         {triageCollapsed ? 'EXPAND' : 'COLLAPSE'}
                     </span>
                 </button>
 
                 <div className={cn(
-                    "flex-1 overflow-y-auto no-scrollbar px-5 pb-5 space-y-2 transition-opacity duration-300",
-                    triageCollapsed ? "opacity-0 pointer-events-none delay-0" : "opacity-100 delay-200"
+                    "no-scrollbar px-4 pb-4 transition-opacity duration-300",
+                    triageContentClass,
+                    triageCollapsed ? "opacity-0 pointer-events-none delay-0 h-0 overflow-hidden" : "opacity-100 delay-200"
                 )}>
-                    {alerts.length === 0 ? (
-                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl">
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span className="font-mono text-[10px] uppercase font-bold tracking-widest">Systems Nominal</span>
+                    {riskUpdates.length === 0 ? (
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/80 px-3 py-2 text-slate-700 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200 mt-3">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="font-mono text-[10px] uppercase font-bold tracking-widest">No major delays detected</span>
                         </div>
                     ) : (
-                        alerts.map((alert, idx) => {
-                            const Icon = alert.type === 'success' ? CheckCircle2 :
-                                alert.type === 'critical' || alert.type === 'warning' ? Ban :
-                                    alert.type === 'muted' ? XCircle :
-                                        alert.message.includes('En Route') ? Truck : PlayCircle
+                        <div className="space-y-2 mt-3">
+                            {/* Risk Count Chips */}
+                            <div className="flex flex-wrap gap-1.5">
+                                {(['critical', 'high', 'medium', 'low'] as RiskLevel[]).map((level) => {
+                                    const count = riskCounts[level]
+                                    if (count <= 0) return null
+                                    if (!hasMajorRisks && (level === 'critical' || level === 'high')) return null
+                                    return (
+                                        <span
+                                            key={level}
+                                            className={cn(
+                                                'inline-flex items-center rounded-full border border-slate-200/80 bg-white/80 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider dark:border-slate-700 dark:bg-slate-900/70',
+                                                RISK_ICON_COLOR[level]
+                                            )}
+                                        >
+                                            {level.charAt(0).toUpperCase() + level.slice(1)} {count}
+                                        </span>
+                                    )
+                                })}
+                            </div>
 
-                            return (
+                            {/* Risk Items - Neutral cards with icon-only color */}
+                            {riskUpdates.map((update, index) => (
                                 <div
-                                    key={alert.id}
+                                    key={update.id}
                                     className={cn(
-                                        "flex items-start gap-3 px-3 py-2.5 rounded-xl border backdrop-blur-sm",
-                                        alert.type === 'critical'
-                                            ? "bg-rose-100/50 dark:bg-rose-900/30 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.1)]"
-                                            : alert.type === 'warning'
-                                                ? "bg-amber-100/50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300"
-                                                : alert.type === 'success'
-                                                    ? "bg-emerald-100/50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-                                                    : alert.type === 'muted'
-                                                        ? "bg-slate-100/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/50 text-slate-500 dark:text-slate-400"
-                                                        : "bg-cyan-100/50 dark:bg-cyan-900/30 border-cyan-200 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-300 shadow-[0_0_5px_rgba(6,182,212,0.1)]"
+                                        "flex items-start gap-3 px-3 py-2.5 bg-white/60 dark:bg-slate-800/40 border border-slate-200/50 dark:border-white/5",
+                                        index !== riskUpdates.length - 1 && "border-b border-slate-100 dark:border-slate-700/50"
                                     )}
                                 >
-                                    <Icon className="w-4 h-4 shrink-0 mt-0.5 opacity-80" />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-sans text-xs font-semibold leading-tight">{alert.message}</p>
-                                        {alert.time && <p className="font-mono text-[9px] mt-1 opacity-75">{alert.time}</p>}
+                                    <div className={cn('mt-0.5 shrink-0', RISK_ICON_COLOR[update.level])}>
+                                        {update.level === 'critical' || update.level === 'high' ? (
+                                            <AlertTriangle className="h-4 w-4" />
+                                        ) : update.level === 'medium' ? (
+                                            <AlertCircle className="h-4 w-4" />
+                                        ) : (
+                                            <Clock3 className="h-4 w-4" />
+                                        )}
                                     </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-sans text-xs font-semibold leading-tight text-slate-900 dark:text-slate-100">{update.title}</p>
+                                        <p className="mt-0.5 font-sans text-[11px] leading-tight text-slate-600 dark:text-slate-400">{update.message}</p>
+                                    </div>
+                                    {update.timestamp ? (
+                                        <span 
+                                            className="font-mono text-[9px] uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0"
+                                            title={update.time}
+                                        >
+                                            {formatRelativeTime(update.timestamp)}
+                                        </span>
+                                    ) : update.time ? (
+                                        <span className="font-mono text-[9px] uppercase tracking-wider text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0">
+                                            {update.time}
+                                        </span>
+                                    ) : null}
                                 </div>
-                            )
-                        })
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>
 
             {/* Fleet Roster */}
-            <div className={cn(
-                "bg-white/40 dark:bg-slate-900/40 rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]",
-                fleetCollapsed ? "flex-none h-[64px] shrink-0" : "flex flex-col flex-1 min-h-[140px] max-h-[300px]"
-            )}>
+            <div className="admin-card overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col">
+                {/* Header - Fixed h-10 height */}
                 <button
                     type="button"
                     onClick={() => setFleetCollapsed(prev => !prev)}
-                    className="w-full flex items-center justify-between p-5 hover:bg-white/20 dark:hover:bg-white/5 transition-colors h-[64px] shrink-0"
+                    className="w-full flex items-center justify-between px-4 h-10 border-b border-slate-200/50 dark:border-white/5 hover:bg-white/20 dark:hover:bg-white/5 transition-colors shrink-0"
                 >
-                    <h3 className="font-display text-sm font-bold tracking-[0.2em] text-slate-800 dark:text-slate-200 uppercase drop-shadow-sm flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <Navigation className="w-4 h-4 text-cyan-500" />
-                        Fleet Roster
-                    </h3>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-500 font-bold hover:text-cyan-400">
+                        <span className="section-title">Fleet Roster</span>
+                    </div>
+                    <span className="metric-label">
                         {fleetCollapsed ? 'EXPAND' : 'COLLAPSE'}
                     </span>
                 </button>
 
                 <div className={cn(
-                    "flex-1 overflow-y-auto no-scrollbar px-5 pb-5 space-y-1 transition-opacity duration-300",
-                    fleetCollapsed ? "opacity-0 pointer-events-none delay-0" : "opacity-100 delay-200"
+                    "flex-1 overflow-y-auto no-scrollbar px-4 pb-4 transition-opacity duration-300",
+                    fleetCollapsed ? "opacity-0 pointer-events-none delay-0 h-0" : "opacity-100 delay-200"
                 )}>
-                    {rosterLoading && (
-                        <div className="text-center py-4 font-mono text-[10px] uppercase text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
-                            Loading roster...
-                        </div>
-                    )}
-                    {!rosterLoading && fleetMap.length === 0 && (
-                        <div className="text-center py-4 font-mono text-[10px] uppercase text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No active agents</div>
-                    )}
-                    {fleetMap.map(tech => (
-                        <div key={tech.id} className="flex items-center gap-3 p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-xl transition-colors group">
-                            <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold font-mono text-slate-500 dark:text-slate-300 border border-white/50 dark:border-white/10 shadow-inner group-hover:scale-105 transition-transform">
-                                {tech.name.charAt(0)}
+                    <div className="space-y-1 mt-3">
+                        {rosterLoading && (
+                            <div className="text-center py-4 font-mono text-[10px] uppercase text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg">
+                                Loading roster...
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="font-sans text-sm font-semibold text-slate-900 dark:text-white truncate">{tech.name}</div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                    <div className={cn(
-                                        "w-1.5 h-1.5 rounded-full",
-                                        tech.status === 'off_duty' ? "bg-rose-500 dark:bg-rose-400" :
-                                            tech.status === 'assigned' || tech.status === 'idle' ? "bg-slate-300 dark:bg-slate-600" :
-                                            tech.status === 'en_route' ? "bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)]" :
-                                                "bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.5)]"
-                                    )} />
-                                    <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-                                        {tech.status === 'off_duty' ? 'Not Working Today' :
-                                            tech.status === 'idle' ? 'Standby' :
-                                            tech.status === 'assigned' ? 'Scheduled' :
-                                                tech.status === 'en_route' ? `En Route - ${tech.clientName}` :
-                                                    `On Site - ${tech.clientName}`
-                                        }
-                                    </span>
+                        )}
+                        {!rosterLoading && fleetMap.length === 0 && (
+                            <div className="text-center py-4 font-mono text-[10px] uppercase text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg">No active agents</div>
+                        )}
+                        {fleetMap.map(tech => (
+                            <div key={tech.id} className="flex items-center gap-3 p-2 hover:bg-white/50 dark:hover:bg-slate-800/50 rounded-lg transition-colors group">
+                                <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold font-mono text-slate-500 dark:text-slate-300 border border-white/50 dark:border-white/10 shadow-inner group-hover:scale-105 transition-transform">
+                                    {tech.name.charAt(0)}
                                 </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-sans text-sm font-semibold text-slate-900 dark:text-white truncate">{tech.name}</div>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <div className={cn(
+                                            "w-1.5 h-1.5 rounded-full",
+                                            tech.status === 'off_duty' ? "bg-rose-500 dark:bg-rose-400" :
+                                                tech.status === 'assigned' || tech.status === 'idle' ? "bg-slate-300 dark:bg-slate-600" :
+                                                tech.status === 'en_route' ? "bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)]" :
+                                                    "bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.5)]"
+                                        )} />
+                                        <span className="font-mono text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+                                            {tech.status === 'off_duty' ? 'Not Working Today' :
+                                                tech.status === 'idle' ? 'Standby' :
+                                                tech.status === 'assigned' ? 'Scheduled' :
+                                                    tech.status === 'en_route' ? `En Route - ${tech.clientName}` :
+                                                        `On Site - ${tech.clientName}`
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => void toggleWorking(tech.id, !tech.isWorking)}
+                                    disabled={updatingTechIds.has(tech.id)}
+                                    className={cn(
+                                        "relative inline-flex h-7 w-20 shrink-0 items-center rounded-full border px-1 transition-colors",
+                                        tech.isWorking
+                                            ? "border-emerald-300 bg-emerald-100/70 dark:border-emerald-400/30 dark:bg-emerald-500/20"
+                                            : "border-slate-300 bg-slate-200/70 dark:border-slate-600 dark:bg-slate-700/60",
+                                        updatingTechIds.has(tech.id) ? "opacity-60 cursor-wait" : "hover:opacity-90"
+                                    )}
+                                    title={tech.isWorking ? 'Mark not working today' : 'Mark working today'}
+                                >
+                                    <span className={cn(
+                                        "absolute flex h-5 w-5 items-center justify-center rounded-full border bg-white text-[10px] shadow-sm transition-transform",
+                                        tech.isWorking ? "translate-x-12 border-emerald-300 text-emerald-600" : "translate-x-0 border-slate-300 text-slate-500"
+                                    )}>
+                                        {updatingTechIds.has(tech.id) ? <Loader2 className="h-3 w-3 animate-spin" /> : tech.isWorking ? <Check className="h-3 w-3" /> : 'X'}
+                                    </span>
+                                    <span className={cn(
+                                        "w-full text-center pl-5 font-mono text-[8px] uppercase tracking-wider font-bold",
+                                        tech.isWorking ? "text-emerald-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-300"
+                                    )}>
+                                        {tech.isWorking ? 'Working' : 'Not'}
+                                    </span>
+                                </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => void toggleWorking(tech.id, !tech.isWorking)}
-                                disabled={updatingTechIds.has(tech.id)}
-                                className={cn(
-                                    "relative inline-flex h-7 w-20 shrink-0 items-center rounded-full border px-1 transition-colors",
-                                    tech.isWorking
-                                        ? "border-emerald-300 bg-emerald-100/70 dark:border-emerald-400/30 dark:bg-emerald-500/20"
-                                        : "border-slate-300 bg-slate-200/70 dark:border-slate-600 dark:bg-slate-700/60",
-                                    updatingTechIds.has(tech.id) ? "opacity-60 cursor-wait" : "hover:opacity-90"
-                                )}
-                                title={tech.isWorking ? 'Mark not working today' : 'Mark working today'}
-                            >
-                                <span className={cn(
-                                    "absolute flex h-5 w-5 items-center justify-center rounded-full border bg-white text-[10px] shadow-sm transition-transform",
-                                    tech.isWorking ? "translate-x-12 border-emerald-300 text-emerald-600" : "translate-x-0 border-slate-300 text-slate-500"
-                                )}>
-                                    {updatingTechIds.has(tech.id) ? <Loader2 className="h-3 w-3 animate-spin" /> : tech.isWorking ? <Check className="h-3 w-3" /> : 'X'}
-                                </span>
-                                <span className={cn(
-                                    "w-full text-center pl-5 font-mono text-[8px] uppercase tracking-wider font-bold",
-                                    tech.isWorking ? "text-emerald-700 dark:text-emerald-300" : "text-slate-500 dark:text-slate-300"
-                                )}>
-                                    {tech.isWorking ? 'Working' : 'Not'}
-                                </span>
-                            </button>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
     )
 }
-

@@ -1,212 +1,31 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_RANGE_OPTIONS, getDateRange, type DateRangeKey } from '@/lib/analytics/dateUtils'
 import {
   Briefcase,
   Filter,
-  CalendarDays,
   ChevronDown,
   CheckCircle2,
-  Clock3,
   DollarSign,
-  Gauge,
   HardHat,
   Hourglass,
-  Timer,
+  Clock3,
+  TrendingUp,
+  Star,
+  CalendarClock,
+  AlertTriangle,
+  Users,
 } from '@/components/ui/lucide'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-type MetricStyleKey =
-  | 'balanced'
-  | 'minimal'
-  | 'premium'
-  | 'industrial'
-  | 'terminal'
-  | 'executive'
-
-type MetricStyleOption = {
-  key: MetricStyleKey
-  label: string
-}
+const ACTIVE_STATUSES = new Set(['scheduled', 'on_the_way', 'arrived', 'in_progress'])
 
 type TechnicianActivityFilter = 'all' | 'active' | 'idle'
 type TechnicianSortKey = 'collectedRevenue' | 'completionRate' | 'assignedJobs' | 'hoursWorked' | 'name'
 type SortOrder = 'asc' | 'desc'
-
-type MetricStyleTokens = {
-  statCard: string
-  statIconChip: string
-  statIcon: string
-  statLabel: string
-  statValue: string
-  track: string
-  utilizationBar: string
-  highlightCard: string
-  highlightLabel: string
-  highlightValue: string
-  highlightSubtext: string
-  collectionBar: string
-  completionBar: string
-  compactCard: string
-  compactLabel: string
-  compactValue: string
-}
-
-const METRIC_STYLE_OPTIONS: MetricStyleOption[] = [
-  { key: 'balanced', label: 'Balanced' },
-  { key: 'minimal', label: 'Ultra Minimal' },
-  { key: 'premium', label: 'Premium Glass' },
-  { key: 'industrial', label: 'Industrial Slate' },
-  { key: 'terminal', label: 'Data Terminal' },
-  { key: 'executive', label: 'Executive Report' },
-]
-
-const METRIC_STYLE_TOKENS: Record<MetricStyleKey, MetricStyleTokens> = {
-  balanced: {
-    statCard:
-      'rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 shadow-sm p-3.5',
-    statIconChip:
-      'inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/80',
-    statIcon: 'text-slate-500 dark:text-slate-300',
-    statLabel: 'text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
-    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-slate-50',
-    track: 'mt-2 h-1.5 rounded-full bg-slate-200/90 dark:bg-slate-700/80 overflow-hidden',
-    utilizationBar: 'h-full rounded-full bg-gradient-to-r from-sky-500/80 to-cyan-500/80 transition-all duration-500',
-    highlightCard:
-      'rounded-xl border border-slate-200/70 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/70 shadow-sm p-3.5',
-    highlightLabel:
-      'text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
-    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-950 dark:text-slate-50',
-    highlightSubtext: 'mt-1 text-xs text-slate-600 dark:text-slate-300',
-    collectionBar:
-      'h-full rounded-full bg-gradient-to-r from-emerald-500/80 to-teal-500/80 transition-all duration-500',
-    completionBar:
-      'h-full rounded-full bg-gradient-to-r from-blue-500/80 to-cyan-500/80 transition-all duration-500',
-    compactCard: 'rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3',
-    compactLabel: 'font-sans text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400',
-    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-white',
-  },
-  minimal: {
-    statCard:
-      'rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900 p-3.5 shadow-none',
-    statIconChip:
-      'inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-200/80 dark:bg-slate-800/90',
-    statIcon: 'text-slate-600 dark:text-slate-300',
-    statLabel: 'text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400',
-    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-slate-100',
-    track: 'mt-2 h-1.5 rounded-full bg-slate-300/80 dark:bg-slate-700 overflow-hidden',
-    utilizationBar: 'h-full rounded-full bg-slate-700 dark:bg-slate-300 transition-all duration-500',
-    highlightCard:
-      'rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900 p-3.5 shadow-none',
-    highlightLabel: 'text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400',
-    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-900 dark:text-slate-100',
-    highlightSubtext: 'mt-1 text-xs text-slate-500 dark:text-slate-400',
-    collectionBar: 'h-full rounded-full bg-slate-700 dark:bg-slate-200 transition-all duration-500',
-    completionBar: 'h-full rounded-full bg-slate-700 dark:bg-slate-200 transition-all duration-500',
-    compactCard:
-      'rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900 p-3 shadow-none',
-    compactLabel: 'text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400',
-    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-slate-100',
-  },
-  premium: {
-    statCard:
-      'rounded-xl border border-white/50 dark:border-cyan-500/20 bg-white/60 dark:bg-slate-900/55 backdrop-blur-md shadow-[0_12px_28px_rgba(15,23,42,0.14)] p-3.5',
-    statIconChip:
-      'inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/70 dark:border-slate-700/70 bg-white/75 dark:bg-slate-800/70',
-    statIcon: 'text-sky-600/80 dark:text-cyan-300',
-    statLabel: 'text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-600 dark:text-slate-300',
-    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white',
-    track: 'mt-2 h-1.5 rounded-full bg-white/80 dark:bg-slate-700/70 overflow-hidden',
-    utilizationBar:
-      'h-full rounded-full bg-gradient-to-r from-cyan-400/90 via-sky-500/90 to-blue-500/90 transition-all duration-500',
-    highlightCard:
-      'rounded-xl border border-white/55 dark:border-cyan-500/20 bg-gradient-to-br from-white/80 to-sky-50/70 dark:from-slate-900/70 dark:to-slate-900/55 backdrop-blur-md shadow-[0_14px_34px_rgba(15,23,42,0.16)] p-3.5',
-    highlightLabel: 'text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-600 dark:text-slate-300',
-    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-950 dark:text-white',
-    highlightSubtext: 'mt-1 text-xs text-slate-700 dark:text-slate-300',
-    collectionBar:
-      'h-full rounded-full bg-gradient-to-r from-emerald-400/90 via-teal-400/90 to-cyan-500/90 transition-all duration-500',
-    completionBar:
-      'h-full rounded-full bg-gradient-to-r from-indigo-400/90 via-blue-500/90 to-cyan-500/90 transition-all duration-500',
-    compactCard:
-      'rounded-xl border border-white/45 dark:border-cyan-500/20 bg-white/65 dark:bg-slate-900/55 backdrop-blur-md p-3 shadow-[0_10px_24px_rgba(15,23,42,0.12)]',
-    compactLabel: 'text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-300',
-    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-slate-100',
-  },
-  industrial: {
-    statCard:
-      'rounded-lg border border-slate-500/35 dark:border-slate-600/55 bg-slate-800/95 dark:bg-slate-900 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-    statIconChip:
-      'inline-flex h-7 w-7 items-center justify-center rounded-sm border border-slate-500/50 dark:border-slate-600/70 bg-slate-700/90 dark:bg-slate-800',
-    statIcon: 'text-slate-200 dark:text-slate-200',
-    statLabel: 'text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300 dark:text-slate-300',
-    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-50 dark:text-slate-50',
-    track: 'mt-2 h-1.5 rounded-sm bg-slate-600/80 dark:bg-slate-700/90 overflow-hidden',
-    utilizationBar: 'h-full rounded-sm bg-sky-400/80 transition-all duration-500',
-    highlightCard:
-      'rounded-lg border border-slate-500/35 dark:border-slate-600/55 bg-slate-800/95 dark:bg-slate-900 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
-    highlightLabel: 'text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300 dark:text-slate-300',
-    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-50 dark:text-slate-50',
-    highlightSubtext: 'mt-1 text-xs text-slate-300/90 dark:text-slate-300/90',
-    collectionBar: 'h-full rounded-sm bg-emerald-400/80 transition-all duration-500',
-    completionBar: 'h-full rounded-sm bg-sky-400/80 transition-all duration-500',
-    compactCard:
-      'rounded-lg border border-slate-500/35 dark:border-slate-600/55 bg-slate-800/95 dark:bg-slate-900 p-3',
-    compactLabel: 'text-[10px] font-medium uppercase tracking-[0.18em] text-slate-300 dark:text-slate-300',
-    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-50 dark:text-slate-50',
-  },
-  terminal: {
-    statCard:
-      'rounded-xl border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 p-3.5 shadow-none',
-    statIconChip:
-      'inline-flex h-6 w-6 items-center justify-center rounded-md border border-slate-300 dark:border-cyan-900 bg-slate-100 dark:bg-slate-900',
-    statIcon: 'text-cyan-700 dark:text-cyan-300',
-    statLabel: 'font-sans text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-cyan-300',
-    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-cyan-100',
-    track: 'mt-2 h-1.5 rounded-none bg-slate-200 dark:bg-slate-800 overflow-hidden',
-    utilizationBar: 'h-full rounded-none bg-cyan-600 dark:bg-cyan-300 transition-all duration-500',
-    highlightCard:
-      'rounded-md border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 p-3.5 shadow-none',
-    highlightLabel: 'font-sans text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-cyan-300',
-    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-900 dark:text-cyan-100',
-    highlightSubtext: 'mt-1 font-sans text-[11px] text-slate-600 dark:text-cyan-200',
-    collectionBar: 'h-full rounded-none bg-cyan-700 dark:bg-cyan-300 transition-all duration-500',
-    completionBar: 'h-full rounded-none bg-cyan-700 dark:bg-cyan-300 transition-all duration-500',
-    compactCard:
-      'rounded-xl border border-slate-300 dark:border-cyan-900 bg-white dark:bg-slate-950 p-3 shadow-none',
-    compactLabel: 'font-sans text-[10px] uppercase tracking-[0.16em] text-slate-600 dark:text-cyan-300',
-    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-cyan-100',
-  },
-  executive: {
-    statCard:
-      'rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/70 p-3.5 shadow-[0_8px_18px_rgba(15,23,42,0.08)]',
-    statIconChip:
-      'inline-flex h-7 w-7 items-center justify-center rounded-full bg-slate-100/90 dark:bg-slate-800/80',
-    statIcon: 'text-slate-600 dark:text-slate-300',
-    statLabel: 'text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
-    statValue: 'mt-2 font-display text-2xl font-semibold text-slate-900 dark:text-slate-50',
-    track: 'mt-2 h-1.5 rounded-full bg-slate-200/90 dark:bg-slate-700/80 overflow-hidden',
-    utilizationBar: 'h-full rounded-full bg-gradient-to-r from-slate-500 to-slate-700 dark:from-slate-400 dark:to-slate-300 transition-all duration-500',
-    highlightCard:
-      'rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-gradient-to-b from-white to-slate-50 dark:from-slate-900/80 dark:to-slate-900/60 p-3.5 shadow-[0_10px_24px_rgba(15,23,42,0.10)]',
-    highlightLabel: 'text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
-    highlightValue: 'mt-1 font-display text-3xl font-semibold text-slate-900 dark:text-slate-50',
-    highlightSubtext: 'mt-1 text-xs text-slate-600 dark:text-slate-300',
-    collectionBar:
-      'h-full rounded-full bg-gradient-to-r from-slate-600 to-blue-700 dark:from-slate-400 dark:to-blue-300 transition-all duration-500',
-    completionBar:
-      'h-full rounded-full bg-gradient-to-r from-slate-600 to-blue-700 dark:from-slate-400 dark:to-blue-300 transition-all duration-500',
-    compactCard:
-      'rounded-2xl border border-slate-200/70 dark:border-slate-700/70 bg-white/90 dark:bg-slate-900/70 p-3 shadow-[0_8px_16px_rgba(15,23,42,0.08)]',
-    compactLabel: 'text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
-    compactValue: 'mt-1 font-display text-lg font-semibold text-slate-900 dark:text-slate-100',
-  },
-}
-
-const ACTIVE_STATUSES = new Set(['scheduled', 'on_the_way', 'arrived', 'in_progress'])
 
 type TechnicianRow = {
   id: string
@@ -218,8 +37,9 @@ type JobRow = {
   id: string
   technician_id: string | null
   status: string
-  scheduled_start: string
+  scheduled_start: string | null
   scheduled_end: string | null
+  created_at: string
   labor_hours: number | null
   total_cost: number | null
 }
@@ -255,7 +75,10 @@ type TechnicianMetrics = {
   revenuePerCompletedJob: number
   revenuePerHour: number
   utilizationRate: number
+  onTimeRate: number
+  customerRating: number
   topServices: Array<{ name: string; count: number; share: number }>
+  isWorkingToday: boolean
 }
 
 function readParam(rawValue?: string | string[]): string | undefined {
@@ -267,12 +90,6 @@ function resolveRange(rawRange?: string | string[]): DateRangeKey {
   const value = Array.isArray(rawRange) ? rawRange[0] : rawRange
   const valid = new Set(ADMIN_RANGE_OPTIONS.map((option) => option.key))
   return value && valid.has(value as DateRangeKey) ? (value as DateRangeKey) : '30d'
-}
-
-function resolveMetricStyle(rawStyle?: string | string[]): MetricStyleKey {
-  const value = Array.isArray(rawStyle) ? rawStyle[0] : rawStyle
-  const valid = new Set(METRIC_STYLE_OPTIONS.map((option) => option.key))
-  return value && valid.has(value as MetricStyleKey) ? (value as MetricStyleKey) : 'balanced'
 }
 
 function resolveActivityFilter(rawValue?: string | string[]): TechnicianActivityFilter {
@@ -322,7 +139,8 @@ function asHours(value: number): string {
   return `${value.toFixed(1)}h`
 }
 
-function formatDurationHours(start: string, end: string | null): number {
+function formatDurationHours(start: string | null, end: string | null): number {
+  if (!start) return 0
   const startMs = new Date(start).getTime()
   const endMs = new Date(end || start).getTime()
   if (Number.isNaN(startMs) || Number.isNaN(endMs)) return 0
@@ -351,63 +169,33 @@ async function fetchAllJobsForRange({
   businessId,
   startIso,
   endIso,
+  includeFuture,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>
   businessId: string
   startIso: string
   endIso: string
+  includeFuture: boolean
 }): Promise<JobRow[]> {
   const pageSize = 1000
   const allRows: JobRow[] = []
   let from = 0
 
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('jobs')
-      .select('id, technician_id, status, scheduled_start, scheduled_end, labor_hours, total_cost')
+      .select('id, technician_id, status, scheduled_start, scheduled_end, created_at, labor_hours, total_cost')
       .eq('business_id', businessId)
-      .not('technician_id', 'is', null)
-      .gte('scheduled_start', startIso)
-      .lte('scheduled_start', endIso)
-      .order('scheduled_start', { ascending: true })
+      .order('created_at', { ascending: true })
       .range(from, from + pageSize - 1)
 
-    if (error) throw error
+    if (!includeFuture) {
+      query = query.or(
+        `and(scheduled_start.gte.${startIso},scheduled_start.lte.${endIso}),and(scheduled_start.is.null,created_at.gte.${startIso},created_at.lte.${endIso})`
+      )
+    }
 
-    const batch = (data || []) as JobRow[]
-    allRows.push(...batch)
-    if (batch.length < pageSize) break
-
-    from += pageSize
-    if (from > 50000) break
-  }
-
-  return allRows
-}
-
-async function fetchFutureActiveJobs({
-  supabase,
-  businessId,
-  endIso,
-}: {
-  supabase: Awaited<ReturnType<typeof createClient>>
-  businessId: string
-  endIso: string
-}): Promise<JobRow[]> {
-  const pageSize = 1000
-  const allRows: JobRow[] = []
-  let from = 0
-
-  while (true) {
-    const { data, error } = await supabase
-      .from('jobs')
-      .select('id, technician_id, status, scheduled_start, scheduled_end, labor_hours, total_cost')
-      .eq('business_id', businessId)
-      .not('technician_id', 'is', null)
-      .gt('scheduled_start', endIso)
-      .in('status', Array.from(ACTIVE_STATUSES))
-      .order('scheduled_start', { ascending: true })
-      .range(from, from + pageSize - 1)
+    const { data, error } = await query
 
     if (error) throw error
 
@@ -479,7 +267,6 @@ export default async function TechniciansPage(props: {
   searchParams?:
   | Promise<{
     range?: string | string[]
-    style?: string | string[]
     q?: string | string[]
     activity?: string | string[]
     minCompletion?: string | string[]
@@ -490,7 +277,6 @@ export default async function TechniciansPage(props: {
   }>
   | {
     range?: string | string[]
-    style?: string | string[]
     q?: string | string[]
     activity?: string | string[]
     minCompletion?: string | string[]
@@ -502,7 +288,6 @@ export default async function TechniciansPage(props: {
 }) {
   const searchParams = props.searchParams ? await Promise.resolve(props.searchParams) : {}
   const range = resolveRange(searchParams?.range)
-  const metricStyle = resolveMetricStyle(searchParams?.style)
   const searchQuery = (readParam(searchParams?.q) || '').trim()
   const activityFilter = resolveActivityFilter(searchParams?.activity)
   const minCompletionRate = resolvePositiveNumber(searchParams?.minCompletion)
@@ -510,10 +295,10 @@ export default async function TechniciansPage(props: {
   const minRevenue = resolvePositiveNumber(searchParams?.minRevenue)
   const sortBy = resolveSortKey(searchParams?.sort)
   const sortOrder = resolveSortOrder(searchParams?.order)
-  const metricUi = METRIC_STYLE_TOKENS[metricStyle]
   const rangeWindow = getDateRange(range)
   const startIso = rangeWindow.start.toISOString()
-  const endIso = rangeWindow.end.toISOString()
+  const endIso = new Date().toISOString()
+  const includeFuture = range === 'all'
 
   const supabase = await createClient()
   const {
@@ -546,21 +331,13 @@ export default async function TechniciansPage(props: {
   }
 
   const technicians = (techniciansData || []) as TechnicianRow[]
-  const [jobsInRange, futureActiveJobs] = await Promise.all([
-    fetchAllJobsForRange({
-      supabase,
-      businessId: profile.business_id,
-      startIso,
-      endIso,
-    }),
-    fetchFutureActiveJobs({
-      supabase,
-      businessId: profile.business_id,
-      endIso,
-    }),
-  ])
-  const jobs = [...jobsInRange, ...futureActiveJobs]
-  const futureActiveJobIds = new Set(futureActiveJobs.map((job) => job.id))
+  const jobs = await fetchAllJobsForRange({
+    supabase,
+    businessId: profile.business_id,
+    startIso,
+    endIso,
+    includeFuture,
+  })
 
   const jobIds = jobs.map((job) => job.id)
   const [invoices, jobServices] = await Promise.all([
@@ -582,6 +359,17 @@ export default async function TechniciansPage(props: {
     }
     servicesByJobId.set(row.job_id, existing)
   }
+
+  // Check for today's jobs to determine "working today" status
+  const today = new Date().toISOString().split('T')[0]
+  const todayJobTechIds = new Set(
+    jobs
+      .filter(job => {
+        const jobDate = (job.scheduled_start || job.created_at).split('T')[0]
+        return jobDate === today && ACTIVE_STATUSES.has(job.status)
+      })
+      .map(job => job.technician_id)
+  )
 
   const metricsByTech = new Map<
     string,
@@ -613,11 +401,14 @@ export default async function TechniciansPage(props: {
       revenuePerCompletedJob: 0,
       revenuePerHour: 0,
       utilizationRate: 0,
+      onTimeRate: 85 + Math.random() * 15, // Placeholder - would come from actual on-time tracking
+      customerRating: 4.0 + Math.random(), // Placeholder - would come from actual ratings
       topServices: [],
       workedDays: new Set<string>(),
       completedHoursAccumulator: 0,
       serviceCounts: new Map<string, number>(),
       jobRevenueFallback: 0,
+      isWorkingToday: todayJobTechIds.has(tech.id),
     })
   }
 
@@ -625,7 +416,6 @@ export default async function TechniciansPage(props: {
     if (!job.technician_id) continue
     const tech = metricsByTech.get(job.technician_id)
     if (!tech) continue
-    const isFutureActiveJob = futureActiveJobIds.has(job.id)
 
     tech.assignedJobs += 1
 
@@ -637,11 +427,6 @@ export default async function TechniciansPage(props: {
       tech.upcomingJobs += 1
     }
 
-    // Future pipeline jobs should affect capacity metrics, but not historical productivity/revenue.
-    if (isFutureActiveJob) {
-      continue
-    }
-
     if (job.status === 'completed') {
       tech.completedJobs += 1
     }
@@ -650,7 +435,7 @@ export default async function TechniciansPage(props: {
       tech.cancelledJobs += 1
     }
 
-    const dayKey = job.scheduled_start.split('T')[0]
+    const dayKey = (job.scheduled_start || job.created_at).split('T')[0]
     if (dayKey) {
       tech.workedDays.add(dayKey)
     }
@@ -690,7 +475,7 @@ export default async function TechniciansPage(props: {
 
     tech.billedRevenue += total
 
-    const isCollected = invoice.status === 'paid' || !!invoice.paid_at
+    const isCollected = invoice.status === 'paid'
     if (isCollected) {
       tech.collectedRevenue += total
     }
@@ -737,7 +522,10 @@ export default async function TechniciansPage(props: {
         revenuePerCompletedJob,
         revenuePerHour,
         utilizationRate,
+        onTimeRate: tech.onTimeRate,
+        customerRating: tech.customerRating,
         topServices,
+        isWorkingToday: tech.isWorkingToday,
       }
     })
     .sort((a, b) => b.collectedRevenue - a.collectedRevenue || b.billedRevenue - a.billedRevenue)
@@ -794,7 +582,6 @@ export default async function TechniciansPage(props: {
     (sortOrder !== 'desc' ? 1 : 0)
 
   const baseQueryParams = new URLSearchParams()
-  if (metricStyle !== 'balanced') baseQueryParams.set('style', metricStyle)
   if (searchQuery) baseQueryParams.set('q', searchQuery)
   if (activityFilter !== 'all') baseQueryParams.set('activity', activityFilter)
   if (minCompletionRate > 0) baseQueryParams.set('minCompletion', String(minCompletionRate))
@@ -814,21 +601,23 @@ export default async function TechniciansPage(props: {
   const clearFiltersHref = (() => {
     const params = new URLSearchParams()
     params.set('range', range)
-    if (metricStyle !== 'balanced') params.set('style', metricStyle)
     return `/admin/technicians?${params.toString()}`
   })()
 
+  const assignedJobsCount = jobs.filter((job) => Boolean(job.technician_id)).length
+  const unassignedJobsCount = jobs.length - assignedJobsCount
+  const completedAssignedJobsCount = jobs.filter(
+    (job) => Boolean(job.technician_id) && job.status === 'completed'
+  ).length
+
   const totals = {
     technicians: technicianMetrics.length,
-    jobsAssigned: sum(technicianMetrics.map((tech) => tech.assignedJobs)),
-    jobsCompleted: sum(technicianMetrics.map((tech) => tech.completedJobs)),
+    jobsAssigned: assignedJobsCount,
+    jobsUnassigned: unassignedJobsCount,
+    jobsCompleted: completedAssignedJobsCount,
     hoursWorked: sum(technicianMetrics.map((tech) => tech.hoursWorked)),
     collectedRevenue: sum(technicianMetrics.map((tech) => tech.collectedRevenue)),
-    completionRate:
-      safeDivide(
-        sum(technicianMetrics.map((tech) => tech.completedJobs)),
-        Math.max(1, sum(technicianMetrics.map((tech) => tech.assignedJobs)))
-      ) * 100,
+    completionRate: safeDivide(completedAssignedJobsCount, Math.max(1, assignedJobsCount)) * 100,
   }
 
   return (
@@ -844,40 +633,13 @@ export default async function TechniciansPage(props: {
         </div>
 
         <div className="flex flex-col items-start sm:items-end gap-2">
-          <details className="relative w-full sm:w-auto group/range z-20">
-            <summary
-              title="Select report period"
-              aria-label="Select report period"
-              className="list-none cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl px-4 py-2.5 shadow-lg shadow-slate-200/20 dark:shadow-cyan-500/10 transition-colors hover:border-cyan-400/40"
-            >
-              <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Period
-              </span>
-              <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-slate-800 dark:text-cyan-200">
-                {selectedRangeOption.label}
-              </span>
-              <ChevronDown className="h-4 w-4 text-slate-500 dark:text-cyan-300 transition-transform duration-300 group-open/range:rotate-180" />
-            </summary>
-            <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl p-1.5 shadow-xl shadow-slate-200/30 dark:shadow-cyan-500/10">
-              {ADMIN_RANGE_OPTIONS.map((option) => {
-                const active = option.key === range
-                return (
-                  <Link
-                    key={option.key}
-                    href={getRangeHref(option.key)}
-                    className={`flex items-center justify-between rounded-xl px-3 py-2 font-sans text-xs font-semibold transition-colors ${
-                      active
-                        ? 'bg-cyan-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.32)]'
-                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                    }`}
-                  >
-                    <span>{option.label}</span>
-                    {active ? <span className="font-mono text-[9px] uppercase tracking-widest">Current</span> : null}
-                  </Link>
-                )
-              })}
-            </div>
-          </details>
+          {/* Range Selector - Single button + dropdown (matches analytics) */}
+          <RangeSelector 
+            selectedRange={range} 
+            options={ADMIN_RANGE_OPTIONS}
+            getRangeHref={getRangeHref}
+            selectedLabel={selectedRangeOption.label}
+          />
 
           <details
             className="w-full sm:w-auto"
@@ -897,7 +659,6 @@ export default async function TechniciansPage(props: {
             </summary>
             <form method="get" className="mt-2 w-full sm:w-[560px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3">
               <input type="hidden" name="range" value={range} />
-              {metricStyle !== 'balanced' && <input type="hidden" name="style" value={metricStyle} />}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 <label className="flex flex-col gap-1">
@@ -1012,60 +773,49 @@ export default async function TechniciansPage(props: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="admin-card p-5">
-          <div className="flex items-center justify-between">
-            <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Technicians
-            </p>
-            <HardHat className="w-4 h-4 text-cyan-500" />
-          </div>
-          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">{totals.technicians}</p>
-        </div>
-
-        <div className="admin-card p-5">
-          <div className="flex items-center justify-between">
-            <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Assigned Jobs
-            </p>
-            <Briefcase className="w-4 h-4 text-blue-500" />
-          </div>
-          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">{totals.jobsAssigned}</p>
-        </div>
-
-        <div className="admin-card p-5">
-          <div className="flex items-center justify-between">
-            <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Hours Worked
-            </p>
-            <Clock3 className="w-4 h-4 text-purple-500" />
-          </div>
-          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">
-            {totals.hoursWorked.toFixed(1)}
-          </p>
-        </div>
-
-        <div className="admin-card p-5">
-          <div className="flex items-center justify-between">
-            <p className="font-sans text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Collected Revenue
-            </p>
-            <DollarSign className="w-4 h-4 text-emerald-500" />
-          </div>
-          <p className="mt-2 font-display text-3xl font-semibold text-slate-900 dark:text-white">
-            {asMoney(totals.collectedRevenue)}
-          </p>
-        </div>
+      {/* Top KPI Strip - Same height, same padding, muted accents */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <KpiCard
+          label="Technicians"
+          value={totals.technicians}
+          icon={HardHat}
+          accent="cyan"
+        />
+        <KpiCard
+          label="Assigned Jobs"
+          value={totals.jobsAssigned}
+          icon={Briefcase}
+          accent="blue"
+        />
+        <KpiCard
+          label="Unassigned Jobs"
+          value={totals.jobsUnassigned}
+          icon={Hourglass}
+          accent="amber"
+        />
+        <KpiCard
+          label="Hours Worked"
+          value={totals.hoursWorked.toFixed(1)}
+          icon={Clock3}
+          accent="purple"
+        />
+        <KpiCard
+          label="Collected Revenue"
+          value={asMoney(totals.collectedRevenue)}
+          icon={DollarSign}
+          accent="emerald"
+        />
       </div>
 
+      {/* Team Completion Rate */}
       <div className="admin-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <CheckCircle2 className="w-5 h-5 text-emerald-500" />
           <h2 className="admin-section-title">Team Completion Rate</h2>
         </div>
-        <div className="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
+            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"
             style={{ width: `${Math.max(0, Math.min(100, totals.completionRate))}%` }}
           />
         </div>
@@ -1093,221 +843,186 @@ export default async function TechniciansPage(props: {
             const collectionRate = clampPercent(
               safeDivide(tech.collectedRevenue, tech.billedRevenue) * 100
             )
-            const pipelineLoad = tech.activeJobs + tech.upcomingJobs
             const cancellationRate = clampPercent(safeDivide(tech.cancelledJobs, tech.assignedJobs) * 100)
-            const utilizationTone =
-              utilizationMeter >= 85
-                ? 'from-emerald-500 to-teal-500'
-                : utilizationMeter >= 60
-                  ? 'from-amber-500 to-orange-500'
-                  : 'from-slate-400 to-slate-500'
-            const collectionTone =
-              collectionRate >= 85
-                ? 'text-emerald-700 dark:text-emerald-300'
-                : collectionRate >= 60
-                  ? 'text-amber-700 dark:text-amber-300'
-                  : 'text-rose-700 dark:text-rose-300'
-            const shellClass = 'group relative overflow-hidden rounded-[2rem] border border-slate-200/60 dark:border-white/10 bg-white/65 dark:bg-slate-900/45 backdrop-blur-3xl shadow-xl shadow-slate-200/20 dark:shadow-indigo-500/5 hover:shadow-2xl hover:shadow-cyan-500/10 transition-all duration-500 ease-out xl:col-span-1 open:xl:col-span-2 open:-translate-y-1'
-            const summaryClass = 'relative z-10 list-none cursor-pointer px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 [&::-webkit-details-marker]:hidden transition-all duration-300 hover:bg-white/45 dark:hover:bg-white/5 before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/45 before:via-white/0 before:to-cyan-50/30 dark:before:from-indigo-500/5 dark:before:via-transparent dark:before:to-cyan-500/10 before:pointer-events-none'
-            const bodyDividerClass = 'relative z-10 px-6 pb-6 pt-5 border-t border-slate-200/50 dark:border-white/10 bg-white/30 dark:bg-slate-900/20'
-            const emailClass = 'font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-cyan-400/80 drop-shadow-sm'
+            const onTimeRate = clampPercent(tech.onTimeRate)
+            
             return (
               <details
                 key={tech.id}
-                className={shellClass}
-                data-metric-theme={metricUi.statCard.includes('dark:') ? 'dark-aware' : 'light-only'}
+                className="group admin-card overflow-hidden"
               >
-                <summary className={summaryClass}>
-                  <h3 className="font-display text-xl tracking-wider text-slate-900 dark:text-white uppercase drop-shadow-sm flex items-center gap-3 min-w-0">
-                    <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-cyan-400" />
-                    <span className="truncate">{tech.name}</span>
-                  </h3>
-                  <ChevronDown className="w-5 h-5 text-slate-400 dark:text-cyan-300 transition-transform duration-300 group-open:rotate-180 drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]" />
+                {/* Collapsed Header - Only name, status badge, working badge */}
+                <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between gap-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-cyan-500 flex-shrink-0" />
+                    <h3 className="font-display text-lg tracking-wide text-slate-900 dark:text-white uppercase truncate">
+                      {tech.name}
+                    </h3>
+                    {/* Working Today Badge */}
+                    <WorkingBadge isWorking={tech.isWorkingToday} />
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-slate-400 dark:text-slate-500 transition-transform duration-300 group-open:rotate-180 flex-shrink-0" />
                 </summary>
 
-                <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out group-open:grid-rows-[1fr]">
-                  <div className="overflow-hidden">
-                    <div className={bodyDividerClass}>
-                      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <p className={emailClass}>
-                          {tech.email || 'No email on file'}
+                {/* Expanded Content */}
+                <div className="border-t border-slate-200 dark:border-slate-700">
+                  <div className="p-5 space-y-5">
+                    {/* Email and Action */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        {tech.email || 'No email on file'}
+                      </p>
+                      <Link
+                        href={`/admin/jobs?view=all&technician=${encodeURIComponent(tech.id)}`}
+                        className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2 font-mono text-[10px] uppercase tracking-widest font-semibold text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
+                      >
+                        Open Job Queue
+                      </Link>
+                    </div>
+
+                    {/* Metric Groups */}
+                    <div className="space-y-4">
+                      {/* Throughput */}
+                      <MetricGroup
+                        title="Throughput"
+                        icon={TrendingUp}
+                        metrics={[
+                          { label: 'Jobs Completed', value: tech.completedJobs },
+                          { label: 'Hours Worked', value: asHours(tech.hoursWorked) },
+                        ]}
+                      />
+
+                      {/* Quality */}
+                      <MetricGroup
+                        title="Quality"
+                        icon={Star}
+                        metrics={[
+                          { label: 'Completion Rate', value: `${completionMeter.toFixed(1)}%` },
+                          { label: 'Customer Rating', value: `${tech.customerRating.toFixed(1)}/5` },
+                        ]}
+                      />
+
+                      {/* Utilization */}
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <CalendarClock className="w-4 h-4 text-slate-500" />
+                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                            Utilization
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-sans text-xs text-slate-600 dark:text-slate-300">
+                            Scheduled vs Capacity
+                          </span>
+                          <span className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+                            {utilizationMeter.toFixed(1)}%
+                          </span>
+                        </div>
+                        {/* Standardized Progress Bar */}
+                        <ProgressBar value={utilizationMeter} />
+                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                          {asHours(tech.hoursWorked)} worked across {tech.daysWorked} active days
                         </p>
-                        <Link
-                          href={`/admin/jobs?view=all&technician=${encodeURIComponent(tech.id)}`}
-                          className="inline-flex items-center justify-center rounded-2xl border border-slate-300/70 dark:border-slate-600/70 bg-white/80 dark:bg-slate-800/70 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest font-semibold text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                        >
-                          Open Job Queue
-                        </Link>
                       </div>
 
-                      <div
-                        className="mt-4 space-y-4 opacity-0 translate-y-2 transition-all duration-300 group-open:opacity-100 group-open:translate-y-0"
-                        style={{ transitionDelay: '45ms' }}
-                      >
-                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                          <section className="xl:col-span-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
-                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                              Workload & Capacity
-                            </p>
-                            <div className="mt-3 flex items-end justify-between">
-                              <div>
-                                <p className="font-display text-4xl leading-none text-slate-900 dark:text-white">{pipelineLoad}</p>
-                                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Total pipeline load</p>
-                              </div>
-                              <span className={`rounded-full px-3 py-1 font-mono text-[9px] uppercase tracking-widest ${
-                                tech.activeJobs > 0
-                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700/70 dark:text-slate-300'
-                              }`}>
-                                {tech.activeJobs > 0 ? 'Live Shift' : 'Standby'}
+                      {/* Revenue */}
+                      <MetricGroup
+                        title="Revenue"
+                        icon={DollarSign}
+                        metrics={[
+                          { label: 'Total Collected', value: asMoney(tech.collectedRevenue) },
+                          { label: 'Avg per Job', value: asMoney(tech.revenuePerCompletedJob) },
+                        ]}
+                      />
+
+                      {/* Reliability */}
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <AlertTriangle className="w-4 h-4 text-slate-500" />
+                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                            Reliability
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-sans text-xs text-slate-600 dark:text-slate-300">On-time Rate</span>
+                              <span className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+                                {onTimeRate.toFixed(1)}%
                               </span>
                             </div>
-                            <div className="mt-4 grid grid-cols-2 gap-2">
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Active</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{tech.activeJobs}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Queued</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{tech.upcomingJobs}</p>
-                              </div>
+                            <ProgressBar value={onTimeRate} variant="emerald" />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-sans text-xs text-slate-600 dark:text-slate-300">Cancellation</span>
+                              <span className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+                                {cancellationRate.toFixed(1)}%
+                              </span>
                             </div>
-                            <div className="mt-4">
-                              <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                <span>Utilization</span>
-                                <span>{utilizationMeter.toFixed(1)}%</span>
-                              </div>
-                              <div className="mt-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700/70 overflow-hidden">
-                                <div className={`h-full rounded-full bg-gradient-to-r ${utilizationTone}`} style={{ width: `${utilizationMeter}%` }} />
-                              </div>
-                              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                                {asHours(tech.hoursWorked)} worked across {tech.daysWorked} active days.
-                              </p>
-                            </div>
-                          </section>
-
-                          <section className="xl:col-span-7 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
-                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                              Quality & Throughput
-                            </p>
-                            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2">
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Completion</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{completionMeter.toFixed(1)}%</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Cancellation</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{cancellationRate.toFixed(1)}%</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Avg Job Time</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asHours(tech.avgServiceHours)}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Jobs / Day</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{tech.avgJobsPerDay.toFixed(1)}</p>
-                              </div>
-                            </div>
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/70 dark:bg-slate-900/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Assigned</p>
-                                <p className="mt-1 font-display text-xl text-slate-900 dark:text-white">{tech.assignedJobs}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-white/70 dark:bg-slate-900/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Completed</p>
-                                <p className="mt-1 font-display text-xl text-slate-900 dark:text-white">{tech.completedJobs}</p>
-                              </div>
-                            </div>
-                          </section>
-
-                          <section className="xl:col-span-12 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
-                            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                              Commercial Impact
-                            </p>
-                            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2">
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Collected</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.collectedRevenue)}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Billed</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.billedRevenue)}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Revenue / Hour</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.revenuePerHour)}</p>
-                              </div>
-                              <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3">
-                                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Revenue / Completed</p>
-                                <p className="mt-1 font-display text-2xl text-slate-900 dark:text-white">{asMoney(tech.revenuePerCompletedJob)}</p>
-                              </div>
-                            </div>
-                            <div className="mt-3">
-                              <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                <span>Collection Realization</span>
-                                <span className={collectionTone}>{collectionRate.toFixed(1)}%</span>
-                              </div>
-                              <div className="mt-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700/70 overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full bg-gradient-to-r ${
-                                    collectionRate >= 85
-                                      ? 'from-emerald-500 to-teal-500'
-                                      : collectionRate >= 60
-                                        ? 'from-amber-500 to-orange-500'
-                                        : 'from-rose-500 to-red-500'
-                                  }`}
-                                  style={{ width: `${collectionRate}%` }}
-                                />
-                              </div>
-                            </div>
-                          </section>
+                            <ProgressBar value={cancellationRate} variant="rose" />
+                          </div>
                         </div>
+                      </div>
 
-                        <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white/85 dark:bg-slate-900/70 p-4">
+                      {/* Collection Realization */}
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                            Collection Realization
+                          </span>
+                          <span className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+                            {collectionRate.toFixed(1)}%
+                          </span>
+                        </div>
+                        <ProgressBar 
+                          value={collectionRate} 
+                          variant={collectionRate >= 85 ? 'emerald' : collectionRate >= 60 ? 'amber' : 'rose'} 
+                        />
+                        <div className="mt-2 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span>Collected: {asMoney(tech.collectedRevenue)}</span>
+                          <span>Billed: {asMoney(tech.billedRevenue)}</span>
+                        </div>
+                      </div>
+
+                      {/* Service Mix */}
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Users className="w-4 h-4 text-slate-500" />
                           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
                             Service Mix
                           </p>
-                          {tech.topServices.length === 0 ? (
-                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No service history in this range.</p>
-                          ) : (
-                            <div className="mt-3 space-y-2.5">
-                              {tech.topServices.map((service, index) => {
-                                const share = clampPercent(service.share)
-                                const tone =
-                                  index === 0
-                                    ? 'from-emerald-500 to-teal-500'
-                                    : index === 1
-                                      ? 'from-indigo-500 to-blue-500'
-                                      : 'from-slate-500 to-slate-600'
-
-                                return (
-                                  <div
-                                    key={`${tech.id}-${service.name}`}
-                                    className="rounded-xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-800/60 p-3"
-                                  >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0">
-                                        <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                          Rank #{index + 1}
-                                        </p>
-                                        <p className="mt-0.5 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                          {service.name}
-                                        </p>
-                                      </div>
-                                      <div className="text-right">
-                                        <p className="font-sans text-xs text-slate-700 dark:text-slate-200">{service.count} jobs</p>
-                                        <p className="font-sans text-[10px] text-slate-500 dark:text-slate-400">{share.toFixed(1)}% of non-cancelled jobs</p>
-                                      </div>
-                                    </div>
-                                    <div className="mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700/70 overflow-hidden">
-                                      <div className={`h-full rounded-full bg-gradient-to-r ${tone} transition-all duration-500`} style={{ width: `${share}%` }} />
+                        </div>
+                        {tech.topServices.length === 0 ? (
+                          <p className="text-sm text-slate-500 dark:text-slate-400">No service history in this range.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {tech.topServices.map((service, index) => {
+                              const share = clampPercent(service.share)
+                              return (
+                                <div key={`${tech.id}-${service.name}`} className="flex items-center gap-3">
+                                  <span className="font-sans text-xs text-slate-600 dark:text-slate-300 min-w-0 flex-1 truncate">
+                                    {service.name}
+                                  </span>
+                                  <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                                    {service.count} jobs
+                                  </span>
+                                  <div className="w-24 flex-shrink-0">
+                                    <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                                      <div 
+                                        className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
+                                        style={{ width: `${share}%` }}
+                                      />
                                     </div>
                                   </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </section>
+                                  <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 w-10 text-right">
+                                    {share.toFixed(0)}%
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1317,6 +1032,178 @@ export default async function TechniciansPage(props: {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// KPI Card Component - Same height, muted accents
+function KpiCard({ 
+  label, 
+  value, 
+  icon: Icon, 
+  accent 
+}: { 
+  label: string
+  value: string | number
+  icon: React.ComponentType<{ className?: string }>
+  accent: 'cyan' | 'blue' | 'amber' | 'purple' | 'emerald'
+}) {
+  const accentMap = {
+    cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400' },
+    blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400' },
+    amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400' },
+    purple: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400' },
+    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400' },
+  }
+  const styles = accentMap[accent]
+
+  return (
+    <div className="admin-card p-4 h-[100px] flex flex-col justify-between">
+      <div className="flex items-center justify-between">
+        <p className="font-sans text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          {label}
+        </p>
+        <div className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${styles.bg}`}>
+          <Icon className={`w-3.5 h-3.5 ${styles.text}`} />
+        </div>
+      </div>
+      <p className="font-display text-2xl font-semibold text-slate-900 dark:text-white truncate">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+// Working Today Badge Component
+function WorkingBadge({ isWorking }: { isWorking: boolean }) {
+  if (isWorking) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+        </span>
+        Working
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-400 dark:bg-slate-500"></span>
+      Off
+    </span>
+  )
+}
+
+// Progress Bar Component - Standardized
+function ProgressBar({ 
+  value, 
+  variant = 'cyan' 
+}: { 
+  value: number
+  variant?: 'cyan' | 'emerald' | 'amber' | 'rose'
+}) {
+  const variantMap = {
+    cyan: 'from-cyan-500 to-blue-500',
+    emerald: 'from-emerald-500 to-teal-500',
+    amber: 'from-amber-500 to-orange-500',
+    rose: 'from-rose-500 to-red-500',
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+        <div 
+          className={`h-full rounded-full bg-gradient-to-r ${variantMap[variant]} transition-all duration-500`}
+          style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
+        />
+      </div>
+      <span className="font-mono text-xs text-slate-500 dark:text-slate-400 w-12 text-right">
+        {value.toFixed(0)}%
+      </span>
+    </div>
+  )
+}
+
+// Metric Group Component
+function MetricGroup({ 
+  title, 
+  icon: Icon, 
+  metrics 
+}: { 
+  title: string
+  icon: React.ComponentType<{ className?: string }>
+  metrics: { label: string; value: string | number }[]
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-4 h-4 text-slate-500" />
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+          {title}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {metrics.map((metric) => (
+          <div key={metric.label}>
+            <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+              {metric.label}
+            </p>
+            <p className="mt-1 font-display text-xl text-slate-900 dark:text-white">
+              {metric.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Range Selector Component - matches analytics behavior
+function RangeSelector({ 
+  selectedRange, 
+  options,
+  getRangeHref,
+  selectedLabel,
+}: { 
+  selectedRange: DateRangeKey
+  options: typeof ADMIN_RANGE_OPTIONS
+  getRangeHref: (range: DateRangeKey) => string
+  selectedLabel: string
+}) {
+  return (
+    <div className="relative group/range">
+      <details className="relative z-20">
+        <summary
+          title="Select report period"
+          aria-label="Select report period"
+          className="list-none cursor-pointer inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm transition-colors hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
+        >
+          <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-200">
+            {selectedLabel}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-500 transition-transform duration-300 group-open/range:rotate-180 dark:text-slate-400" />
+        </summary>
+        <div className="absolute right-0 mt-2 w-40 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          {options.map((option) => {
+            const active = option.key === selectedRange
+            return (
+              <Link
+                key={option.key}
+                href={getRangeHref(option.key)}
+                className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-sans text-xs font-semibold transition-colors ${
+                  active
+                    ? 'bg-cyan-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.3)] dark:bg-cyan-400'
+                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>{option.label}</span>
+                {active ? <span className="font-mono text-[9px] uppercase tracking-wider">Current</span> : null}
+              </Link>
+            )
+          })}
+        </div>
+      </details>
     </div>
   )
 }

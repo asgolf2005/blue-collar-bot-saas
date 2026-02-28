@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import TechDashboardClient from '@/components/tech/dashboard/TechDashboardClient'
+import { endOfDay, startOfDay } from 'date-fns'
 
 const activeStatuses = ['scheduled', 'on_the_way', 'arrived', 'in_progress'] as const
 
@@ -26,15 +27,17 @@ export default async function TechDashboard() {
   }
 
   const now = new Date()
+  const nowIso = now.toISOString()
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const nextWeek = new Date(today)
-  nextWeek.setDate(nextWeek.getDate() + 7)
+  const startOfTodayIso = startOfDay(today).toISOString()
+  const endOfTodayIso = endOfDay(today).toISOString()
+  const rangeStart = new Date(today)
+  rangeStart.setDate(rangeStart.getDate() - 60)
+  const rangeEnd = new Date(today)
+  rangeEnd.setDate(rangeEnd.getDate() + 120)
   const weekAgo = new Date(today)
   weekAgo.setDate(weekAgo.getDate() - 6)
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
   const jobSelect = `
       id,
       scheduled_start,
@@ -47,68 +50,65 @@ export default async function TechDashboard() {
       services:job_services(service:services(name, category))
     `
 
-  const todayJobsQuery = supabase
+  const dispatchWindowJobsQuery = supabase
     .from('jobs')
     .select(jobSelect)
     .eq('technician_id', user.id)
-    .gte('scheduled_start', today.toISOString())
-    .lt('scheduled_start', tomorrow.toISOString())
-    .order('scheduled_start', { ascending: true })
-
-  const upcomingJobsQuery = supabase
-    .from('jobs')
-    .select(jobSelect)
-    .eq('technician_id', user.id)
-    .gte('scheduled_start', tomorrow.toISOString())
-    .lt('scheduled_start', nextWeek.toISOString())
+    .gte('scheduled_start', rangeStart.toISOString())
+    .lte('scheduled_start', rangeEnd.toISOString())
     .order('scheduled_start', { ascending: true })
 
   const weekJobsQuery = supabase
     .from('jobs')
-    .select('scheduled_start, status')
+    .select('scheduled_start, scheduled_end, status')
     .eq('technician_id', user.id)
     .gte('scheduled_start', weekAgo.toISOString())
     .order('scheduled_start', { ascending: true })
 
-  const monthJobsQuery = supabase
+  const performanceJobsQuery = supabase
     .from('jobs')
-    .select('status, total_cost')
+    .select('status, total_cost, scheduled_start')
     .eq('technician_id', user.id)
-    .gte('scheduled_start', startOfMonth.toISOString())
+    .order('scheduled_start', { ascending: true })
+
+  const todayJobsQuery = supabase
+    .from('jobs')
+    .select(jobSelect)
+    .eq('technician_id', user.id)
+    .gte('scheduled_start', startOfTodayIso)
+    .lte('scheduled_start', endOfTodayIso)
+    .order('scheduled_start', { ascending: true })
 
   const attentionJobsQuery = supabase
     .from('jobs')
     .select(jobSelect)
     .eq('technician_id', user.id)
     .in('status', [...activeStatuses])
-    .lt('scheduled_start', now.toISOString())
+    .lt('scheduled_start', nowIso)
     .order('scheduled_start', { ascending: true })
     .limit(8)
 
   const [
-    { data: todayJobs = [] },
-    { data: upcomingJobs = [] },
+    { data: dispatchWindowJobs = [] },
     { data: weekJobs = [] },
-    { data: monthJobs = [] },
+    { data: performanceJobs = [] },
+    { data: todayJobs = [] },
     { data: attentionJobs = [] },
-  ] = await Promise.all([todayJobsQuery, upcomingJobsQuery, weekJobsQuery, monthJobsQuery, attentionJobsQuery])
+  ] = await Promise.all([dispatchWindowJobsQuery, weekJobsQuery, performanceJobsQuery, todayJobsQuery, attentionJobsQuery])
 
-  const safeTodayJobs = todayJobs || []
-  const safeUpcomingJobs = upcomingJobs || []
+  const safeDispatchWindowJobs = dispatchWindowJobs || []
   const safeWeekJobs = weekJobs || []
-  const safeMonthJobs = monthJobs || []
+  const safePerformanceJobs = performanceJobs || []
+  const safeTodayJobs = todayJobs || []
   const safeAttentionJobs = attentionJobs || []
-
-  const nextJob =
-    [...safeTodayJobs, ...safeUpcomingJobs].find((job: any) => !['completed', 'cancelled'].includes(job.status)) || null
 
   return (
     <TechDashboardClient
-      nextJob={nextJob}
+      nowIso={nowIso}
+      dispatchWindowJobs={safeDispatchWindowJobs as any[]}
       todayJobs={safeTodayJobs as any[]}
-      upcomingJobs={safeUpcomingJobs as any[]}
       weekJobs={safeWeekJobs as any[]}
-      monthJobs={safeMonthJobs as any[]}
+      performanceJobs={safePerformanceJobs as any[]}
       attentionJobs={safeAttentionJobs as any[]}
       userName={profile.full_name || ''}
     />

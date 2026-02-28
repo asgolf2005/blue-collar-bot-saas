@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function AdminError({
   error,
@@ -10,7 +10,12 @@ export default function AdminError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const lastErrorKeyRef = useRef<string | null>(null)
+
   useEffect(() => {
+    const key = `${error.name}:${error.message}:${error.digest || 'no-digest'}`
+    if (lastErrorKeyRef.current === key) return
+    lastErrorKeyRef.current = key
     console.error('Admin route error:', error)
   }, [error])
 

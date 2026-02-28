@@ -7,13 +7,14 @@ import {
   DollarSign,
   CheckCircle2,
   TrendingUp,
+  TrendingDown,
   Activity,
   Briefcase,
   Download,
   RefreshCw,
   ChevronDown,
 } from '@/components/ui/lucide'
-import { ActionButton, ActionIconButton } from '@/components/ui/ActionSystem'
+import { Button } from '@/components/ui/Button'
 
 import { AnalyticsMetrics, RevenueDataPoint, TechnicianData, ServiceData, OpsHealthData } from '@/lib/analytics/types'
 import { ADMIN_RANGE_OPTIONS, type DateRangeKey } from '@/lib/analytics/dateUtils'
@@ -29,6 +30,7 @@ interface AnalyticsClientProps {
   opsHealth: OpsHealthData
   technicianData: TechnicianData[]
   serviceData: ServiceData[]
+  dateRangeHint?: string | null
 }
 
 // CSV Export helper
@@ -61,6 +63,7 @@ export default function AnalyticsClient({
   opsHealth,
   technicianData,
   serviceData,
+  dateRangeHint,
 }: AnalyticsClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -74,45 +77,11 @@ export default function AnalyticsClient({
   // State
   const [isPending, startTransition] = useTransition()
   const [selectedTechnician, setSelectedTechnician] = useState<TechnicianData | null>(null)
-  const [rangeMenuOpen, setRangeMenuOpen] = useState(false)
-  const rangeMenuRef = useRef<HTMLDivElement | null>(null)
   const isLoading = isPending
   const rangeQuery = `range=${selectedRange.key}`
   const isForecastView = pathname.includes('/admin/analytics/forecast')
 
-  useEffect(() => {
-    if (!rangeMenuOpen) return
-
-    const onMouseDown = (event: MouseEvent) => {
-      if (!rangeMenuRef.current || rangeMenuRef.current.contains(event.target as Node)) return
-      setRangeMenuOpen(false)
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setRangeMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', onMouseDown)
-    document.addEventListener('keydown', onKeyDown)
-
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [rangeMenuOpen])
-
   // Handlers
-  const handleRangeChange = (range: DateRangeKey) => {
-    setRangeMenuOpen(false)
-    const params = new URLSearchParams(searchParams)
-    params.set('range', range)
-    startTransition(() => {
-      router.push(`${pathname}?${params.toString()}`)
-    })
-  }
-
   const handleRefresh = () => {
     startTransition(() => {
       router.refresh()
@@ -167,7 +136,7 @@ export default function AnalyticsClient({
             <Link
               href={`/admin/analytics?${rangeQuery}`}
               className={`rounded-full px-3 py-1.5 font-mono text-xs transition-colors ${!isForecastView
-                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white'
+                  ? 'bg-slate-800 text-white dark:bg-slate-700'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
             >
@@ -176,7 +145,7 @@ export default function AnalyticsClient({
             <Link
               href={`/admin/analytics/forecast?${rangeQuery}`}
               className={`rounded-full px-3 py-1.5 font-mono text-xs transition-colors ${isForecastView
-                  ? 'bg-cyan-600 dark:bg-cyan-500 text-white'
+                  ? 'bg-slate-800 text-white dark:bg-slate-700'
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
             >
@@ -185,75 +154,67 @@ export default function AnalyticsClient({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Range Selector */}
-          <div className="relative" ref={rangeMenuRef}>
-            <button
-              type="button"
-              onClick={() => setRangeMenuOpen((prev) => !prev)}
-              aria-haspopup="menu"
-              aria-expanded={rangeMenuOpen}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 shadow-sm transition-colors hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600"
-            >
-              <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-200">
-                {selectedRange.label}
-              </span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 text-slate-500 transition-transform dark:text-slate-400 ${rangeMenuOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {rangeMenuOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 top-full z-30 mt-2 w-40 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Range Selector - Standard Pattern */}
+            <details className="relative group/range z-20">
+              <summary
+                title="Select report period"
+                aria-label="Select report period"
+                className="list-none cursor-pointer inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl px-4 py-2.5 shadow-lg shadow-slate-200/20 dark:shadow-cyan-500/10 transition-colors hover:border-cyan-400/40"
               >
+                <span className="font-sans text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Period
+                </span>
+                <span className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-slate-800 dark:text-cyan-200">
+                  {selectedRange.label}
+                </span>
+                <ChevronDown className="h-4 w-4 text-slate-500 dark:text-cyan-300 transition-transform duration-300 group-open/range:rotate-180" />
+              </summary>
+              <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl p-1.5 shadow-xl shadow-slate-200/30 dark:shadow-cyan-500/10">
                 {ADMIN_RANGE_OPTIONS.map((range) => {
                   const active = range.key === selectedRange.key
+                  const params = new URLSearchParams(searchParams)
+                  params.set('range', range.key)
                   return (
-                    <button
-                      type="button"
+                    <Link
                       key={range.key}
-                      onClick={() => handleRangeChange(range.key)}
-                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-sans text-xs font-semibold transition-colors ${
+                      href={`${pathname}?${params.toString()}`}
+                      className={`flex items-center justify-between rounded-xl px-3 py-2 font-sans text-xs font-semibold transition-colors ${
                         active
-                          ? 'bg-cyan-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.3)] dark:bg-cyan-400'
+                          ? 'bg-slate-800 text-white dark:bg-slate-700'
                           : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
                       <span>{range.label}</span>
-                      {active ? (
-                        <span className="font-mono text-[9px] uppercase tracking-wider">Current</span>
-                      ) : null}
-                    </button>
+                      {active ? <span className="font-mono text-[9px] uppercase tracking-widest">Current</span> : null}
+                    </Link>
                   )
                 })}
               </div>
-            )}
+            </details>
+
+            {/* Export Button */}
+            <Button
+              onClick={handleExport}
+              variant="secondary"
+              size="md"
+              icon={<Download className="w-4 h-4" />}
+            >
+              Export
+            </Button>
+
+            {/* Refresh Button */}
+            <Button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              variant="ghost"
+              size="md"
+              icon={<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />}
+            >
+              Refresh
+            </Button>
           </div>
-
-          {/* Export Button */}
-          <ActionButton
-            onClick={handleExport}
-            stylePreset="industrial"
-            intent="secondary"
-            size="md"
-            icon={<Download className="w-3.5 h-3.5" />}
-            className="uppercase tracking-[0.08em]"
-          >
-            Export
-          </ActionButton>
-
-          {/* Refresh Button */}
-          <ActionIconButton
-            onClick={handleRefresh}
-            disabled={isLoading}
-            stylePreset="industrial"
-            intent="secondary"
-            size="md"
-            icon={<RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />}
-            className="disabled:opacity-50"
-          />
         </div>
       </div>
 
@@ -273,8 +234,8 @@ export default function AnalyticsClient({
           </span>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block h-full">
             <LiveMetricCard
               label="Revenue"
               value={`$${metrics.revenue.toLocaleString()}`}
@@ -285,7 +246,7 @@ export default function AnalyticsClient({
               delay={0}
             />
           </Link>
-          <Link href={`/admin/analytics/jobs?${rangeQuery}`} className="block">
+          <Link href={`/admin/analytics/jobs?${rangeQuery}`} className="block h-full">
             <LiveMetricCard
               label="Jobs"
               value={metrics.jobs}
@@ -296,7 +257,7 @@ export default function AnalyticsClient({
               delay={100}
             />
           </Link>
-          <Link href={`/admin/analytics/completion?${rangeQuery}`} className="block">
+          <Link href={`/admin/analytics/completion?${rangeQuery}`} className="block h-full">
             <LiveMetricCard
               label="Completion"
               value={`${metrics.completionRate}%`}
@@ -307,7 +268,7 @@ export default function AnalyticsClient({
               delay={200}
             />
           </Link>
-          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block">
+          <Link href={`/admin/analytics/revenue?${rangeQuery}`} className="block h-full">
             <LiveMetricCard
               label="Avg Ticket"
               value={`$${metrics.avgTicket}`}
@@ -325,6 +286,7 @@ export default function AnalyticsClient({
       <RevenueChart
         data={revenueData}
         onDataPointClick={handleDataPointClick}
+        dateRangeHint={dateRangeHint}
       />
 
       {/* Section 3: Capacity + On-Time */}

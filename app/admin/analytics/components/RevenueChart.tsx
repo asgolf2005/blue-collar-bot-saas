@@ -12,7 +12,7 @@ import {
   ReferenceLine,
 } from 'recharts'
 import { DollarSign, Briefcase, Clock } from '@/components/ui/lucide'
-import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
+import { cn } from '@/lib/utils/cn'
 
 interface RevenueDataPoint {
   date: string
@@ -25,6 +25,7 @@ interface RevenueDataPoint {
 interface RevenueChartProps {
   data: RevenueDataPoint[]
   onDataPointClick: (data: RevenueDataPoint) => void
+  dateRangeHint?: string | null
 }
 
 type ChartView = 'revenue' | 'jobs' | 'hours'
@@ -56,11 +57,14 @@ const viewConfig = {
   },
 }
 
-function formatXAxisDateLabel(value: string): string {
+function formatXAxisDateLabel(value: string, includeYear: boolean): string {
   // Prefer SQL date keys (YYYY-MM-DD) for deterministic formatting.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const parsed = new Date(`${value}T12:00:00`)
     if (!Number.isNaN(parsed.getTime())) {
+      if (includeYear) {
+        return parsed.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      }
       return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
   }
@@ -120,23 +124,46 @@ function CustomTooltip({
   return null
 }
 
-export default function RevenueChart({ data, onDataPointClick }: RevenueChartProps) {
+export default function RevenueChart({ data, onDataPointClick, dateRangeHint }: RevenueChartProps) {
   const [view, setView] = useState<ChartView>('revenue')
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
 
   const config = viewConfig[view]
 
-  // Calculate stats for the current view
-  const stats = useMemo(() => {
+  // Calculate stats for all views
+  const allStats = useMemo(() => {
     if (!data || data.length === 0) {
-      return { total: 0, avg: 0, max: 0 }
+      return {
+        revenue: { total: 0, avg: 0, max: 0 },
+        jobs: { total: 0, avg: 0, max: 0 },
+        hours: { total: 0, avg: 0, max: 0 },
+      }
     }
-    const values = data.map(d => d[view] || 0)
-    const total = values.reduce((sum, v) => sum + v, 0)
-    const avg = total / values.length
-    const max = Math.max(...values)
-    return { total, avg, max }
-  }, [data, view])
+    const calcStats = (key: ChartView) => {
+      const values = data.map(d => d[key] || 0)
+      const total = values.reduce((sum, v) => sum + v, 0)
+      const avg = total / values.length
+      const max = Math.max(...values)
+      return { total, avg, max }
+    }
+    return {
+      revenue: calcStats('revenue'),
+      jobs: calcStats('jobs'),
+      hours: calcStats('hours'),
+    }
+  }, [data])
+
+  const stats = allStats[view]
+
+  const showYearOnAxis = useMemo(() => {
+    if (!data || data.length < 2) return false
+    const first = new Date(`${data[0].date}T12:00:00`).getTime()
+    const last = new Date(`${data[data.length - 1].date}T12:00:00`).getTime()
+    if (!Number.isFinite(first) || !Number.isFinite(last) || last <= first) return false
+    const spanDays = (last - first) / (1000 * 60 * 60 * 24)
+    // Show year for spans > 6 months (180 days)
+    return spanDays > 180
+  }, [data])
 
   // Handle click on the chart area
   const handleChartClick = (e: any) => {
@@ -157,20 +184,29 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
           <p className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Daily performance over selected period
           </p>
+          {dateRangeHint && (
+            <p className="helper-text mt-1">
+              {dateRangeHint}
+            </p>
+          )}
         </div>
 
-        {/* View Toggle */}
-        <div className={ADMIN_RANGE_TRACK_CLASS}>
+        {/* View Toggle - Softened Active States */}
+        <div className="flex items-center gap-1 rounded-full border border-slate-300 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
           {(Object.keys(viewConfig) as ChartView[]).map((v) => {
-            const Icon = viewConfig[v].icon
+            const isActive = view === v
             return (
               <button type="button"
                 key={v}
                 onClick={() => setView(v)}
-                className={adminRangeItemClass(view === v)}
+                className={cn(
+                  'px-4 py-1.5 font-sans text-xs font-semibold transition-all duration-200 rounded-full',
+                  isActive
+                    ? 'bg-slate-800 text-white dark:bg-slate-700 dark:text-white'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                )}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="capitalize">{v}</span>
+                {viewConfig[v].label}
               </button>
             )
           })}
@@ -234,7 +270,7 @@ export default function RevenueChart({ data, onDataPointClick }: RevenueChartPro
             />
             <XAxis
               dataKey="date"
-              tickFormatter={formatXAxisDateLabel}
+              tickFormatter={(value) => formatXAxisDateLabel(value, showYearOnAxis)}
               tick={{ fontSize: 11, fontFamily: 'Inter', fill: '#64748b' }}
               axisLine={false}
               tickLine={false}

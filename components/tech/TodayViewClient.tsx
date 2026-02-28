@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { addDays, differenceInMinutes, endOfDay, format, startOfDay } from 'date-fns'
-import { CalendarDays, ChevronDown, Keyboard, ListChecks, Route as RouteIcon, Sparkles, Wrench } from '@/components/ui/icons'
+import { addDays, endOfDay, format, isSameDay, startOfDay } from 'date-fns'
+import { CalendarDays, ChevronDown, ListChecks, Route as RouteIcon, Sparkles, Wrench } from '@/components/ui/icons'
 
 import { useRealtimeJobsWithRelations } from '@/hooks/useRealtimeJobsWithRelations'
-import KeyboardShortcutsCard from '@/components/ui/KeyboardShortcutsCard'
 import { useGoogleMaps } from '@/hooks/useGoogleMaps'
 import { createClient } from '@/lib/supabase/client'
 import DispatchJobCard from '@/components/tech/DispatchJobCard'
@@ -267,13 +266,13 @@ function KpiCard({
 }: {
   label: string
   value: string | number
-  helper: string
+  helper?: string
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{label}</p>
       <p className="mt-1 font-mono text-2xl font-semibold text-slate-900 dark:text-white">{value}</p>
-      <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">{helper}</p>
+      {helper ? <p className="mt-1 font-sans text-xs text-slate-500 dark:text-slate-400">{helper}</p> : null}
     </div>
   )
 }
@@ -298,23 +297,23 @@ function CollapsiblePanel({
   return (
     <section
       className={cx(
-        'group overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm transition-all dark:border-slate-800 dark:bg-slate-900/70',
-        open && 'shadow-[0_18px_50px_-35px_rgba(2,132,199,0.35)] dark:shadow-[0_24px_60px_-40px_rgba(34,211,238,0.25)]'
+        'group overflow-hidden rounded-2xl bg-white/40 shadow-sm backdrop-blur transition-all dark:bg-slate-900/30 w-full',
+        open && 'bg-white/70 dark:bg-slate-900/60 shadow-[0_8px_30px_-15px_rgba(2,132,199,0.2)] dark:shadow-[0_12px_40px_-20px_rgba(34,211,238,0.15)]'
       )}
     >
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-900/80"
+        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-900/50"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white/80 text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
             <Icon className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-              <p className="font-display text-lg uppercase tracking-[0.08em] text-slate-900 dark:text-white">{title}</p>
+            <p className="font-display text-lg uppercase tracking-[0.08em] text-slate-900 dark:text-white">{title}</p>
             {subtitle ? (
-              <p className="mt-0.5 truncate font-mono text-[11px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                 {subtitle}
               </p>
             ) : null}
@@ -325,8 +324,8 @@ function CollapsiblePanel({
           {right}
           <span
             className={cx(
-              'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white/80 text-slate-600 shadow-sm transition-transform duration-200 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-300',
-              open && 'rotate-180'
+              'inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-200 dark:bg-slate-800 dark:text-slate-400',
+              open && 'rotate-180 bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
             )}
             aria-hidden="true"
           >
@@ -344,7 +343,7 @@ function CollapsiblePanel({
         <div className="overflow-hidden">
           <div
             className={cx(
-              'px-5 pb-5 transition-all duration-300',
+              'px-4 pb-4 transition-all duration-300',
               open ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
             )}
           >
@@ -358,19 +357,40 @@ function CollapsiblePanel({
 
 export default function TodayViewClient({
   initialJobs,
+  initialNextJob,
   userId,
   businessId,
-  today,
+  nowIso,
+  startOfTodayIso,
+  endOfTodayIso,
 }: {
   initialJobs: RawJob[]
+  initialNextJob: RawJob | null
   userId: string
   businessId: string
-  today: Date
+  nowIso: string
+  startOfTodayIso: string
+  endOfTodayIso: string
 }) {
   const [tomorrowJobs, setTomorrowJobs] = useState<TomorrowJob[]>([])
+  const [liveNextJob, setLiveNextJob] = useState<NormalizedJob | null>(null)
+  const [currentNowMs, setCurrentNowMs] = useState(() => new Date(nowIso).getTime())
   const supabase = useMemo(() => createClient(), [])
-  const startOfTodayDate = useMemo(() => startOfDay(today), [today])
-  const endOfTodayDate = useMemo(() => endOfDay(today), [today])
+  const startOfTodayDate = useMemo(() => new Date(startOfTodayIso), [startOfTodayIso])
+  const endOfTodayDate = useMemo(() => new Date(endOfTodayIso), [endOfTodayIso])
+  const todayDate = useMemo(() => startOfTodayDate, [startOfTodayDate])
+
+  useEffect(() => {
+    const syncNow = () => setCurrentNowMs(Date.now())
+    const initialSyncTimer = setTimeout(syncNow, 0)
+    const timer = setInterval(() => {
+      setCurrentNowMs(Date.now())
+    }, 60_000)
+    return () => {
+      clearTimeout(initialSyncTimer)
+      clearInterval(timer)
+    }
+  }, [])
 
   const { jobs: allJobs, isConnected, isRefreshing } = useRealtimeJobsWithRelations({
     businessId: businessId || initialJobs[0]?.business_id || '',
@@ -392,6 +412,52 @@ export default function TodayViewClient({
       .filter((job): job is NormalizedJob => Boolean(job))
       .sort((a, b) => new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime())
   }, [allJobs, endOfTodayDate, startOfTodayDate, userId])
+  const fallbackNextJob = useMemo(() => {
+    if (!initialNextJob) return null
+    const normalized = normalizeJob(initialNextJob)
+    if (!normalized) return null
+    return ['completed', 'cancelled'].includes(normalized.status) ? null : normalized
+  }, [initialNextJob])
+
+  useEffect(() => {
+    let active = true
+
+    async function fetchLiveNextJob() {
+      const { data } = await supabase
+        .from('jobs')
+        .select(
+          `
+          id,
+          business_id,
+          technician_id,
+          status,
+          description,
+          scheduled_start,
+          scheduled_end,
+          total_cost,
+          customer:customers(id, name, phone, address),
+          services:job_services(service:services(name, category))
+        `
+        )
+        .eq('technician_id', userId)
+        .gte('scheduled_start', nowIso)
+        .order('scheduled_start', { ascending: true })
+        .limit(30)
+
+      if (!active) return
+      const nextCandidate =
+        (data || [])
+          .map((job) => normalizeJob(job as RawJob))
+          .filter((job): job is NormalizedJob => Boolean(job))
+          .find((job) => !['completed', 'cancelled'].includes(job.status)) || null
+      setLiveNextJob(nextCandidate)
+    }
+
+    void fetchLiveNextJob()
+    return () => {
+      active = false
+    }
+  }, [nowIso, supabase, userId])
 
   useEffect(() => {
     let active = true
@@ -399,7 +465,7 @@ export default function TodayViewClient({
     async function fetchTomorrowJobs() {
       if (!businessId) return
 
-      const tomorrow = addDays(today, 1)
+      const tomorrow = addDays(startOfTodayDate, 1)
       const startOfTomorrow = startOfDay(tomorrow)
       const endOfTomorrow = endOfDay(tomorrow)
 
@@ -430,45 +496,58 @@ export default function TodayViewClient({
     return () => {
       active = false
     }
-  }, [businessId, supabase, today, userId])
+  }, [businessId, startOfTodayDate, supabase, userId])
 
   const jobSummary = useMemo(() => {
-    const now = new Date()
+    const nowMs = currentNowMs
     let completed = 0
     let active = 0
     let scheduled = 0
-    let totalRevenueLocal = 0
-    let earnedRevenueLocal = 0
+    let billedRevenueLocal = 0
     let overdueActiveLocal = 0
-    let dueSoonLocal = 0
     let next: NormalizedJob | null = null
+    let activeFallback: NormalizedJob | null = null
+    let firstOpen: NormalizedJob | null = null
 
     for (const job of jobs) {
       const cost = Number(job.total_cost) || 0
-      totalRevenueLocal += cost
+      if (job.status !== 'cancelled') {
+        billedRevenueLocal += cost
+      }
 
-      if (!next && !['completed', 'cancelled'].includes(job.status)) {
-        next = job
+      if (!['completed', 'cancelled'].includes(job.status)) {
+        if (!firstOpen) {
+          firstOpen = job
+        }
+        const startMs = new Date(job.scheduled_start).getTime()
+        if (!next && startMs >= nowMs) {
+          next = job
+        }
+        if (!activeFallback && activeStatuses.has(job.status)) {
+          activeFallback = job
+        }
       }
 
       if (job.status === 'completed') {
         completed += 1
-        earnedRevenueLocal += cost
       }
 
       if (job.status === 'scheduled') {
         scheduled += 1
-        const mins = differenceInMinutes(new Date(job.scheduled_start), now)
-        if (mins >= 0 && mins <= 90) dueSoonLocal += 1
       }
 
       if (activeStatuses.has(job.status)) {
         active += 1
-        if (job.scheduled_end && new Date(job.scheduled_end) < now) {
+        if (job.scheduled_end && new Date(job.scheduled_end).getTime() < nowMs) {
           overdueActiveLocal += 1
         }
       }
     }
+
+    if (!next && fallbackNextJob) next = fallbackNextJob
+    if (!next && liveNextJob) next = liveNextJob
+    if (!next && activeFallback) next = activeFallback
+    if (!next && firstOpen) next = firstOpen
 
     const total = jobs.length
     return {
@@ -476,30 +555,24 @@ export default function TodayViewClient({
       completedCount: completed,
       activeCount: active,
       scheduledCount: scheduled,
-      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
       nextJob: next,
-      totalRevenue: totalRevenueLocal,
-      earnedRevenue: earnedRevenueLocal,
+      billedRevenue: billedRevenueLocal,
       shiftStart: jobs[0]?.scheduled_start || null,
       shiftEnd: jobs[Math.max(jobs.length - 1, 0)]?.scheduled_end || null,
       overdueActive: overdueActiveLocal,
-      dueSoon: dueSoonLocal,
     }
-  }, [jobs])
+  }, [currentNowMs, fallbackNextJob, jobs, liveNextJob])
 
   const {
     totalJobs,
     completedCount,
     activeCount,
     scheduledCount,
-    completionRate,
     nextJob,
-    totalRevenue,
-    earnedRevenue,
+    billedRevenue,
     shiftStart,
     shiftEnd,
     overdueActive,
-    dueSoon,
   } = jobSummary
   const [queueMode, setQueueMode] = useState<'all' | 'active' | 'scheduled' | 'completed'>('all')
 
@@ -516,7 +589,6 @@ export default function TodayViewClient({
     tomorrow: false,
     ai: initialJobs.length > 0,
     tools: false,
-    shortcuts: false,
   }))
 
   const togglePanel = (key: keyof typeof panels) => {
@@ -535,51 +607,45 @@ export default function TodayViewClient({
       })),
     [jobs]
   )
+  const nextJobDisplay = useMemo(() => {
+    if (!nextJob) return '--'
+    const nextStart = new Date(nextJob.scheduled_start)
+    return isSameDay(nextStart, todayDate) ? format(nextStart, 'h:mm a') : format(nextStart, 'EEE h:mm a')
+  }, [nextJob, todayDate])
 
   return (
-    <div className="space-y-5">
-      <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.18),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.24),transparent_42%)]" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Field Operations</p>
-            <h1 className="mt-2 font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-white sm:text-5xl">
-              Dispatch Command
-            </h1>
-            <p className="mt-1 font-sans text-sm text-slate-600 dark:text-slate-300">
-              {format(today, 'EEEE, d MMM yyyy')}
+    <div className="space-y-4">
+      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-white to-slate-50 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:from-slate-900 dark:to-slate-950 dark:shadow-[0_8px_30px_rgba(34,211,238,0.06)]">
+        <div className="absolute top-0 right-0 -m-16 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl dark:bg-cyan-500/20" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              {format(todayDate, 'EEEE, MMM d')}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] ${
-                  isConnected
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-300'
-                    : 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                }`}
-              >
-                <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400 dark:bg-slate-600'}`} aria-hidden="true" />
-                {isConnected ? 'Realtime Live' : 'Realtime Offline'}
-              </span>
+            <div className="flex items-center gap-1.5">
               {isRefreshing && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300">
-                  <span className="h-3.5 w-3.5 rounded-full border-2 border-cyan-300 border-t-transparent animate-spin dark:border-cyan-300/40" aria-hidden="true" />
-                  Syncing
-                </span>
+                <span className="h-2 w-2 rounded-full border border-cyan-400 border-t-transparent animate-spin dark:border-cyan-300" aria-hidden="true" />
               )}
+              <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <h1 className="mt-2 font-display-soft text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Dispatch
+          </h1>
+
+          <div className="mt-4 flex gap-2">
             <Link
               href="/tech/schedule"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="flex-1 rounded-full bg-slate-900 py-2.5 text-center font-sans text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-sm transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
             >
-              Full Schedule
+              Schedule
             </Link>
             <Link
               href="/tech/stats"
-              className="inline-flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-950 transition-colors hover:bg-cyan-400"
+              className="flex-1 rounded-full bg-cyan-500 py-2.5 text-center font-sans text-xs font-semibold uppercase tracking-[0.14em] text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-colors hover:bg-cyan-400"
             >
-              Performance
+              Stats
             </Link>
           </div>
         </div>
@@ -588,12 +654,11 @@ export default function TodayViewClient({
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Next Job"
-          value={nextJob ? format(new Date(nextJob.scheduled_start), 'h:mm a') : '--'}
-          helper={nextJob ? nextJob.customer.name : 'No pending dispatch'}
+          value={nextJobDisplay}
         />
-        <KpiCard label="Completed" value={completedCount} helper={`${completionRate}% completion today`} />
-        <KpiCard label="Active Now" value={activeCount} helper={`${dueSoon} jobs due within 90 minutes`} />
-        <KpiCard label="Revenue Today" value={`$${earnedRevenue.toFixed(0)}`} helper={`$${totalRevenue.toFixed(0)} total booked`} />
+        <KpiCard label="Completed" value={completedCount} />
+        <KpiCard label="Active Now" value={activeCount} />
+        <KpiCard label="Billed Today" value={`$${billedRevenue.toFixed(0)}`} />
       </section>
 
       {totalJobs === 0 ? (
@@ -622,25 +687,16 @@ export default function TodayViewClient({
         </section>
       ) : null}
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-4">
+      <section className="-mx-3 overflow-hidden">
+        <div className="space-y-0.5">
           <CollapsiblePanel
             title="Queue"
-            subtitle={`${totalJobs} jobs - ${scheduledCount} scheduled - ${activeCount} active`}
+            subtitle={`${totalJobs} total jobs`}
             icon={ListChecks}
             open={panels.queue}
             onToggle={() => togglePanel('queue')}
-            right={
-              <Link
-                href="/tech/schedule"
-                className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Calendar
-              </Link>
-            }
           >
-            <div className="mb-3 inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-2 flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
               {([
                 { key: 'all', label: `All ${jobs.length}` },
                 { key: 'active', label: `Active ${activeCount}` },
@@ -651,11 +707,10 @@ export default function TodayViewClient({
                   key={mode.key}
                   type="button"
                   onClick={() => setQueueMode(mode.key)}
-                  className={`rounded-full px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
-                    queueMode === mode.key
-                      ? 'bg-cyan-500 text-slate-950'
-                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'
-                  }`}
+                  className={`rounded-full px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.1em] transition ${queueMode === mode.key
+                    ? 'bg-cyan-500 text-slate-950'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100'
+                    }`}
                 >
                   {mode.label}
                 </button>
@@ -663,11 +718,11 @@ export default function TodayViewClient({
             </div>
 
             {queueJobs.length === 0 ? (
-              <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <p className="font-sans text-sm text-slate-600 dark:text-slate-300">No jobs match this queue filter.</p>
+              <div className="py-10 text-center text-slate-500 dark:text-slate-400">
+                <p className="font-sans text-sm">No jobs match this queue filter.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="flex flex-col">
                 {queueJobs.map((job, idx) => (
                   <div key={job.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(idx * 35, 240)}ms` }}>
                     <DispatchJobCard job={job} />
@@ -676,134 +731,112 @@ export default function TodayViewClient({
               </div>
             )}
 
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                Critical Watch
-              </p>
-              <p className="mt-1 font-sans text-xs text-slate-600 dark:text-slate-300">
-                {overdueActive > 0
-                  ? `${overdueActive} active jobs are running behind scheduled end times`
-                  : 'No active delays detected in today queue'}
-              </p>
-            </div>
           </CollapsiblePanel>
         </div>
+        <CollapsiblePanel
+          title="Route"
+          subtitle={jobs.length ? 'Map your stops for today' : 'No route points yet'}
+          icon={RouteIcon}
+          open={panels.route}
+          onToggle={() => togglePanel('route')}
+        >
+          {panels.route ? <RouteMap jobs={jobs} /> : null}
+        </CollapsiblePanel>
 
-        <div className="space-y-4">
-          <CollapsiblePanel
-            title="Route"
-            subtitle={jobs.length ? 'Map your stops for today' : 'No route points yet'}
-            icon={RouteIcon}
-            open={panels.route}
-            onToggle={() => togglePanel('route')}
-          >
-            {panels.route ? <RouteMap jobs={jobs} /> : null}
-          </CollapsiblePanel>
+        <CollapsiblePanel
+          title="Tomorrow"
+          subtitle={tomorrowJobs.length ? `${tomorrowJobs.length} jobs queued` : 'No jobs scheduled'}
+          icon={CalendarDays}
+          open={panels.tomorrow}
+          onToggle={() => togglePanel('tomorrow')}
+          right={
+            <Link
+              href="/tech/schedule"
+              className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </Link>
+          }
+        >
+          {tomorrowJobs.length === 0 ? (
+            <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              No jobs scheduled tomorrow.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {tomorrowJobs.map((job) => {
+                const customer = relationFirst(job.customer)
+                const service = relationFirst(relationFirst(job.services)?.service)
+                return (
+                  <div
+                    key={job.id}
+                    className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20"
+                  >
+                    <p className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-slate-800 dark:text-slate-100">
+                      {customer?.name || 'Unknown customer'}
+                    </p>
+                    <p className="mt-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                      {job.scheduled_start ? format(new Date(job.scheduled_start), 'EEE d MMM, h:mm a') : 'Time TBD'}
+                    </p>
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                      {job.description || service?.name || 'Service call'}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CollapsiblePanel>
 
-          <CollapsiblePanel
-            title="Tomorrow"
-            subtitle={tomorrowJobs.length ? `${tomorrowJobs.length} jobs queued` : 'No jobs scheduled'}
-            icon={CalendarDays}
-            open={panels.tomorrow}
-            onToggle={() => togglePanel('tomorrow')}
-            right={
-              <Link
-                href="/tech/schedule"
-                className="hidden sm:inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Open
-              </Link>
-            }
-          >
-            {tomorrowJobs.length === 0 ? (
-              <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                No jobs scheduled tomorrow.
+        <CollapsiblePanel
+          title="AI Copilot"
+          subtitle={aiJobOptions.length ? `${aiJobOptions.length} jobs available` : 'No jobs available'}
+          icon={Sparkles}
+          open={panels.ai}
+          onToggle={() => togglePanel('ai')}
+        >
+          <TechAIAssistantPanel jobs={aiJobOptions} embedded />
+        </CollapsiblePanel>
+
+        <CollapsiblePanel
+          title="Tools"
+          subtitle="Shift window and quick actions"
+          icon={Wrench}
+          open={panels.tools}
+          onToggle={() => togglePanel('tools')}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {shiftStart ? format(new Date(shiftStart), 'h:mm a') : '--'}
               </p>
-            ) : (
-              <div className="space-y-2">
-                {tomorrowJobs.map((job) => {
-                  const customer = relationFirst(job.customer)
-                  const service = relationFirst(relationFirst(job.services)?.service)
-                  return (
-                    <div
-                      key={job.id}
-                      className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20"
-                    >
-                      <p className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-slate-800 dark:text-slate-100">
-                        {customer?.name || 'Unknown customer'}
-                      </p>
-                      <p className="mt-0.5 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                        {job.scheduled_start ? format(new Date(job.scheduled_start), 'EEE d MMM, h:mm a') : 'Time TBD'}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                        {job.description || service?.name || 'Service call'}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CollapsiblePanel>
-
-          <CollapsiblePanel
-            title="AI Copilot"
-            subtitle={aiJobOptions.length ? `${aiJobOptions.length} jobs available` : 'No jobs available'}
-            icon={Sparkles}
-            open={panels.ai}
-            onToggle={() => togglePanel('ai')}
-          >
-            <TechAIAssistantPanel jobs={aiJobOptions} embedded />
-          </CollapsiblePanel>
-
-          <CollapsiblePanel
-            title="Tools"
-            subtitle="Shift window and quick actions"
-            icon={Wrench}
-            open={panels.tools}
-            onToggle={() => togglePanel('tools')}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Start</p>
-                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {shiftStart ? format(new Date(shiftStart), 'h:mm a') : '--'}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
-                <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Finish</p>
-                <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {shiftEnd ? format(new Date(shiftEnd), 'h:mm a') : '--'}
-                </p>
-              </div>
             </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Link
-                href="/tech/schedule"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-all hover:-translate-y-[1px] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                Calendar
-              </Link>
-              <Link
-                href="/tech/stats"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-all hover:-translate-y-[1px] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                Performance
-              </Link>
+            <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm dark:border-slate-800 dark:bg-slate-950/20">
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Finish</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {shiftEnd ? format(new Date(shiftEnd), 'h:mm a') : '--'}
+              </p>
             </div>
-          </CollapsiblePanel>
+          </div>
 
-          <CollapsiblePanel
-            title="Shortcuts"
-            subtitle="Keyboard navigation"
-            icon={Keyboard}
-            open={panels.shortcuts}
-            onToggle={() => togglePanel('shortcuts')}
-          >
-            <KeyboardShortcutsCard role="tech" defaultExpanded={false} />
-          </CollapsiblePanel>
-        </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              href="/tech/schedule"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-all hover:-translate-y-[1px] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              Calendar
+            </Link>
+            <Link
+              href="/tech/stats"
+              className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-slate-700 transition-all hover:-translate-y-[1px] hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/20 dark:text-slate-200 dark:hover:bg-slate-900"
+            >
+              Performance
+            </Link>
+          </div>
+        </CollapsiblePanel>
+
       </section>
     </div>
   )

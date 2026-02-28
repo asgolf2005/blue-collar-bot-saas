@@ -1,4 +1,4 @@
-﻿import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import CustomerDetailClient from '@/components/admin/CustomerDetailClient'
 import { ArrowLeft } from '@/components/ui/lucide'
@@ -151,13 +151,13 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           <div>
             <div className="inline-flex items-center gap-2 mb-4">
               <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 font-semibold">Client Profile Record</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 font-semibold">Client Profile</p>
             </div>
             <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 mb-2">
               {customerWithJobs.name}
             </h1>
             <p className="font-mono text-xs uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 max-w-lg leading-relaxed">
-              Comprehensive mission history, contact parameters, and financial ledgers.
+              Customer details and job history.
             </p>
           </div>
         </div>
@@ -167,7 +167,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4 relative z-10">
         <div className="group rounded-[2rem] bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200/50 dark:border-white/10 p-6 shadow-lg hover:shadow-cyan-500/10 transition-all hover:-translate-y-1">
           <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 font-bold mb-3 flex items-center gap-2 group-hover:scale-105 transition-transform origin-left">
-            Total Missions
+            Total Jobs
           </div>
           <div className="font-display text-4xl font-bold tracking-tight text-slate-900 dark:text-white">{allJobs.length}</div>
         </div>
@@ -204,7 +204,3 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
     </div>
   )
 }
-
-
-
-

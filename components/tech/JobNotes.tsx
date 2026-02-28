@@ -14,6 +14,13 @@ interface JobNotesProps {
   embedded?: boolean
 }
 
+function formatRelativeTimeSafe(value: string | null | undefined) {
+  if (!value) return 'Unknown time'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown time'
+  return formatDistanceToNow(date, { addSuffix: true })
+}
+
 export default function JobNotes({ jobId, isCustomerView = false, embedded = false }: JobNotesProps) {
   const router = useRouter()
 
@@ -37,6 +44,11 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }, [recordingMs])
+  const dictationStatus = isRecording
+    ? `Recording ${recordingDuration}. Release to transcribe.`
+    : transcribing
+      ? 'Transcribing note...'
+      : ''
 
   const prependNote = useCallback((note: JobNote) => {
     setNotes((previous) => [note, ...previous])
@@ -194,17 +206,17 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
       case 'status_change':
       case 'photo_added':
       case 'system':
-        return 'bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700'
+        return 'bg-slate-50/50 dark:bg-slate-800/30 ring-1 ring-slate-200/50 dark:ring-slate-700/50 backdrop-blur'
       default:
-        return 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700'
+        return 'bg-white/70 dark:bg-slate-900/40 ring-1 ring-slate-200/80 dark:ring-slate-700/80 backdrop-blur-md shadow-sm'
     }
   }
 
   return (
-    <div className={embedded ? 'space-y-4' : 'bg-slate-50/90 dark:bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-200 dark:border-slate-800 p-4'}>
+    <div className={embedded ? 'space-y-4' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2rem] ring-1 ring-slate-200/50 dark:ring-slate-800/50 p-5 shadow-xl'}>
       {!embedded && (
         <div className="mb-4">
-          <h2 className="font-semibold text-slate-900 dark:text-slate-100">Notes & Activity</h2>
+          <h2 className="font-display-soft text-xl font-bold tracking-tight text-slate-900 dark:text-white">Notes & Activity</h2>
         </div>
       )}
 
@@ -215,16 +227,16 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
       )}
 
       {!isCustomerView && (
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-          <div className="rounded-[30px] border border-slate-300 bg-white px-2 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <div className="flex items-end gap-1">
+        <div className="mb-5 rounded-[2rem] bg-white/50 p-4 ring-1 ring-slate-200/50 dark:bg-slate-950/20 dark:ring-slate-800/50 shadow-inner">
+          <div className="rounded-[1.5rem] bg-white/80 px-2 py-2 shadow-sm ring-1 ring-slate-200/80 transition-all focus-within:ring-2 focus-within:ring-cyan-500/50 dark:bg-slate-900/80 dark:ring-slate-700/80">
+            <div className="flex items-end gap-2">
               <textarea
                 ref={textareaRef}
                 data-test="note-input"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
                 placeholder="Add a note about this job..."
-                className="min-h-[96px] max-h-[220px] flex-1 resize-none bg-transparent px-3 py-3 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none dark:text-slate-100 dark:placeholder:text-slate-400"
+                className="min-h-[96px] max-h-[220px] flex-1 resize-none bg-transparent px-4 py-3 font-sans text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none dark:text-slate-100 dark:placeholder:text-slate-400"
                 disabled={submitting || transcribing}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
@@ -236,7 +248,7 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
                 }}
               />
 
-              <div className="mb-1 flex shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-slate-100/90 p-1 dark:border-slate-700 dark:bg-slate-800/90">
+              <div className="mb-1 flex shrink-0 items-center gap-1.5 rounded-[1.2rem] bg-slate-100/90 p-1.5 ring-1 ring-slate-200/80 dark:bg-slate-800/90 dark:ring-slate-700/80">
                 <button
                   type="button"
                   data-test="add-note"
@@ -263,11 +275,10 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
                     void toggleDictationFallback()
                   }}
                   disabled={!isSupported || submitting || transcribing}
-                  className={`inline-flex h-12 w-12 items-center justify-center rounded-full text-slate-700 transition-colors disabled:opacity-45 dark:text-slate-200 ${
-                    isRecording
-                      ? 'bg-red-500/20 text-red-200 hover:bg-red-500/30'
-                      : 'hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
+                  className={`inline-flex h-12 w-12 items-center justify-center rounded-xl text-slate-700 transition-all hover:scale-105 disabled:opacity-45 dark:text-slate-200 ${isRecording
+                      ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] text-white'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 bg-white dark:bg-slate-900 ring-1 ring-slate-200/50 dark:ring-slate-700/50'
+                    }`}
                   aria-label={isRecording ? 'Stop dictation' : 'Hold to dictate note'}
                 >
                   {transcribing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
@@ -278,35 +289,32 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
                   data-test="save-note"
                   onClick={() => void handleSubmitNote()}
                   disabled={!canSubmit}
-                  className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white transition-colors hover:bg-slate-800 disabled:opacity-45 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500 text-slate-950 transition-all hover:scale-105 disabled:opacity-45 dark:bg-cyan-400 hover:shadow-[0_0_15px_rgba(34,211,238,0.5)]"
                   aria-label="Add note"
                 >
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+                  {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <SendHorizontal className="h-5 w-5" />}
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-4 flex items-center justify-between px-2">
             <button
               type="button"
               onClick={() => setVisibleToCustomer(!visibleToCustomer)}
-              className={`flex min-h-12 items-center gap-2 rounded-full border px-3 py-2 text-sm transition ${
-                visibleToCustomer
-                  ? 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-300'
-                  : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-              }`}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-widest transition-all ${visibleToCustomer
+                  ? 'bg-cyan-500/10 text-cyan-700 ring-1 ring-cyan-500/30 dark:bg-cyan-400/10 dark:text-cyan-300'
+                  : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700/80'
+                }`}
             >
               <span>{visibleToCustomer ? 'Visible to customer' : 'Internal only'}</span>
             </button>
 
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {isRecording
-                ? `Recording ${recordingDuration}. Release to transcribe.`
-                : transcribing
-                ? 'Transcribing note...'
-                : 'Hold the mic to dictate.'}
-            </span>
+            {dictationStatus ? (
+              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                {dictationStatus}
+              </span>
+            ) : <span />}
           </div>
 
           {!isSupported && (
@@ -328,35 +336,35 @@ export default function JobNotes({ jobId, isCustomerView = false, embedded = fal
           <p className="text-sm">No notes or activity yet</p>
         </div>
       ) : (
-        <div className="space-y-3 max-h-[22rem] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[22rem] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
           {notes.map((note) => (
             <div
               key={note.id}
-              className={`rounded-xl p-3 ${getNoteColor(note.note_type)}`}
+              className={`rounded-2xl p-4 transition-all hover:-translate-y-0.5 ${getNoteColor(note.note_type)}`}
             >
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <span className="font-sans text-sm font-bold tracking-wide text-slate-900 dark:text-slate-100 truncate">
                   {note.user?.full_name || 'System'}
                 </span>
                 <div className="flex items-center gap-2">
                   {!note.is_visible_to_customer && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                    <span className="font-mono text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-slate-200/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400">
                       Internal
                     </span>
                   )}
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    {formatRelativeTimeSafe(note.created_at)}
                   </span>
                 </div>
               </div>
 
-              <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{note.content}</p>
+              <p className="font-sans text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{note.content}</p>
 
               {note.note_type === 'status_change' && note.metadata?.new_status && (
-                <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded inline-block">
-                  Status: <span className="font-medium">{note.metadata.old_status}</span>
+                <div className="mt-3 font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-slate-800/50 px-2.5 py-1.5 rounded-lg inline-block">
+                  Status: <span className="font-bold">{note.metadata.old_status}</span>
                   {' -> '}
-                  <span className="font-medium">{note.metadata.new_status}</span>
+                  <span className="font-bold">{note.metadata.new_status}</span>
                 </div>
               )}
             </div>

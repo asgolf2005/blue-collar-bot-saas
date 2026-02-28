@@ -1,12 +1,19 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { MessageSquare, Check, X, Clock, AlertCircle } from '@/components/ui/icons'
+import { MessageSquare, Check, X, Clock, AlertCircle } from '@/components/ui/lucide'
 import { format } from 'date-fns'
 import { SMSNotification } from '@/types/sms'
 
 interface SMSHistoryProps {
   jobId: string
+}
+
+function formatSmsTimestamp(value: string | null | undefined, pattern: string, fallback = '--') {
+  if (!value) return fallback
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return fallback
+  return format(date, pattern)
 }
 
 export default function SMSHistory({ jobId }: SMSHistoryProps) {
@@ -134,12 +141,12 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span>
               {sms.sent_at
-                ? format(new Date(sms.sent_at), 'MMM d, h:mm a')
-                : format(new Date(sms.created_at), 'MMM d, h:mm a')}
+                ? formatSmsTimestamp(sms.sent_at, 'MMM d, h:mm a')
+                : formatSmsTimestamp(sms.created_at, 'MMM d, h:mm a')}
             </span>
             {sms.delivered_at && (
               <span className="text-emerald-600 dark:text-emerald-400">
-                Delivered: {format(new Date(sms.delivered_at), 'h:mm a')}
+                Delivered: {formatSmsTimestamp(sms.delivered_at, 'h:mm a')}
               </span>
             )}
           </div>
@@ -157,4 +164,5 @@ export default function SMSHistory({ jobId }: SMSHistoryProps) {
     </div>
   )
 }
+
 

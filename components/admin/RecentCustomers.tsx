@@ -1,7 +1,7 @@
-﻿'use client'
+'use client'
 
 import { useMemo } from 'react'
-import { ChevronRight, CheckCircle2 } from '@/components/ui/icons'
+import { ChevronRight, CheckCircle2 } from '@/components/ui/lucide'
 import Link from 'next/link'
 import type { JobWithDetails } from '@/lib/types'
 
@@ -190,4 +190,5 @@ export default function RecentCustomers({ jobs }: RecentCustomersProps) {
     </div>
   )
 }
+
 

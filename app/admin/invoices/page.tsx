@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -13,7 +13,7 @@ import {
   Send,
   Trash2,
   Loader2
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 import { format, isPast, isToday, parseISO } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { Invoice, InvoiceStatus, Customer } from '@/lib/types'
@@ -1103,6 +1103,7 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   )
 }
+
 
 
 

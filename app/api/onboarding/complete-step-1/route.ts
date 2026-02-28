@@ -27,6 +27,50 @@ export async function POST(request: Request) {
     }
 
     let businessId = existingUser?.business_id || null
+    let createdBusinessId: string | null = null
+
+    if (!businessId) {
+      // Reuse an existing admin user record with the same email when present.
+      const { data: existingByEmail, error: existingByEmailError } = await supabaseAdmin
+        .from('users')
+        .select('business_id, role')
+        .eq('email', email)
+        .eq('role', 'admin')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingByEmailError) {
+        console.error('Existing user by email lookup error:', existingByEmailError)
+        throw existingByEmailError
+      }
+
+      if (existingByEmail?.business_id) {
+        businessId = existingByEmail.business_id
+      }
+    }
+
+    if (!businessId) {
+      // Reuse most recent business with same name+email to keep onboarding step idempotent.
+      const { data: existingBusinessByIdentity, error: existingBusinessByIdentityError } = await supabaseAdmin
+        .from('businesses')
+        .select('id')
+        .eq('name', business_name)
+        .eq('email', email)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingBusinessByIdentityError) {
+        console.error('Existing business identity lookup error:', existingBusinessByIdentityError)
+        throw existingBusinessByIdentityError
+      }
+
+      if (existingBusinessByIdentity?.id) {
+        businessId = existingBusinessByIdentity.id
+      }
+    }
+
     if (!businessId) {
       const { data: business, error: businessError } = await supabaseAdmin
         .from('businesses')
@@ -47,6 +91,7 @@ export async function POST(request: Request) {
       }
 
       businessId = business.id
+      createdBusinessId = business.id
     } else {
       // Keep business profile in sync when onboarding is retried.
       const { error: businessUpdateError } = await supabaseAdmin
@@ -82,6 +127,9 @@ export async function POST(request: Request) {
 
     if (userUpsertError) {
       console.error('User upsert error:', userUpsertError)
+      if (createdBusinessId) {
+        await supabaseAdmin.from('businesses').delete().eq('id', createdBusinessId)
+      }
       throw userUpsertError
     }
 
@@ -100,6 +148,9 @@ export async function POST(request: Request) {
 
     if (subError) {
       console.error('Subscription upsert error:', subError)
+      if (createdBusinessId) {
+        await supabaseAdmin.from('businesses').delete().eq('id', createdBusinessId)
+      }
       throw subError
     }
 

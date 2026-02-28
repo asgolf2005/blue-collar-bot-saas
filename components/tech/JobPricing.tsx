@@ -88,138 +88,148 @@ export default function JobPricing({ jobId, initialData }: JobPricingProps) {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.10),transparent_55%)] dark:opacity-70 dark:[background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.12),transparent_55%)]" />
-      <div className="relative mb-4">
-        <h2 className="font-semibold text-slate-900 dark:text-slate-100">Job Pricing</h2>
-      </div>
+    <details className="group overflow-hidden rounded-[2rem] bg-white/40 shadow-xl ring-1 ring-slate-200/50 backdrop-blur-xl transition-all dark:bg-slate-900/40 dark:ring-slate-800/50">
+      <summary className="flex cursor-pointer items-center justify-between p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <p className="font-display-soft text-lg font-bold text-slate-900 dark:text-white">Job Pricing</p>
+          <p className="font-sans text-xs text-slate-500 dark:text-slate-400">Labor, Parts & Materials</p>
+        </div>
+        <div className="rounded-full bg-white/50 p-2 text-slate-500 ring-1 ring-slate-200/50 transition-transform group-open:rotate-180 dark:bg-slate-800/50 dark:text-slate-400 dark:ring-slate-700/50">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </summary>
 
-      {/* Labor Section */}
-      <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Labor</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Hours Worked</label>
+      <div className="px-5 pb-5">
+        <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.10),transparent_55%)] dark:opacity-70 dark:[background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.12),transparent_55%)]" />
+
+        {/* Labor Section */}
+        <div className="relative mb-4 rounded-2xl bg-white/50 p-4 ring-1 ring-slate-200/50 dark:bg-slate-950/20 dark:ring-slate-800/50 shadow-inner">
+          <h3 className="mb-3 font-sans text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-white">Labor</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Hours</label>
+              <input
+                type="number"
+                step="0.25"
+                value={laborHours}
+                onChange={(e) => setLaborHours(e.target.value)}
+                placeholder="0.0"
+                className="w-full rounded-xl bg-white px-3 py-2.5 font-mono text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:bg-slate-900 dark:text-white dark:ring-slate-700"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Rate</label>
+              <input
+                type="number"
+                step="1"
+                value={laborRate}
+                onChange={(e) => setLaborRate(e.target.value)}
+                placeholder="100"
+                className="w-full rounded-xl bg-white px-3 py-2.5 font-mono text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:bg-slate-900 dark:text-white dark:ring-slate-700"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Labor Subtotal</span>
+            <span className="font-mono text-sm font-bold text-slate-900 dark:text-cyan-400">
+              ${((parseFloat(laborHours) || 0) * (parseFloat(laborRate) || 0)).toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Parts Section */}
+        <div className="relative mb-4 rounded-2xl bg-white/50 p-4 ring-1 ring-slate-200/50 dark:bg-slate-950/20 dark:ring-slate-800/50 shadow-inner">
+          <h3 className="mb-3 font-sans text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-white">Parts & Materials</h3>
+
+          {/* Add Part Form */}
+          <div className="mb-4 flex gap-2">
+            <input
+              type="text"
+              value={newPartDesc}
+              onChange={(e) => setNewPartDesc(e.target.value)}
+              placeholder="Filter..."
+              className="flex-1 rounded-xl bg-white px-3 py-2 font-mono text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:bg-slate-900 dark:text-white dark:ring-slate-700"
+            />
             <input
               type="number"
-              step="0.25"
-              value={laborHours}
-              onChange={(e) => setLaborHours(e.target.value)}
-              placeholder="0.0"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              step="0.01"
+              value={newPartCost}
+              onChange={(e) => setNewPartCost(e.target.value)}
+              placeholder="0.00"
+              className="w-20 rounded-xl bg-white px-2 py-2 font-mono text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:bg-slate-900 dark:text-white dark:ring-slate-700"
             />
+            <button type="button"
+              onClick={addPart}
+              className="rounded-xl bg-cyan-500 px-3 py-2 font-bold text-slate-950 transition hover:bg-cyan-400 hover:shadow-[0_0_15px_rgba(34,211,238,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!newPartDesc.trim() || !newPartCost}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Rate ($/hr)</label>
-            <input
-              type="number"
-              step="1"
-              value={laborRate}
-              onChange={(e) => setLaborRate(e.target.value)}
-              placeholder="100"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            />
-          </div>
-        </div>
-        <div className="mt-3 text-right">
-          <span className="text-sm text-slate-600 dark:text-slate-300">Labor Total: </span>
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            ${((parseFloat(laborHours) || 0) * (parseFloat(laborRate) || 0)).toFixed(2)}
-          </span>
-        </div>
-      </div>
 
-      {/* Parts Section */}
-      <div className="relative mb-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Parts & Materials</h3>
-
-        {/* Add Part Form */}
-        <div className="flex gap-2 mb-3">
-          <input
-            type="text"
-            value={newPartDesc}
-            onChange={(e) => setNewPartDesc(e.target.value)}
-            placeholder="Part description"
-            className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <input
-            type="number"
-            step="0.01"
-            value={newPartCost}
-            onChange={(e) => setNewPartCost(e.target.value)}
-            placeholder="Cost"
-            className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <button type="button"
-            onClick={addPart}
-            className="rounded-xl bg-cyan-600 px-3 py-2 text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
-            disabled={!newPartDesc.trim() || !newPartCost}
-          >
-            Add
-          </button>
-        </div>
-
-        {/* Parts List */}
-        {parts.length > 0 && (
-          <div className="space-y-2 mb-3">
-            {parts.map((part) => (
-              <div
-                key={part.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 p-2 backdrop-blur dark:border-slate-700 dark:bg-slate-900/40"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="truncate text-sm text-slate-900 dark:text-slate-100">{part.description}</p>
+          {/* Parts List */}
+          {parts.length > 0 && (
+            <div className="mb-3 space-y-2">
+              {parts.map((part) => (
+                <div
+                  key={part.id}
+                  className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2 ring-1 ring-slate-200/50 backdrop-blur dark:bg-slate-900/60 dark:ring-slate-700/50"
+                >
+                  <p className="truncate font-sans text-sm font-semibold text-slate-900 dark:text-slate-100">{part.description}</p>
+                  <div className="ml-2 flex flex-shrink-0 items-center gap-3">
+                    <span className="font-mono text-sm font-bold text-slate-700 dark:text-cyan-400">
+                      ${part.cost.toFixed(2)}
+                    </span>
+                    <button type="button"
+                      onClick={() => removePart(part.id)}
+                      className="rounded-full bg-red-500/10 p-1.5 text-red-600 transition hover:bg-red-500/20 dark:text-red-400"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 ml-2">
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    ${part.cost.toFixed(2)}
-                  </span>
-                  <button type="button"
-                    onClick={() => removePart(part.id)}
-                    className="text-red-600 transition hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center justify-between border-t border-slate-200/50 pt-3 dark:border-slate-800/50">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400">Parts Subtotal</span>
+            <span className="font-mono text-sm font-bold text-slate-900 dark:text-cyan-400">
+              ${parts.reduce((sum, part) => sum + part.cost, 0).toFixed(2)}
+            </span>
           </div>
-        )}
-
-        <div className="text-right">
-          <span className="text-sm text-slate-600 dark:text-slate-300">Parts Total: </span>
-          <span className="font-semibold text-slate-900 dark:text-slate-100">
-            ${parts.reduce((sum, part) => sum + part.cost, 0).toFixed(2)}
-          </span>
         </div>
-      </div>
 
-      {/* Total Section */}
-      <div className="relative mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-400/25 dark:bg-amber-400/10">
-        <div className="flex items-center justify-between">
-          <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">Total Job Cost:</span>
-          <span className="text-2xl font-bold text-amber-700 dark:text-amber-200">
+        {/* Total & Save Section */}
+        <div className="relative mb-4 flex items-center justify-between rounded-2xl bg-amber-500/10 p-4 ring-1 ring-amber-500/30">
+          <span className="font-sans text-sm font-bold uppercase tracking-widest text-amber-900 dark:text-amber-50">Total Value</span>
+          <span className="font-mono text-2xl font-black tracking-tight text-amber-700 drop-shadow-sm dark:text-amber-400">
             ${calculateTotal().toFixed(2)}
           </span>
         </div>
+
+        <button type="button"
+          onClick={handleSave}
+          disabled={saving || !laborHours}
+          className="group relative flex w-full h-14 items-center justify-center overflow-hidden rounded-2xl font-display-soft text-lg font-bold text-slate-950 transition-all hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+        >
+          <span className="absolute inset-0 bg-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-opacity" />
+          <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.4),transparent_55%)]" />
+          <span className="relative inline-flex items-center justify-center gap-2">{saving ? 'Computing...' : 'Finalize Pricing'}</span>
+        </button>
+
+        {showSuccess && (
+          <div className="mt-3 flex animate-pulse items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 shadow-[0_0_15px_rgba(52,211,153,0.15)]">
+            <p className="font-sans text-sm font-bold tracking-widest text-emerald-800 dark:text-emerald-400">PRICING SYNCED</p>
+          </div>
+        )}
       </div>
-
-      {/* Save Button */}
-      <button type="button"
-        onClick={handleSave}
-        disabled={saving || !laborHours}
-        className="group relative flex w-full items-center justify-center overflow-hidden rounded-2xl px-4 py-3 font-semibold text-white transition-opacity hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 opacity-90 transition-opacity group-hover:opacity-100 dark:from-cyan-500 dark:to-blue-500" />
-        <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
-        <span className="relative inline-flex items-center justify-center gap-2">{saving ? 'Saving...' : 'Save Pricing'}</span>
-      </button>
-
-      {showSuccess && (
-        <div className="mt-3 flex items-center justify-center rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-400/25 dark:bg-emerald-400/10">
-          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Pricing saved</p>
-        </div>
-      )}
-    </div>
+    </details>
   )
 }

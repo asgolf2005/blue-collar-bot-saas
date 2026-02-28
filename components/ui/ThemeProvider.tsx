@@ -39,14 +39,22 @@ function getSystemThemeSnapshot() {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getStoredTheme)
+  const [theme, setThemeState] = useState<Theme>('light')
+  const [isForcedDark, setIsForcedDark] = useState(false)
   const prefersDark = useSyncExternalStore(
     subscribeSystemTheme,
     getSystemThemeSnapshot,
     () => false
   )
-  const isForcedDark = typeof window !== 'undefined' &&
-    window.location.search.includes('theme=dark')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const frame = window.requestAnimationFrame(() => {
+      setThemeState(getStoredTheme())
+      setIsForcedDark(window.location.search.includes('theme=dark'))
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
 
   const resolvedTheme: 'dark' | 'light' = isForcedDark ? 'dark'
     : theme === 'system' ? (prefersDark ? 'dark' : 'light')

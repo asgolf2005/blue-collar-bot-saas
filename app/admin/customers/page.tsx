@@ -1,9 +1,9 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ActionButton } from '@/components/ui/ActionSystem'
-import { Briefcase, Lock, Pencil, UserCircle, UserPlus, Users } from '@/components/ui/lucide'
+import { Briefcase, Lock as LockIcon, UserCircle, UserPlus, Users, Eye, Pencil, Trash2 } from '@/components/ui/lucide'
 import Pagination from '@/components/ui/Pagination'
 import { createClient } from '@/lib/supabase/client'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -441,7 +441,7 @@ function MetricCard({
   const c = colors[color] ?? colors.blue
 
   const iconName =
-    mark === 'clients' ? Users : mark === 'new' ? UserPlus : Lock
+    mark === 'clients' ? Users : mark === 'new' ? UserPlus : LockIcon
   const IconComponent = iconName
 
   return (
@@ -470,7 +470,7 @@ function MetricCard({
   )
 }
 
-// Customer Card - Enhanced with Actions
+// Customer Card with Compact Icon+Label Actions
 function CustomerCard({ customer }: { customer: Customer }) {
   const createdDate = new Date(customer.created_at).toLocaleDateString('en-AU', {
     day: '2-digit',
@@ -534,31 +534,30 @@ function CustomerCard({ customer }: { customer: Customer }) {
 
       </div>
 
-      <div className="relative grid grid-cols-3 gap-2 border-t border-slate-200/70 px-5 py-3 dark:border-slate-800">
+      {/* Compact Icon+Label Actions */}
+      <div className="relative grid grid-cols-3 gap-1 border-t border-slate-200/70 px-2 py-2 dark:border-slate-800">
         <Link
           href={`/admin/customers/${customer.id}`}
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200 transition-colors hover:bg-slate-700"
+          className="group/action inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center font-sans text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         >
-          <UserCircle className="h-4 w-4 opacity-80" />
-          Details
-        </Link>
-        <Link
-          href={`/admin/jobs/new?customer=${customer.id}`}
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-cyan-500 px-3 py-2 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-950 transition-colors hover:bg-cyan-400"
-        >
-          <Briefcase className="h-4 w-4 opacity-80" />
-          New Job
+          <Eye className="h-3.5 w-3.5 opacity-70 group-hover/action:opacity-100" />
+          <span>View</span>
         </Link>
         <Link
           href={`/admin/customers/${customer.id}?edit=true`}
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-600 bg-slate-800 px-3 py-2 text-center font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200 transition-colors hover:bg-slate-700"
+          className="group/action inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center font-sans text-[11px] font-medium text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         >
-          <Pencil className="h-4 w-4 opacity-80" />
-          Edit
+          <Pencil className="h-3.5 w-3.5 opacity-70 group-hover/action:opacity-100" />
+          <span>Edit</span>
+        </Link>
+        <Link
+          href={`/admin/jobs/new?customer=${customer.id}`}
+          className="group/action inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center font-sans text-[11px] font-medium text-cyan-600 transition-all hover:bg-cyan-50 hover:text-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 dark:text-cyan-400 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-300"
+        >
+          <Briefcase className="h-3.5 w-3.5 opacity-70 group-hover/action:opacity-100" />
+          <span>Job</span>
         </Link>
       </div>
     </div>
   )
 }
-
-

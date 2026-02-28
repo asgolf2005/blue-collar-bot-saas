@@ -24,6 +24,12 @@ import {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+function safeDate(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 function isWithinRange(value: string | null | undefined, start: Date, end: Date): boolean {
   if (!value) return false
   const date = new Date(value)
@@ -151,21 +157,49 @@ export default async function AnalyticsPage({
             service: serviceName ? { name: serviceName } : null,
           }
         : null,
-    }
+      }
   })
 
-  const currentJobs = allJobs.filter((job) =>
-    isWithinRange(job.scheduled_start || job.created_at, dateRange.start, dateRange.end)
+  const earliestJobDate =
+    allJobs
+      .map((job) => safeDate(job.scheduled_start || job.created_at))
+      .filter((value): value is Date => value instanceof Date)
+      .sort((a, b) => a.getTime() - b.getTime())[0] || null
+
+  const effectiveDateRange =
+    range === 'all' && earliestJobDate
+      ? { ...dateRange, start: earliestJobDate }
+      : dateRange
+
+  // Format date range for display hint
+  const formatDateHint = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+  const dateRangeHint = range === 'all' && earliestJobDate
+    ? `Showing data from ${formatDateHint(earliestJobDate)} to ${formatDateHint(effectiveDateRange.end)}`
+    : null
+
+  const windowJobs = allJobs.filter((job) =>
+    isWithinRange(job.scheduled_start || job.created_at, effectiveDateRange.start, effectiveDateRange.end)
   )
-  const prevJobs = allJobs.filter((job) =>
+  const prevWindowJobs = allJobs.filter((job) =>
     isWithinRange(job.scheduled_start || job.created_at, dateRange.prevStart, dateRange.prevEnd)
   )
   const currentInvoices = allInvoices.filter((invoice) =>
-    isWithinRange(invoice.paid_at || invoice.created_at, dateRange.start, dateRange.end)
+    isWithinRange(invoice.paid_at || invoice.created_at, effectiveDateRange.start, effectiveDateRange.end)
   )
   const prevInvoices = allInvoices.filter((invoice) =>
     isWithinRange(invoice.paid_at || invoice.created_at, dateRange.prevStart, dateRange.prevEnd)
   )
+  const now = new Date()
+  const currentJobs = windowJobs.filter((job) => {
+    const date = new Date(job.scheduled_start || job.created_at)
+    return !Number.isNaN(date.getTime()) && date <= now
+  })
+  const prevJobs = prevWindowJobs.filter((job) => {
+    const date = new Date(job.scheduled_start || job.created_at)
+    return !Number.isNaN(date.getTime()) && date <= dateRange.prevEnd
+  })
 
   const metrics = calculateMetrics({
     currentJobs,
@@ -173,31 +207,32 @@ export default async function AnalyticsPage({
     prevJobs,
     prevInvoices,
   })
-  const revenueData = generateDailyRevenueData(currentInvoices, currentJobs, dateRange)
+  const revenueData = generateDailyRevenueData(currentInvoices, currentJobs, effectiveDateRange)
   const technicianData = calculateTechnicianData(currentJobs, currentInvoices)
   const serviceData = calculateServiceData(currentJobs, currentInvoices)
 
   const techCount = users.filter((user) => user?.role === 'tech').length
   const activeStatuses = new Set(['scheduled', 'on_the_way', 'arrived', 'in_progress'])
-  const now = new Date()
-
-  const demandJobs = currentJobs.filter((job) => job.status !== 'cancelled').length
-  const unassignedJobs = currentJobs.filter((job) => job.status !== 'cancelled' && !job.technician?.id).length
-  const scheduledHours = currentJobs
+  const demandJobs = windowJobs.filter((job) => job.status !== 'cancelled').length
+  const unassignedJobs = windowJobs.filter((job) => job.status !== 'cancelled' && !job.technician?.id).length
+  const scheduledHours = windowJobs
     .filter((job) => job.status !== 'cancelled')
     .reduce((sum, job) => sum + hoursBetween(job.scheduled_start, job.scheduled_end), 0)
 
-  const daysInRange = Math.max(1, Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)))
+  const daysInRange = Math.max(
+    1,
+    Math.ceil((effectiveDateRange.end.getTime() - effectiveDateRange.start.getTime()) / (1000 * 60 * 60 * 24))
+  )
   const capacityHours = Math.max(0, techCount * daysInRange * 8)
   const capacityUtilizationPct = capacityHours > 0 ? (scheduledHours / capacityHours) * 100 : 0
 
-  const activeWindowJobs = currentJobs.filter((job) => activeStatuses.has(job.status)).length
-  const lateStartJobs = currentJobs.filter((job) => {
+  const activeWindowJobs = windowJobs.filter((job) => activeStatuses.has(job.status)).length
+  const lateStartJobs = windowJobs.filter((job) => {
     if (!job.scheduled_start) return false
     if (!['scheduled', 'on_the_way', 'arrived'].includes(job.status)) return false
     return new Date(job.scheduled_start) < now
   }).length
-  const overdueInProgressJobs = currentJobs.filter((job) => {
+  const overdueInProgressJobs = windowJobs.filter((job) => {
     if (job.status !== 'in_progress' || !job.scheduled_end) return false
     return new Date(job.scheduled_end) < now
   }).length
@@ -225,6 +260,7 @@ export default async function AnalyticsPage({
       opsHealth={opsHealth}
       technicianData={technicianData}
       serviceData={serviceData}
+      dateRangeHint={dateRangeHint}
     />
   )
 }

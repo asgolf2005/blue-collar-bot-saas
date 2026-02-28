@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { JobWithDetails, User } from '@/lib/types'
 import { format, parseISO, isPast } from 'date-fns'
@@ -7,7 +7,7 @@ import {
   MessageSquare, Send, FileText, Plus, User as UserIcon,
   AlertCircle, CheckCircle, Truck, Play, Circle, XCircle,
   ExternalLink, MessageCircle, Receipt, ChevronRight, Briefcase, Trash2
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect, useMemo, useRef } from 'react'
@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import JobNotes from '@/components/tech/JobNotes'
 import { showToast } from '@/lib/utils/toast'
 import SMSHistory from '@/components/admin/SMSHistory'
+import { ErrorBoundary } from '@/components/error/ErrorBoundary'
 
 // ========================================
 // DESIGN SYSTEM - Minimalist Industrial
@@ -100,6 +101,13 @@ function toLocalDateTimeInputValue(value?: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return format(date, "yyyy-MM-dd'T'HH:mm")
+}
+
+function safeFormatDate(value: string | Date | null | undefined, pattern: string, fallback = '--') {
+  if (!value) return fallback
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return fallback
+  return format(date, pattern)
 }
 
 // ========================================
@@ -669,12 +677,28 @@ export default function JobDetailsAdmin({
 
           {/* Notes */}
           <Card title="Notes & Activity" icon={<MessageSquare className="w-5 h-5" />} delay={0.5}>
-            <JobNotes jobId={job.id} embedded />
+            <ErrorBoundary
+              fallback={
+                <div className="rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                  Notes module failed to load for this job. Refresh the page to retry.
+                </div>
+              }
+            >
+              <JobNotes jobId={job.id} embedded />
+            </ErrorBoundary>
           </Card>
 
           {/* SMS History */}
           <Card title="SMS History" icon={<MessageSquare className="w-5 h-5" />} delay={0.6}>
-            <SMSHistory jobId={job.id} />
+            <ErrorBoundary
+              fallback={
+                <div className="rounded-xl border border-amber-300/50 bg-amber-50/70 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                  SMS history failed to load for this job. Refresh the page to retry.
+                </div>
+              }
+            >
+              <SMSHistory jobId={job.id} />
+            </ErrorBoundary>
           </Card>
         </div >
 
@@ -685,12 +709,12 @@ export default function JobDetailsAdmin({
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
                 <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Created by</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{createdByLabel}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(job.created_at), 'MMM d, yyyy h:mm a')}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{safeFormatDate(job.created_at, 'MMM d, yyyy h:mm a')}</p>
               </div>
               <div className="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
                 <p className="text-[10px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">Last modified by</p>
                 <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{lastModifiedByLabel}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{format(new Date(lastModifiedAt), 'MMM d, yyyy h:mm a')}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{safeFormatDate(lastModifiedAt, 'MMM d, yyyy h:mm a')}</p>
               </div>
               <div className="rounded-md border border-slate-200 dark:border-slate-700">
                 <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
@@ -702,7 +726,7 @@ export default function JobDetailsAdmin({
                       <p className="text-xs font-semibold text-slate-900 dark:text-white">{event.label}</p>
                       <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{event.detail}</p>
                       <p className="mt-1 text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                        {format(new Date(event.timestamp), 'MMM d, h:mm a')}
+                        {safeFormatDate(event.timestamp, 'MMM d, h:mm a')}
                       </p>
                     </div>
                   ))}
@@ -948,5 +972,4 @@ export default function JobDetailsAdmin({
     </motion.div>
   )
 }
-
 

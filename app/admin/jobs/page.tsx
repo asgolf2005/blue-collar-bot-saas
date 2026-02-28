@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { JobsRealtimeWrapper } from '@/components/admin/JobsRealtimeWrapper'
 import { JobsPageClient } from '@/components/admin/JobsPageClient'
 import { resolveControlPreset } from '@/lib/ui/control-presets'
+import { getAllTimeJobCounts } from '@/lib/analytics/job-counts'
 import type { Job } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -16,8 +17,10 @@ function resolveTechnicianFilter(technicianParam?: string | string[]): string | 
   return trimmed.length > 0 ? trimmed : null
 }
 
-const MAX_OPERATIONAL_JOBS = 2000
+const MAX_OPERATIONAL_JOBS = 900
 const INVOICE_BATCH_SIZE = 300
+const JOBS_WINDOW_PAST_DAYS = 14
+const JOBS_WINDOW_FUTURE_DAYS = 60
 
 interface JobInvoiceSummary {
   job_id: string
@@ -36,6 +39,12 @@ async function fetchOperationalJobs({
   businessId: string
   maxRecords?: number
 }): Promise<Job[]> {
+  const now = new Date()
+  const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - JOBS_WINDOW_PAST_DAYS)
+  const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + JOBS_WINDOW_FUTURE_DAYS, 23, 59, 59, 999)
+  const rangeStartIso = rangeStart.toISOString()
+  const rangeEndIso = rangeEnd.toISOString()
+
   const jobsSelect = `
     id,
     business_id,
@@ -64,6 +73,9 @@ async function fetchOperationalJobs({
     .from('jobs')
     .select(jobsSelect)
     .eq('business_id', businessId)
+    .or(
+      `and(scheduled_start.gte.${rangeStartIso},scheduled_start.lte.${rangeEndIso}),and(scheduled_start.is.null,created_at.gte.${rangeStartIso})`
+    )
     .order('scheduled_start', { ascending: false, nullsFirst: false })
     .limit(maxRecords)
     .returns<Job[]>()
@@ -130,8 +142,10 @@ export default async function JobsPage(props: {
 
   let jobs: Job[] = []
   let jobInvoices: JobInvoiceSummary[] = []
+  let allTimeCounts: Awaited<ReturnType<typeof getAllTimeJobCounts>> | null = null
 
   try {
+    // Fetch windowed jobs for the list
     jobs = await fetchOperationalJobs({
       supabase,
       businessId: profile.business_id,
@@ -140,6 +154,11 @@ export default async function JobsPage(props: {
       supabase,
       businessId: profile.business_id,
       jobIds: jobs.map((job) => job.id),
+    })
+    // Fetch all-time counts for consistent metrics
+    allTimeCounts = await getAllTimeJobCounts({
+      supabase,
+      businessId: profile.business_id,
     })
   } catch (error) {
     console.error('Jobs query error:', error)
@@ -156,6 +175,7 @@ export default async function JobsPage(props: {
         technicianFilterId={technicianFilterId}
         technicianFilterName={technicianFilterName}
         jobInvoices={jobInvoices}
+        allTimeJobCount={allTimeCounts?.total || jobs.length}
       />
     </JobsRealtimeWrapper>
   )

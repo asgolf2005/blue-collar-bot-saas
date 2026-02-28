@@ -283,74 +283,84 @@ export default function StatusButtons({
 
   if (status === 'completed') {
     return (
-      <div className="rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 text-center shadow-sm dark:border-emerald-400/25 dark:bg-emerald-400/10">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Job Completed</h3>
-        <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">Great work. All done.</p>
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center shadow-[0_0_30px_rgba(52,211,153,0.15)] backdrop-blur-xl">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 ring-1 ring-emerald-500/50">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-emerald-50">Mission Accomplished</h3>
+        <p className="mt-1 text-sm font-medium text-emerald-700 dark:text-emerald-200">Great work. Job completed.</p>
       </div>
     )
   }
 
   if (status === 'cancelled') {
     return (
-      <div className="rounded-3xl border border-red-200 bg-red-50/70 p-6 text-center shadow-sm dark:border-red-400/25 dark:bg-red-400/10">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Job Cancelled</h3>
-        <p className="mt-1 text-sm text-red-700 dark:text-red-300">This job has been cancelled.</p>
+      <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6 text-center shadow-[0_0_30px_rgba(248,113,113,0.15)] backdrop-blur-xl">
+        <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-red-50">Mission Aborted</h3>
+        <p className="mt-1 text-sm font-medium text-red-700 dark:text-red-200">This job has been cancelled.</p>
       </div>
     )
   }
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.14),transparent_50%)] dark:opacity-80 dark:[background:radial-gradient(circle_at_20%_0%,rgba(34,211,238,0.18),transparent_50%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-20 [background:linear-gradient(to_right,rgba(15,23,42,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.07)_1px,transparent_1px)] [background-size:28px_28px] dark:opacity-15 dark:[background:linear-gradient(to_right,rgba(148,163,184,0.10)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.10)_1px,transparent_1px)]" />
+    <div className="relative overflow-hidden rounded-[2rem] border border-white/20 bg-white/40 p-6 shadow-2xl backdrop-blur-2xl ring-1 ring-slate-200/50 dark:border-slate-800/60 dark:bg-slate-900/40 dark:ring-slate-800/50">
+      <div className="pointer-events-none absolute inset-0 opacity-40 [background:radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.15),transparent_60%)] dark:opacity-60 dark:[background:radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.2),transparent_70%)]" />
+
       {/* Header */}
-      <div className="relative mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Job Progress</h3>
-        </div>
+      <div className="relative mb-5 flex items-center justify-between">
+        <h3 className="font-display-soft text-lg font-bold text-slate-900 dark:text-white">Active Phase</h3>
         {isTracking && (
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Live</span>
+          <div className="flex items-center gap-2 rounded-full bg-emerald-500/10 px-2 py-1 ring-1 ring-emerald-500/30">
+            <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Live GPS</span>
           </div>
         )}
       </div>
 
-      <div className="relative space-y-4">
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className="uppercase tracking-wider text-slate-500 dark:text-slate-400">Progress</span>
-            <span className="font-semibold text-slate-900 dark:text-slate-100">{Math.round(progress)}%</span>
+      <div className="relative space-y-6">
+        {/* Ultra-sleek Progress Bar */}
+        <div className="space-y-3">
+          <div className="flex justify-between text-xs font-bold uppercase tracking-widest">
+            <span className="text-slate-500 dark:text-slate-400">Trajectory</span>
+            <span className="text-slate-900 dark:text-slate-100">{Math.round(progress)}%</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/50 dark:bg-slate-800/80">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${colors.bg} ${colors.glow}`}
+              className={`h-full rounded-full transition-all duration-1000 ease-out flex justify-end ${colors.bg} ${colors.glow}`}
               style={{ width: `${progress}%` }}
-            />
+            >
+              <div className="w-10 h-full bg-white/50 blur-[2px]" />
+            </div>
           </div>
         </div>
 
-        {/* Current Status */}
-        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">
-          <span className="text-sm text-slate-600 dark:text-slate-300">Current Status</span>
-          <span className={`text-sm font-bold ${colors.text}`}>
+        {/* Current Status Hologram */}
+        <div className="flex items-center justify-between rounded-2xl bg-white/50 px-5 py-4 shadow-inner ring-1 ring-slate-200/50 dark:bg-slate-950/40 dark:ring-slate-800/50">
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Current Vector</span>
+          <span className={`text-sm font-black uppercase tracking-wider ${colors.text} drop-shadow-sm`}>
             {statusLabels[status]}
           </span>
         </div>
 
-        {/* Location Error */}
+        {/* Location Error Component */}
         {locationError && (status === 'on_the_way' || status === 'arrived') && (
-          <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-400/25 dark:bg-amber-400/10">
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 shadow-sm backdrop-blur-md">
+            <div className="mt-0.5 rounded-full bg-amber-500/20 p-1">
+              <svg className="h-4 w-4 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Location unavailable</p>
-              <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{locationError}</p>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Telemetry Lost</p>
+              <p className="mt-1 text-xs font-medium text-amber-700/80 dark:text-amber-200/80">{locationError}</p>
               <button
                 type="button"
                 onClick={startTracking}
-                className="mt-1 text-xs font-medium text-cyan-700 underline hover:text-cyan-600 dark:text-cyan-300 dark:hover:text-cyan-200"
+                className="mt-2 text-xs font-bold uppercase tracking-wider text-amber-700 underline underline-offset-4 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
               >
-                Try again
+                Re-establish Link
               </button>
             </div>
           </div>
@@ -358,24 +368,26 @@ export default function StatusButtons({
 
         {completionNotice && (
           <div
-            className={`rounded-2xl border p-3 ${completionNotice.status === 'block'
-              ? 'border-red-200 bg-red-50/70 dark:border-red-400/25 dark:bg-red-400/10'
-              : 'border-amber-200 bg-amber-50/70 dark:border-amber-400/25 dark:bg-amber-400/10'
+            className={`rounded-2xl border p-4 backdrop-blur-md shadow-sm ${completionNotice.status === 'block'
+              ? 'border-red-500/30 bg-red-500/10'
+              : 'border-amber-500/30 bg-amber-500/10'
               }`}
           >
             <p
-              className={`text-sm font-medium ${completionNotice.status === 'block'
-                ? 'text-red-800 dark:text-red-200'
-                : 'text-amber-800 dark:text-amber-200'
+              className={`text-sm font-bold uppercase tracking-widest ${completionNotice.status === 'block'
+                ? 'text-red-700 dark:text-red-400'
+                : 'text-amber-700 dark:text-amber-400'
                 }`}
             >
-              Completion verification
+              Verification {completionNotice.status}
             </p>
-            <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">{completionNotice.message}</p>
+            <p className="mt-1.5 text-xs font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+              {completionNotice.message}
+            </p>
           </div>
         )}
 
-        {/* Main Action Button */}
+        {/* Main Action Touch Target */}
         {buttonConfig && nextStatus && (
           <button
             type="button"
@@ -385,17 +397,22 @@ export default function StatusButtons({
               void updateStatus(nextStatus)
             }}
             disabled={updating}
-            className={`w-full h-14 flex items-center justify-center gap-2 rounded-xl font-bold text-slate-900 transition-all active:scale-[0.98] disabled:opacity-50 ${buttonConfig.color.bg} ${buttonConfig.color.glow} hover:brightness-110`}
+            className={`group flex h-16 w-full items-center justify-center gap-3 rounded-2xl font-display-soft text-xl font-bold tracking-wide text-slate-900 shadow-2xl transition-all duration-300 hover:-translate-y-1 hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-50 ${buttonConfig.color.bg} ${buttonConfig.color.glow}`}
           >
             {updating ? (
-              <div className="h-5 w-5 rounded-full border-2 border-slate-900/30 border-t-slate-900 animate-spin" />
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-900/30 border-t-slate-900" />
             ) : (
-              <>{buttonConfig.label}</>
+              <>
+                {buttonConfig.label}
+                <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </>
             )}
           </button>
         )}
 
-        {/* Get Directions Button */}
+        {/* Get Directions Secondary Swipe */}
         {customerAddress && (status === 'on_the_way' || status === 'scheduled') && (
           <button
             type="button"
@@ -410,9 +427,12 @@ export default function StatusButtons({
                 'noopener,noreferrer'
               )
             }}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/70 px-4 font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-100/50 px-4 font-bold text-slate-800 transition-colors hover:bg-slate-200/50 active:scale-[0.98] dark:bg-slate-800/50 dark:text-slate-200 dark:hover:bg-slate-700/50"
           >
-            Get Directions
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            Commence Navigation
           </button>
         )}
       </div>

@@ -1,8 +1,8 @@
-﻿'use client'
+'use client'
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Briefcase, Plus, Download, Zap } from '@/components/ui/icons'
+import { Briefcase, Plus, Download, Zap } from '@/components/ui/lucide'
 import {
   format,
   subDays,
@@ -467,4 +467,5 @@ export default function PremiumDashboardClient({ jobs: initialJobs, invoices = [
     </>
   )
 }
+
 

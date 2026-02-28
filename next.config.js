@@ -9,6 +9,9 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@phosphor-icons/react'],
+  },
 };
 
 module.exports = nextConfig;

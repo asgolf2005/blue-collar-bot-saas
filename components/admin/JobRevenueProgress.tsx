@@ -1,7 +1,7 @@
-﻿'use client'
+'use client'
 
 import { useState, useMemo } from 'react'
-import { Target, DollarSign, Calendar } from '@/components/ui/icons'
+import { Target, DollarSign, Calendar } from '@/components/ui/lucide'
 import { subDays, subMonths, subYears } from 'date-fns'
 import { ADMIN_RANGE_OPTIONS } from '@/lib/analytics/dateUtils'
 import { ADMIN_RANGE_TRACK_CLASS, adminRangeItemClass } from '@/lib/ui/admin-range'
@@ -206,4 +206,5 @@ export default function JobRevenueProgress({ invoices }: JobRevenueProgressProps
     </div>
   )
 }
+
 

@@ -59,43 +59,49 @@ export interface TechScheduleJob {
 
 const STATUS_CONFIG: Record<
   StatusKey,
-  { dot: string; label: string; bg: string; rail: string }
+  { dot: string; label: string; bg: string; rail: string; glow: string }
 > = {
   scheduled: {
     dot: 'bg-slate-400',
     label: 'Scheduled',
-    bg: 'bg-slate-50 dark:bg-slate-700/70',
+    bg: 'bg-slate-50 dark:bg-slate-800/40 ring-1 ring-slate-200 dark:ring-slate-700/50',
     rail: 'before:bg-slate-400',
+    glow: '',
   },
   on_the_way: {
-    dot: 'bg-amber-400',
+    dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]',
     label: 'En Route',
-    bg: 'bg-amber-50 dark:bg-amber-400/10',
+    bg: 'bg-amber-400/10 dark:bg-amber-400/10 ring-1 ring-amber-400/30',
     rail: 'before:bg-amber-400',
+    glow: 'shadow-[0_0_30px_rgba(251,191,36,0.15)] ring-1 ring-amber-400/30',
   },
   arrived: {
-    dot: 'bg-orange-400',
+    dot: 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]',
     label: 'Arrived',
-    bg: 'bg-orange-50 dark:bg-orange-400/10',
-    rail: 'before:bg-orange-400',
+    bg: 'bg-blue-400/10 dark:bg-blue-400/10 ring-1 ring-blue-400/30',
+    rail: 'before:bg-blue-400',
+    glow: 'shadow-[0_0_30px_rgba(96,165,250,0.15)] ring-1 ring-blue-400/30',
   },
   in_progress: {
-    dot: 'bg-cyan-400',
+    dot: 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]',
     label: 'In Progress',
-    bg: 'bg-cyan-50 dark:bg-cyan-400/10',
+    bg: 'bg-cyan-400/10 dark:bg-cyan-400/10 ring-1 ring-cyan-400/30',
     rail: 'before:bg-cyan-400',
+    glow: 'shadow-[0_0_30px_rgba(34,211,238,0.15)] ring-1 ring-cyan-400/30',
   },
   completed: {
-    dot: 'bg-emerald-400',
+    dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]',
     label: 'Completed',
-    bg: 'bg-emerald-50 dark:bg-emerald-400/10',
+    bg: 'bg-emerald-400/10 dark:bg-emerald-400/10 ring-1 ring-emerald-400/30',
     rail: 'before:bg-emerald-400',
+    glow: 'shadow-[0_0_30px_rgba(52,211,153,0.15)] ring-1 ring-emerald-400/30',
   },
   cancelled: {
-    dot: 'bg-rose-400',
+    dot: 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]',
     label: 'Cancelled',
-    bg: 'bg-rose-50 dark:bg-rose-400/10',
+    bg: 'bg-rose-400/10 dark:bg-rose-400/10 ring-1 ring-rose-400/30',
     rail: 'before:bg-rose-400',
+    glow: '',
   },
 }
 
@@ -152,18 +158,19 @@ function JobCard({ job }: { job: TechScheduleJob }) {
     <Link
       href={`/tech/jobs/${job.id}`}
       className={cx(
-        'group relative overflow-hidden block rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 px-4 py-3.5',
-        'hover:border-cyan-300 dark:hover:border-cyan-500/40 hover:shadow-[0_14px_26px_-22px_rgba(34,211,238,0.55)] hover:-translate-y-0.5 transition-all duration-150',
-        'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1',
+        'group relative overflow-hidden block rounded-3xl bg-white/40 dark:bg-slate-900/40 px-5 py-4 backdrop-blur-xl',
+        'hover:-translate-y-0.5 transition-all duration-300',
+        'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1.5',
         status.rail,
+        status.glow || 'ring-1 ring-slate-200/50 dark:ring-slate-800/50 shadow-sm',
         isOverdue && 'ring-1 ring-rose-300/60 dark:ring-rose-500/25'
       )}
     >
       <div className="flex items-start justify-between gap-3 mb-2.5">
-        <h3 className="text-base font-semibold leading-tight text-slate-900 dark:text-white">
+        <h3 className="text-base font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
           {job.customer?.name || 'Unknown Customer'}
         </h3>
-        <span className={cx('inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-mono whitespace-nowrap', status.bg, 'text-slate-700 dark:text-slate-200')}>
+        <span className={cx('inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-widest whitespace-nowrap', status.bg, 'text-slate-700 dark:text-white drop-shadow-sm')}>
           <span className={cx('w-1.5 h-1.5 rounded-full', status.dot)} />
           {status.label}
         </span>
@@ -209,11 +216,11 @@ function WeekView({
           <div
             key={day.toISOString()}
             className={cx(
-              'rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/65 overflow-hidden',
-              isToday && 'ring-1 ring-cyan-200 dark:ring-cyan-500/25 border-cyan-300/70 dark:border-cyan-500/40'
+              'rounded-[2rem] bg-white/40 dark:bg-slate-900/40 ring-1 ring-slate-200/50 dark:ring-slate-800/50 overflow-hidden backdrop-blur-xl',
+              isToday && 'ring-2 ring-cyan-400 shadow-[0_0_30px_rgba(34,211,238,0.15)] ring-offset-2 ring-offset-transparent'
             )}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-white/20 dark:bg-slate-950/20">
               <div>
                 <p className="text-[11px] font-mono uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                   {format(day, 'EEEE')}
@@ -478,15 +485,13 @@ export default function TechScheduleClient({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-[28px] border border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-cyan-50/30 p-4 shadow-[0_18px_50px_-30px_rgba(2,132,199,0.35)] dark:border-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-cyan-950/20 dark:shadow-[0_24px_60px_-35px_rgba(34,211,238,0.35)]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_48%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_48%)]" />
-
+    <div className="space-y-4 pb-12">
+      <div className="relative">
         <div className="relative z-20 flex flex-col gap-4">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
-              <h1 className="font-display text-4xl uppercase tracking-[0.12em] text-slate-900 dark:text-slate-100">Schedule</h1>
-              <p className="mt-0.5 font-sans text-xs text-slate-500 dark:text-slate-400">
+              <h1 className="font-display-soft text-4xl font-bold tracking-tight text-slate-900 dark:text-white">Schedule</h1>
+              <p className="mt-1 font-sans text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-cyan-400">
                 {activeFiltersCount
                   ? `${filteredJobs.length} jobs shown - ${totalHours}h`
                   : `${filteredJobs.length} jobs - ${totalHours}h`}
@@ -497,13 +502,13 @@ export default function TechScheduleClient({
               <button
                 type="button"
                 onClick={goToday}
-                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white/80 px-3 py-2 font-sans text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:bg-slate-800/60"
+                className="inline-flex items-center justify-center rounded-2xl bg-white/40 px-4 py-2 ring-1 ring-slate-200/50 backdrop-blur-xl font-sans text-xs font-bold uppercase tracking-[0.12em] text-slate-700 transition-colors hover:bg-slate-50 dark:bg-slate-900/40 dark:ring-slate-800/50 dark:text-slate-200 dark:hover:bg-slate-800/60"
               >
                 Today
               </button>
 
-              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
-                <button type="button" onClick={goPrev} className="h-8 w-8 flex items-center justify-center border-r border-slate-100 dark:border-slate-800 text-slate-500 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60">
+              <div className="flex items-center rounded-2xl bg-white/40 ring-1 ring-slate-200/50 backdrop-blur-xl dark:bg-slate-900/40 dark:ring-slate-800/50 overflow-hidden">
+                <button type="button" onClick={goPrev} className="h-10 w-10 flex items-center justify-center border-r border-slate-200/20 text-slate-500 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 min-w-[170px] text-center">
@@ -514,20 +519,17 @@ export default function TechScheduleClient({
                 </button>
               </div>
 
-              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
+              <div className="flex items-center rounded-2xl bg-white/40 ring-1 ring-slate-200/50 backdrop-blur-xl dark:bg-slate-900/40 dark:ring-slate-800/50 overflow-hidden p-1">
                 {(['day', 'week', 'month'] as const).map((v, index) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className={cx(
-                      'h-8 rounded-none px-3 font-sans text-xs font-semibold uppercase tracking-[0.1em] transition-colors',
-                      index === 0 && 'rounded-l-full',
-                      index === 2 && 'rounded-r-full',
-                      index > 0 && 'border-l border-slate-100 dark:border-slate-800',
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    className={cx(
+                      'h-8 rounded-xl px-4 font-sans text-xs font-bold uppercase tracking-widest transition-all',
                       view === v
-                        ? '!bg-cyan-600 dark:!bg-cyan-500 !text-white'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                        ? 'bg-cyan-500 text-slate-950 shadow-md'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                     )}
                   >
                     {v}
@@ -666,16 +668,20 @@ export default function TechScheduleClient({
               </details>
             </aside>
 
-            <div className="space-y-3">
-              <div className="relative z-0 bg-white/90 dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-[0_16px_36px_-28px_rgba(30,41,59,0.45)] backdrop-blur-sm">
+            <div className="space-y-4">
+              <div className="relative z-0 bg-transparent overflow-hidden sm:overflow-visible">
                 {view === 'month' ? (
-                  <MonthView date={currentDate} jobs={filteredJobs} onSelectDay={openDay} />
+                  <div className="rounded-[2rem] bg-white/40 dark:bg-slate-900/40 ring-1 ring-slate-200/50 dark:ring-slate-800/50 overflow-hidden backdrop-blur-xl">
+                    <MonthView date={currentDate} jobs={filteredJobs} onSelectDay={openDay} />
+                  </div>
                 ) : view === 'week' ? (
-                  <WeekView date={currentDate} jobs={filteredJobs} onSelectDay={openDay} />
+                  <div className="space-y-4">
+                    <WeekView date={currentDate} jobs={filteredJobs} onSelectDay={openDay} />
+                  </div>
                 ) : (
-                  <div className="p-4 space-y-3">
+                  <div className="p-2 space-y-4">
                     {filteredJobs.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/20 p-10 text-center">
+                      <div className="rounded-[2rem] border border-dashed border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 p-10 text-center backdrop-blur-xl">
                         <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">No jobs match these filters.</p>
                       </div>
                     ) : (

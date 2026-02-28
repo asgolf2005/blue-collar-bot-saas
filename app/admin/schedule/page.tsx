@@ -28,485 +28,51 @@ import {
   Search,
   MapPin,
   X,
-} from '@/components/ui/icons'
+} from '@/components/ui/lucide'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { ActionButton, ActionFilterChip, ActionIconButton } from '@/components/ui/ActionSystem'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
-// ========================================
-// TYPES
-// ========================================
-interface Job {
-  id: string
-  status: string
-  invoice_status?: string | null
-  scheduled_start: string
-  scheduled_end: string | null
-  description: string | null
-  customer_id: string
-  customer_name: string
-  technician_id: string | null
-  technician_name: string | null
-  address: string | null
-  urgency: string | null
-  service_names?: string[]
-}
-
-interface Technician {
-  id: string
-  full_name: string
-  color: string
-}
-
-type ScheduleView = 'day' | 'week' | 'month'
-type PlannerVariant = 'classic' | 'balanced' | 'minimal'
-type ScheduleDesign =
-  | 'planner_classic'
-  | 'planner_balanced'
-  | 'planner_minimal'
-  | 'agenda'
-  | 'tech_board'
-type ScheduleJobCardVariant = 'v8'
-
-interface ScheduleCardStyle {
-  frame: string
-  hover: string
-  accent: string
-  customer: string
-  description: string
-  address: string
-  techPill: string
-  techName: string
-  alert: string
-  useStatusSurface: boolean
-  useTechGlow: boolean
-}
-
-const SCHEDULE_CARD_STYLES: Record<ScheduleJobCardVariant, ScheduleCardStyle> = {
-  v8: {
-    frame: 'rounded-[1rem] border-indigo-200/80 bg-gradient-to-br from-white via-indigo-50/55 to-cyan-50/55 dark:border-indigo-500/35 dark:from-slate-900 dark:via-indigo-950/30 dark:to-cyan-950/20',
-    hover: 'hover:-translate-y-1 hover:border-indigo-300 dark:hover:border-indigo-500/65 hover:shadow-[0_18px_34px_-20px_rgba(79,70,229,0.45)]',
-    accent: 'w-[3px] opacity-100',
-    customer: 'font-display uppercase tracking-[0.025em] text-slate-900 dark:text-slate-100',
-    description: 'text-slate-700 dark:text-slate-200/85',
-    address: 'text-slate-600 dark:text-slate-300/85',
-    techPill: 'rounded-full border border-indigo-300/70 dark:border-indigo-500/50',
-    techName: 'text-indigo-700 dark:text-indigo-200',
-    alert: 'font-mono text-[9px] uppercase tracking-[0.14em] text-indigo-700 dark:text-indigo-200',
-    useStatusSurface: false,
-    useTechGlow: true,
-  },
-}
-
-// ========================================
-// DESIGN SYSTEM - Apple/Google Calendar Aesthetic
-// ========================================
-
-const TECH_COLORS = [
-  { name: 'cyan', bg: 'bg-cyan-500/20 backdrop-blur-md', light: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-300/50 dark:border-cyan-500/30', glow: 'shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-cyan-400/30' },
-  { name: 'purple', bg: 'bg-purple-500/20 backdrop-blur-md', light: 'bg-purple-50 dark:bg-purple-500/10', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300/50 dark:border-purple-500/30', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.15)] ring-purple-400/30' },
-  { name: 'emerald', bg: 'bg-emerald-500/20 backdrop-blur-md', light: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-300/50 dark:border-emerald-500/30', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.15)] ring-emerald-400/30' },
-  { name: 'amber', bg: 'bg-amber-500/20 backdrop-blur-md', light: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-300/50 dark:border-amber-500/30', glow: 'shadow-[0_0_15px_rgba(245,158,11,0.15)] ring-amber-400/30' },
-  { name: 'rose', bg: 'bg-rose-500/20 backdrop-blur-md', light: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-300/50 dark:border-rose-500/30', glow: 'shadow-[0_0_15px_rgba(244,63,94,0.15)] ring-rose-400/30' },
-  { name: 'teal', bg: 'bg-teal-500/20 backdrop-blur-md', light: 'bg-teal-50 dark:bg-teal-500/10', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-300/50 dark:border-teal-500/30', glow: 'shadow-[0_0_15px_rgba(20,184,166,0.15)] ring-teal-400/30' },
-  { name: 'indigo', bg: 'bg-indigo-500/20 backdrop-blur-md', light: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-300/50 dark:border-indigo-500/30', glow: 'shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-indigo-400/30' },
-  { name: 'orange', bg: 'bg-orange-500/20 backdrop-blur-md', light: 'bg-orange-50 dark:bg-orange-500/10', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-300/50 dark:border-orange-500/30', glow: 'shadow-[0_0_15px_rgba(249,115,22,0.15)] ring-orange-400/30' },
-]
-
-const STATUS_CONFIG: Record<string, { dot: string; label: string; bg: string }> = {
-  scheduled: { dot: 'bg-slate-400', label: 'Scheduled', bg: 'bg-slate-100/40 dark:bg-slate-800/60 backdrop-blur-md' },
-  on_the_way: { dot: 'bg-amber-400', label: 'En Route', bg: 'bg-amber-50/40 dark:bg-amber-900/30 backdrop-blur-md' },
-  arrived: { dot: 'bg-orange-400', label: 'Arrived', bg: 'bg-orange-50/40 dark:bg-orange-900/30 backdrop-blur-md' },
-  in_progress: { dot: 'bg-cyan-400', label: 'In Progress', bg: 'bg-cyan-50/40 dark:bg-cyan-900/30 backdrop-blur-md' },
-  completed: { dot: 'bg-emerald-400', label: 'Completed', bg: 'bg-emerald-50/40 dark:bg-emerald-900/30 backdrop-blur-md' },
-  cancelled: { dot: 'bg-rose-400', label: 'Cancelled', bg: 'bg-rose-50/40 dark:bg-rose-900/30 backdrop-blur-md' },
-}
-
-const HOUR_HEIGHT = 48
-const START_HOUR = 0
-const END_HOUR = 23
-const TOTAL_HOURS = END_HOUR - START_HOUR
-const WEEK_DAYS = 7
-const WEEK_LAST_DAY_OFFSET = WEEK_DAYS - 1
-const DEFAULT_JOB_DURATION_MINUTES = 120
-const MAX_VISIBLE_OVERLAP_LANES = 3
-const DEFAULT_WEEK_DAY_SHARE = 1 / WEEK_DAYS
-const MIN_OTHER_DAY_SHARE = 0.08
-const MIN_FOCUSED_DAY_SHARE = 0.1
-const MAX_FOCUSED_DAY_SHARE = 1 - MIN_OTHER_DAY_SHARE * (WEEK_DAYS - 1)
-
-type JobIntervalEntry = {
-  job: Job
-  start: Date
-  end: Date
-  top: number
-  height: number
-}
-
-type DayJobPlacement = JobIntervalEntry & {
-  lane: number
-  laneCount: number
-  clusterId: string
-  hiddenByDensity: boolean
-  hasTechConflict: boolean
-}
-
-type DenseClusterIndicator = {
-  clusterId: string
-  top: number
-  hiddenCount: number
-}
-
-// ========================================
-// UTILITY FUNCTIONS
-// ========================================
-function getTechColor(techId: string | null, index: number) {
-  if (!techId) return TECH_COLORS[0]
-  const hash = techId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  return TECH_COLORS[hash % TECH_COLORS.length]
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function buildWeekGridTemplateColumns(focusedDayIndex: number | null, focusedDayShare: number) {
-  if (focusedDayIndex === null) {
-    return 'repeat(7, minmax(0, 1fr))'
-  }
-
-  const clampedFocusShare = clamp(
-    focusedDayShare,
-    MIN_FOCUSED_DAY_SHARE,
-    MAX_FOCUSED_DAY_SHARE
-  )
-  const otherShare = (1 - clampedFocusShare) / (WEEK_DAYS - 1)
-
-  return Array.from({ length: WEEK_DAYS }, (_, index) =>
-    index === focusedDayIndex
-      ? `${(clampedFocusShare * 100).toFixed(4)}%`
-      : `${(otherShare * 100).toFixed(4)}%`
-  ).join(' ')
-}
-
-// Parse timestamps with timezone awareness so drag/drop renders at the correct local slot.
-function parseJobDate(dateStr: string): Date {
-  const parsedIso = parseISO(dateStr)
-  if (!Number.isNaN(parsedIso.getTime())) {
-    return parsedIso
-  }
-
-  const parsedNative = new Date(dateStr)
-  if (!Number.isNaN(parsedNative.getTime())) {
-    return parsedNative
-  }
-
-  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
-  if (!match) {
-    return new Date()
-  }
-
-  const [, year, month, day, hour, minute] = match
-  return new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    0,
-    0
-  )
-}
-
-function getScheduleWindow(view: ScheduleView, anchor: Date): { start: Date; end: Date } {
-  if (view === 'day') {
-    return {
-      start: startOfDay(addDays(anchor, -2)),
-      end: endOfDay(addDays(anchor, 2)),
-    }
-  }
-
-  if (view === 'month') {
-    return {
-      start: startOfDay(addDays(startOfMonth(anchor), -7)),
-      end: endOfDay(addDays(endOfMonth(anchor), 7)),
-    }
-  }
-
-  const weekStart = startOfWeek(anchor, { weekStartsOn: 0 })
-  return {
-    start: startOfDay(addDays(weekStart, -2)),
-    end: endOfDay(addDays(weekStart, 8)),
-  }
-}
-
-function buildScheduleWindowFilter(start: Date, end: Date): string {
-  const startIso = start.toISOString()
-  const endIso = end.toISOString()
-  return [
-    `and(scheduled_start.gte.${startIso},scheduled_start.lte.${endIso})`,
-    `and(scheduled_start.is.null,created_at.gte.${startIso},created_at.lte.${endIso})`,
-  ].join(',')
-}
-
-function isDateInWindow(value: string | null | undefined, start: Date, end: Date): boolean {
-  if (!value) return false
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return false
-  return parsed >= start && parsed <= end
-}
-
-function getJobInterval(job: Pick<Job, 'scheduled_start' | 'scheduled_end'>): { start: Date; end: Date; durationMinutes: number } {
-  const start = parseJobDate(job.scheduled_start)
-  const defaultEnd = addMinutes(start, DEFAULT_JOB_DURATION_MINUTES)
-  const parsedEnd = job.scheduled_end ? parseJobDate(job.scheduled_end) : defaultEnd
-  const end = parsedEnd > start ? parsedEnd : defaultEnd
-  const durationMinutes = Math.max(30, differenceInMinutes(end, start))
-  return { start, end, durationMinutes }
-}
-
-function intervalsOverlap(startA: Date, endA: Date, startB: Date, endB: Date) {
-  return startA < endB && startB < endA
-}
-
-function getJobPositionFromInterval(start: Date, end: Date) {
-  const hour = start.getHours()
-  const minute = start.getMinutes()
-
-  // Allow hours before START_HOUR to show at top
-  const effectiveHour = Math.max(START_HOUR, hour)
-  const top = ((effectiveHour - START_HOUR) * HOUR_HEIGHT) + ((minute / 60) * HOUR_HEIGHT)
-
-  const duration = Math.max(30, differenceInMinutes(end, start))
-  const height = Math.max(42, Math.min((duration / 60) * HOUR_HEIGHT, HOUR_HEIGHT * 5))
-
-  return { top: Math.max(0, top), height }
-}
-
-function getTechnicianConflictJobIds(entries: JobIntervalEntry[]) {
-  const conflicts = new Set<string>()
-  const byTech = new Map<string, JobIntervalEntry[]>()
-
-  for (const entry of entries) {
-    if (!entry.job.technician_id) continue
-    const techJobs = byTech.get(entry.job.technician_id) || []
-    techJobs.push(entry)
-    byTech.set(entry.job.technician_id, techJobs)
-  }
-
-  for (const techJobs of byTech.values()) {
-    const sorted = [...techJobs].sort((a, b) => a.start.getTime() - b.start.getTime())
-    const active: JobIntervalEntry[] = []
-
-    for (const entry of sorted) {
-      for (let i = active.length - 1; i >= 0; i -= 1) {
-        if (active[i].end <= entry.start) {
-          active.splice(i, 1)
-        }
-      }
-
-      if (active.length > 0) {
-        conflicts.add(entry.job.id)
-        for (const open of active) {
-          conflicts.add(open.job.id)
-        }
-      }
-
-      active.push(entry)
-    }
-  }
-
-  return conflicts
-}
-
-function buildDayJobLayout(dayJobs: Job[]): { placements: DayJobPlacement[]; denseIndicators: DenseClusterIndicator[] } {
-  const entries = dayJobs
-    .map((job) => {
-      const { start, end } = getJobInterval(job)
-      const { top, height } = getJobPositionFromInterval(start, end)
-      return { job, start, end, top, height }
-    })
-    .sort((a, b) => {
-      const startDiff = a.start.getTime() - b.start.getTime()
-      if (startDiff !== 0) return startDiff
-      return a.end.getTime() - b.end.getTime()
-    })
-
-  const conflictIds = getTechnicianConflictJobIds(entries)
-  const placements: DayJobPlacement[] = []
-  const denseIndicators: DenseClusterIndicator[] = []
-
-  let clusterIndex = 0
-  let clusterEntries: JobIntervalEntry[] = []
-  let clusterEnd: Date | null = null
-
-  const flushCluster = () => {
-    if (clusterEntries.length === 0) return
-
-    const laneByJob = new Map<string, number>()
-    const active: Array<{ lane: number; end: Date }> = []
-    let laneCount = 1
-
-    for (const entry of clusterEntries) {
-      for (let i = active.length - 1; i >= 0; i -= 1) {
-        if (active[i].end <= entry.start) {
-          active.splice(i, 1)
-        }
-      }
-
-      const used = new Set(active.map((item) => item.lane))
-      let lane = 0
-      while (used.has(lane)) {
-        lane += 1
-      }
-
-      laneByJob.set(entry.job.id, lane)
-      active.push({ lane, end: entry.end })
-      laneCount = Math.max(laneCount, lane + 1)
-    }
-
-    const clusterId = `cluster-${clusterIndex}`
-    clusterIndex += 1
-    let hiddenCount = 0
-    let top = Number.POSITIVE_INFINITY
-
-    for (const entry of clusterEntries) {
-      const lane = laneByJob.get(entry.job.id) || 0
-      const hiddenByDensity = lane >= MAX_VISIBLE_OVERLAP_LANES
-      if (hiddenByDensity) hiddenCount += 1
-      top = Math.min(top, entry.top)
-
-      placements.push({
-        ...entry,
-        lane,
-        laneCount,
-        clusterId,
-        hiddenByDensity,
-        hasTechConflict: conflictIds.has(entry.job.id),
-      })
-    }
-
-    if (hiddenCount > 0) {
-      denseIndicators.push({
-        clusterId,
-        top: Number.isFinite(top) ? top : 0,
-        hiddenCount,
-      })
-    }
-
-    clusterEntries = []
-    clusterEnd = null
-  }
-
-  for (const entry of entries) {
-    if (clusterEntries.length === 0) {
-      clusterEntries = [entry]
-      clusterEnd = entry.end
-      continue
-    }
-
-    if (clusterEnd && entry.start < clusterEnd) {
-      clusterEntries.push(entry)
-      if (entry.end > clusterEnd) clusterEnd = entry.end
-      continue
-    }
-
-    flushCluster()
-    clusterEntries = [entry]
-    clusterEnd = entry.end
-  }
-
-  flushCluster()
-
-  return { placements, denseIndicators }
-}
-
-function findTechnicianOverlapsForWindow({
-  jobs,
-  movingJobId,
-  technicianId,
-  start,
-  end,
-}: {
-  jobs: Job[]
-  movingJobId: string
-  technicianId: string | null
-  start: Date
-  end: Date
-}) {
-  if (!technicianId) return []
-
-  return jobs.filter((job) => {
-    if (job.id === movingJobId) return false
-    if (job.technician_id !== technicianId) return false
-    const { start: jobStart, end: jobEnd } = getJobInterval(job)
-    return intervalsOverlap(start, end, jobStart, jobEnd)
-  })
-}
-
-function buildLocalDateAtHour(dayAnchor: Date, hour: number, minute = 0): Date {
-  const clampedHour = Math.min(END_HOUR, Math.max(START_HOUR, hour))
-  const clampedMinute = Math.min(59, Math.max(0, minute))
-  return new Date(
-    dayAnchor.getFullYear(),
-    dayAnchor.getMonth(),
-    dayAnchor.getDate(),
-    clampedHour,
-    clampedMinute,
-    0,
-    0
-  )
-}
-
-function getScheduleRange(currentDate: Date, view: ScheduleView): { start: Date; endExclusive: Date } {
-  if (view === 'day') {
-    const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
-    return { start, endExclusive: addDays(start, 1) }
-  }
-
-  if (view === 'week') {
-    const start = startOfWeek(currentDate, { weekStartsOn: 1 })
-    return { start, endExclusive: addDays(start, WEEK_DAYS) }
-  }
-
-  const start = startOfMonth(currentDate)
-  return { start, endExclusive: addMonths(start, 1) }
-}
-
-function getScheduleDays(currentDate: Date, view: ScheduleView): Date[] {
-  if (view === 'day') {
-    return [new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())]
-  }
-
-  if (view === 'week') {
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
-    return Array.from({ length: WEEK_DAYS }, (_, i) => addDays(weekStart, i))
-  }
-
-  const monthStart = startOfMonth(currentDate)
-  const monthEnd = endOfMonth(currentDate)
-  return eachDayOfInterval({ start: monthStart, end: monthEnd })
-}
-
-function getDefaultSummaryDateRange(anchorDate: Date = new Date()) {
-  const weekStart = startOfWeek(anchorDate, { weekStartsOn: 1 })
-  return {
-    from: format(weekStart, 'yyyy-MM-dd'),
-    to: format(addDays(weekStart, WEEK_LAST_DAY_OFFSET), 'yyyy-MM-dd'),
-  }
-}
-
-function getJobPosition(startTime: string, endTime: string | null) {
-  const start = parseJobDate(startTime)
-  const fallbackEnd = addMinutes(start, DEFAULT_JOB_DURATION_MINUTES)
-  const end = endTime ? parseJobDate(endTime) : fallbackEnd
-  const validEnd = end > start ? end : fallbackEnd
-  const { top, height } = getJobPositionFromInterval(start, validEnd)
-
-  return { top, height, start }
-}
+import {
+  DEFAULT_WEEK_DAY_SHARE,
+  DEFAULT_JOB_DURATION_MINUTES,
+  END_HOUR,
+  HOUR_HEIGHT,
+  Job,
+  MAX_FOCUSED_DAY_SHARE,
+  MAX_VISIBLE_OVERLAP_LANES,
+  MIN_FOCUSED_DAY_SHARE,
+  MIN_OTHER_DAY_SHARE,
+  PlannerVariant,
+  ScheduleDesign,
+  ScheduleJobCardVariant,
+  ScheduleView,
+  SCHEDULE_CARD_STYLES,
+  START_HOUR,
+  STATUS_CONFIG,
+  TECH_COLORS,
+  Technician,
+  TOTAL_HOURS,
+  WEEK_DAYS,
+  WEEK_LAST_DAY_OFFSET,
+  buildDayJobLayout,
+  buildLocalDateAtHour,
+  buildScheduleWindowFilter,
+  buildWeekGridTemplateColumns,
+  clamp,
+  findTechnicianOverlapsForWindow,
+  getDefaultSummaryDateRange,
+  getJobInterval,
+  getJobPosition,
+  getScheduleDays,
+  getScheduleRange,
+  getScheduleWindow,
+  getTechColor,
+  isDateInWindow,
+  parseJobDate,
+} from './schedule-core'
 
 // ========================================
 // COMPONENTS
@@ -520,28 +86,32 @@ function JobCard({
   isOverdue,
   lane = 0,
   laneCount = 1,
+  useFullLaneCount = false,
   hasTechConflict = false,
   positionTop,
   positionHeight,
   isFocused = false,
   isDragging,
   isDropMode,
+  compact = false,
   onDragStart,
   onDragEnd,
 }: {
   job: Job
-  techColor: typeof TECH_COLORS[0]
+  techColor: (typeof TECH_COLORS)[number]
   variant: PlannerVariant
   cardVariant: ScheduleJobCardVariant
   isOverdue: boolean
   lane?: number
   laneCount?: number
+  useFullLaneCount?: boolean
   hasTechConflict?: boolean
   positionTop?: number
   positionHeight?: number
   isFocused?: boolean
   isDragging?: boolean
   isDropMode?: boolean
+  compact?: boolean
   onDragStart?: (e: React.DragEvent, job: Job) => void
   onDragEnd?: () => void
 }) {
@@ -554,14 +124,19 @@ function JobCard({
   const techFirstName = techDisplayName.split(' ')[0] || techDisplayName
   const isBalanced = variant === 'balanced'
   const isMinimal = variant === 'minimal'
-  const compactCard = height < (isMinimal ? 70 : 64)
-  const showDescription = height >= (isMinimal ? 82 : 72)
-  const showAddress = height >= (isBalanced ? 90 : 94)
+  
+  // Compact mode for day view density
+  const isCompact = compact || height < 56
+  const compactCard = isCompact
+  const showDescription = !compact && height >= (isMinimal ? 82 : 72)
+  const showAddress = !compact && height >= (isBalanced ? 90 : 94)
   const cardXPadding = isMinimal ? 'px-2' : isBalanced ? 'px-3' : 'px-2.5'
-  const cardYPadding = isMinimal ? 'py-1.5' : isBalanced ? 'py-2.5' : 'py-2'
-  const customerTextSize = isBalanced ? 'text-[15px]' : isMinimal ? 'text-[13px]' : 'text-sm'
-  const cardRadius = isBalanced ? 'rounded-xl' : 'rounded-lg'
-  const visibleLaneCount = Math.max(1, Math.min(laneCount, MAX_VISIBLE_OVERLAP_LANES))
+  const cardYPadding = isCompact ? 'py-1' : isMinimal ? 'py-1.5' : isBalanced ? 'py-2.5' : 'py-2'
+  const customerTextSize = isCompact ? 'text-xs' : isBalanced ? 'text-[15px]' : isMinimal ? 'text-[13px]' : 'text-sm'
+  const cardRadius = isCompact ? 'rounded-md' : isBalanced ? 'rounded-xl' : 'rounded-lg'
+  const visibleLaneCount = useFullLaneCount
+    ? Math.max(1, laneCount)
+    : Math.max(1, Math.min(laneCount, MAX_VISIBLE_OVERLAP_LANES))
   const laneWidthPercent = 100 / visibleLaneCount
   const laneLeftPercent = lane * laneWidthPercent
   const laneInlineStyle =
@@ -601,10 +176,11 @@ function JobCard({
         hasTechConflict ? 'ring-1 ring-inset ring-rose-400/60 border-rose-200/80 dark:border-rose-500/40' : techColor.border,
         isFocused ? 'ring-2 ring-cyan-400/80 dark:ring-cyan-300/80 shadow-[0_0_0_1px_rgba(34,211,238,0.55)]' : '',
         cardStyle.useStatusSurface ? status.bg : '',
-        cardStyle.useTechGlow ? techColor.glow : '',
+        cardStyle.useTechGlow && !isCompact ? techColor.glow : '',
         onDragStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         isDragging ? 'opacity-50 blur-[1px] grayscale-[0.5]' : '',
-        isDropMode && !isDragging ? 'pointer-events-none' : ''
+        isDropMode && !isDragging ? 'pointer-events-none' : '',
+        isCompact && 'shadow-sm'
       )}
       style={{
         top: `${top}px`,
@@ -617,11 +193,18 @@ function JobCard({
         <span className="absolute right-1.5 top-1.5 z-20 inline-flex h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_0_2px_rgba(255,255,255,0.75)] dark:shadow-[0_0_0_2px_rgba(15,23,42,0.9)]" />
       )}
       <div className={cn('absolute left-0 top-0 bottom-0 group-hover:opacity-100 transition-opacity', cardStyle.accent, techColor.bg.replace('/20 backdrop-blur-md', ''))} />
-      <Link href={`/admin/jobs/${job.id}`} className="block h-full relative z-10" draggable={false}>
+      <Link href={`/admin/jobs/${job.id}`} prefetch={false} className="block h-full relative z-10" draggable={false}>
         <div className={`h-full ${cardXPadding} ${cardYPadding} flex flex-col`}>
-          <p className={cn(customerTextSize, 'leading-tight truncate', cardStyle.customer)}>
-            {job.customer_name}
-          </p>
+          <div className="flex items-center justify-between gap-1 min-w-0">
+            <p className={cn(customerTextSize, 'leading-tight truncate flex-1', cardStyle.customer)}>
+              {job.customer_name}
+            </p>
+            {isCompact && (
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
+                {format(parseJobDate(job.scheduled_start), 'h:mm')}
+              </span>
+            )}
+          </div>
 
           {showDescription && job.description && (
             <p className={cn('mt-1 truncate', isMinimal ? 'text-[10px]' : 'text-[11px]', cardStyle.description)}>
@@ -687,6 +270,7 @@ function WeekView({
   const [focusedDayIndex, setFocusedDayIndex] = useState<number | null>(null)
   const [focusedDayShare, setFocusedDayShare] = useState<number>(DEFAULT_WEEK_DAY_SHARE)
   const [isResizingDay, setIsResizingDay] = useState(false)
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
   const weekGridRef = useRef<HTMLDivElement | null>(null)
   const liveFocusedShareRef = useRef<number>(DEFAULT_WEEK_DAY_SHARE)
   const resizeRafRef = useRef<number | null>(null)
@@ -854,6 +438,18 @@ function WeekView({
     setDragOverDayHour(null)
   }
 
+  const toggleCluster = (clusterId: string) => {
+    setExpandedClusters(prev => {
+      const next = new Set(prev)
+      if (next.has(clusterId)) {
+        next.delete(clusterId)
+      } else {
+        next.add(clusterId)
+      }
+      return next
+    })
+  }
+
   return (
     <div className="flex min-w-0 overflow-hidden">
       {/* Time column */}
@@ -891,12 +487,15 @@ function WeekView({
           return (
             <div
               key={day.toISOString()}
-              className={`min-w-0 border-r border-slate-100 dark:border-slate-800 last:border-r-0 transition-colors duration-300 ${isFocused
-                ? 'bg-cyan-50/45 dark:bg-cyan-500/[0.12]'
-                : isCompressed
-                  ? 'bg-slate-50/50 dark:bg-slate-900/70'
-                  : ''
-                } ${isTodayDate ? 'ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30' : ''}`}
+              className={cn(
+                'min-w-0 border-r border-slate-100 dark:border-slate-800 last:border-r-0 transition-colors duration-300',
+                isFocused
+                  ? 'bg-cyan-50/45 dark:bg-cyan-500/[0.12]'
+                  : isCompressed
+                    ? 'bg-slate-50/50 dark:bg-slate-900/70'
+                    : 'hover:bg-slate-50/30 dark:hover:bg-slate-800/30',
+                isTodayDate && 'ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30'
+              )}
             >
               {/* Header */}
               <div className={`relative ${dayHeaderPadding} text-center border-b border-slate-100 dark:border-slate-800 ${isTodayDate ? 'bg-cyan-100/70 dark:bg-cyan-500/15 shadow-[inset_0_-1px_0_0_rgba(8,145,178,0.35)] dark:shadow-[inset_0_-1px_0_0_rgba(34,211,238,0.35)]' : ''}`}>
@@ -956,9 +555,10 @@ function WeekView({
                 {/* Jobs */}
                 <AnimatePresence>
                   {placements
-                    .filter((placement) => !placement.hiddenByDensity)
+                    .filter((placement) => !placement.hiddenByDensity || expandedClusters.has(placement.clusterId))
                     .map((placement) => {
                       const job = placement.job
+                      const clusterExpanded = expandedClusters.has(placement.clusterId)
                       const techIndex = technicians.findIndex(t => t.id === job.technician_id)
                       const techColor = getTechColor(job.technician_id, techIndex)
                       const isOverdue = isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
@@ -972,6 +572,7 @@ function WeekView({
                           isOverdue={isOverdue}
                           lane={placement.lane}
                           laneCount={placement.laneCount}
+                          useFullLaneCount={clusterExpanded}
                           hasTechConflict={placement.hasTechConflict}
                           positionTop={placement.top}
                           positionHeight={placement.height}
@@ -985,16 +586,27 @@ function WeekView({
                     })}
                 </AnimatePresence>
 
-                {denseIndicators.map((indicator) => (
-                  <div
-                    key={indicator.clusterId}
-                    className="absolute right-1 z-30 rounded-md border border-cyan-300/80 bg-cyan-50/95 px-1.5 py-0.5 text-[9px] font-medium text-cyan-700 shadow-sm dark:border-cyan-500/40 dark:bg-cyan-900/70 dark:text-cyan-200"
-                    style={{ top: `${Math.max(0, indicator.top)}px` }}
-                    title={`${indicator.hiddenCount} overlapping jobs hidden`}
-                  >
-                    +{indicator.hiddenCount} more
-                  </div>
-                ))}
+                {/* +N more indicators with inline expansion */}
+                {denseIndicators.map((indicator) => {
+                  const expanded = expandedClusters.has(indicator.clusterId)
+                  return (
+                    <button
+                      key={indicator.clusterId}
+                      type="button"
+                      onClick={() => toggleCluster(indicator.clusterId)}
+                      className={cn(
+                        'absolute right-1 z-30 rounded-md border px-1.5 py-0.5 text-[9px] font-medium shadow-sm transition-all duration-150',
+                        expanded
+                          ? 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                          : 'border-cyan-300/80 bg-cyan-50/95 text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-900/70 dark:text-cyan-200 hover:bg-cyan-100 dark:hover:bg-cyan-900/90'
+                      )}
+                      style={{ top: `${Math.max(0, indicator.top)}px` }}
+                      title={expanded ? 'Show less' : `${indicator.hiddenCount} overlapping jobs hidden`}
+                    >
+                      {expanded ? 'Show less' : `+${indicator.hiddenCount} more`}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )
@@ -1011,6 +623,7 @@ function DayView({
   variant,
   cardVariant,
   focusedJobId,
+  expandDenseByFilters = false,
   onJobMove,
 }: {
   currentDate: Date
@@ -1019,6 +632,7 @@ function DayView({
   variant: PlannerVariant
   cardVariant: ScheduleJobCardVariant
   focusedJobId?: string | null
+  expandDenseByFilters?: boolean
   onJobMove?: (jobId: string, newDate: Date, newHour: number) => void
 }) {
   const dayJobs = useMemo(() => {
@@ -1035,8 +649,14 @@ function DayView({
   const isTodayDate = isToday(currentDate)
   const [draggingJob, setDraggingJob] = useState<Job | null>(null)
   const [dragOverHour, setDragOverHour] = useState<{ hour: number; hasConflict: boolean } | null>(null)
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(() => new Set())
   const timeColumnClass =
     variant === 'minimal' ? 'w-10' : variant === 'balanced' ? 'w-16' : 'w-14'
+
+  const isDenseClusterExpanded = useCallback((clusterId: string) => {
+    if (expandDenseByFilters) return true
+    return expandedClusters.has(clusterId)
+  }, [expandDenseByFilters, expandedClusters])
 
   const currentTimePos = useMemo(() => {
     if (!isTodayDate) return null
@@ -1080,6 +700,18 @@ function DayView({
     setDragOverHour(null)
   }
 
+  const toggleCluster = (clusterId: string) => {
+    setExpandedClusters(prev => {
+      const next = new Set(prev)
+      if (next.has(clusterId)) {
+        next.delete(clusterId)
+      } else {
+        next.add(clusterId)
+      }
+      return next
+    })
+  }
+
   return (
     <div className="flex h-[calc(100vh-280px)] min-h-[500px]">
       {/* Timeline */}
@@ -1105,15 +737,15 @@ function DayView({
           {Array.from({ length: TOTAL_HOURS }).map((_, i) => (
             <div
               key={i}
-              className={`
-                absolute left-0 right-0 border-t border-slate-50 dark:border-slate-800/70 transition-colors
-                ${draggingJob ? 'z-20' : ''}
-                ${dragOverHour?.hour === START_HOUR + i
+              className={cn(
+                'absolute left-0 right-0 border-t border-slate-50 dark:border-slate-800/70 transition-colors',
+                draggingJob && 'z-20',
+                dragOverHour?.hour === START_HOUR + i
                   ? dragOverHour.hasConflict
                     ? 'bg-rose-100/70 dark:bg-rose-500/25'
                     : 'bg-cyan-100/60 dark:bg-cyan-400/20'
-                  : ''}
-              `}
+                  : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'
+              )}
               style={{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
               onDragOver={(e) => {
                 e.preventDefault()
@@ -1142,12 +774,13 @@ function DayView({
             </div>
           )}
 
-          {/* Jobs */}
+          {/* Jobs with compact mode for day view */}
           <AnimatePresence>
             {dayPlacements
-              .filter((placement) => !placement.hiddenByDensity)
+              .filter((placement) => !placement.hiddenByDensity || isDenseClusterExpanded(placement.clusterId))
               .map((placement) => {
                 const job = placement.job
+                const clusterExpanded = isDenseClusterExpanded(placement.clusterId)
                 const techIndex = technicians.findIndex(t => t.id === job.technician_id)
                 const techColor = getTechColor(job.technician_id, techIndex)
                 const isOverdue = isPast(parseISO(job.scheduled_start)) && job.status === 'scheduled'
@@ -1161,12 +794,14 @@ function DayView({
                     isOverdue={isOverdue}
                     lane={placement.lane}
                     laneCount={placement.laneCount}
+                    useFullLaneCount={clusterExpanded}
                     hasTechConflict={placement.hasTechConflict}
                     positionTop={placement.top}
                     positionHeight={placement.height}
                     isFocused={focusedJobId === job.id}
                     isDragging={draggingJob?.id === job.id}
                     isDropMode={Boolean(draggingJob)}
+                    compact={!clusterExpanded} // Compact mode when not expanded
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                   />
@@ -1174,16 +809,27 @@ function DayView({
               })}
           </AnimatePresence>
 
-          {denseIndicators.map((indicator) => (
-            <div
-              key={indicator.clusterId}
-              className="absolute right-1 z-30 rounded-md border border-cyan-300/80 bg-cyan-50/95 px-1.5 py-0.5 text-[9px] font-medium text-cyan-700 shadow-sm dark:border-cyan-500/40 dark:bg-cyan-900/70 dark:text-cyan-200"
-              style={{ top: `${Math.max(0, indicator.top)}px` }}
-              title={`${indicator.hiddenCount} overlapping jobs hidden`}
-            >
-              +{indicator.hiddenCount} more
-            </div>
-          ))}
+          {/* +N more indicators with inline expansion */}
+          {!expandDenseByFilters && denseIndicators.map((indicator) => {
+            const expanded = isDenseClusterExpanded(indicator.clusterId)
+            return (
+              <button
+                type="button"
+                key={indicator.clusterId}
+                onClick={() => toggleCluster(indicator.clusterId)}
+                className={cn(
+                  'absolute right-1 z-30 rounded-md border px-1.5 py-0.5 text-[9px] font-medium shadow-sm transition-all duration-150',
+                  expanded
+                    ? 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    : 'border-cyan-300/80 bg-cyan-50/95 text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-900/70 dark:text-cyan-200 hover:bg-cyan-100 dark:hover:bg-cyan-900/90'
+                )}
+                style={{ top: `${Math.max(0, indicator.top)}px` }}
+                title={expanded ? 'Show less' : `${indicator.hiddenCount} overlapping jobs hidden`}
+              >
+                {expanded ? 'Show less' : `+${indicator.hiddenCount} more`}
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -1207,8 +853,23 @@ function MonthView({
   const cellMinHeight =
     variant === 'minimal' ? 'min-h-[96px] md:min-h-[116px]' : variant === 'balanced' ? 'min-h-[132px] md:min-h-[152px]' : 'min-h-[112px] md:min-h-[136px]'
 
+  // Track expanded cells for +N more
+  const [expandedCells, setExpandedCells] = useState<Set<string>>(new Set())
+
+  const toggleCell = (dayKey: string) => {
+    setExpandedCells(prev => {
+      const next = new Set(prev)
+      if (next.has(dayKey)) {
+        next.delete(dayKey)
+      } else {
+        next.add(dayKey)
+      }
+      return next
+    })
+  }
+
   return (
-    <div className="grid grid-cols-7 bg-white dark:bg-slate-900">
+    <div className="grid grid-cols-7 gap-0">
       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
         <div key={d} className="p-2 text-center text-[10px] font-medium text-slate-400 dark:text-slate-400 uppercase tracking-wide border-b border-slate-100 dark:border-slate-800">
           {d}
@@ -1216,25 +877,35 @@ function MonthView({
       ))}
 
       {days.map(day => {
+        const dayKey = format(day, 'yyyy-MM-dd')
         const dayJobs = jobs.filter(job => isSameDay(parseJobDate(job.scheduled_start), day))
         const isCurrentMonth = day.getMonth() === currentDate.getMonth()
+        const isExpanded = expandedCells.has(dayKey)
+        const visibleJobs = isExpanded ? dayJobs : dayJobs.slice(0, 4)
+        const hasMore = dayJobs.length > 4
 
         return (
           <div
             key={day.toISOString()}
-            className={`
-              ${cellMinHeight} cursor-pointer p-1.5 border-b border-r border-slate-50 transition-colors hover:bg-slate-50 dark:border-slate-800/70 dark:hover:bg-slate-800/70
-              ${isToday(day) ? 'bg-cyan-50/35 dark:bg-cyan-500/[0.08] ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30' : ''}
-              ${!isCurrentMonth ? 'opacity-40 bg-slate-50 dark:bg-slate-800/60' : ''}
-            `}
+            className={cn(
+              `${cellMinHeight} cursor-pointer p-1.5 border-b border-r border-slate-100 dark:border-slate-800 transition-colors duration-150`,
+              'hover:bg-slate-50 dark:hover:bg-slate-800/50',
+              isToday(day) && 'bg-cyan-50/35 dark:bg-cyan-500/[0.08] ring-1 ring-inset ring-cyan-200/70 dark:ring-cyan-400/30',
+              !isCurrentMonth && 'opacity-40 bg-slate-50 dark:bg-slate-800/60'
+            )}
             onClick={() => onSelectDay(day)}
           >
             <div className="mb-1 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => onSelectDay(day)}
-                className={`rounded px-1 text-xs font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/70 ${isToday(day) ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-700 dark:text-slate-200'
-                  }`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSelectDay(day)
+                }}
+                className={cn(
+                  'rounded-lg px-1.5 py-0.5 text-xs font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-700/70',
+                  isToday(day) ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-700 dark:text-slate-200'
+                )}
                 title={`Open ${format(day, 'MMM d')} day view`}
               >
                 {format(day, 'd')}
@@ -1244,29 +915,378 @@ function MonthView({
               )}
             </div>
 
-            <div className="space-y-0.5">
-              {dayJobs.slice(0, 3).map((job, i) => {
+            <div className={cn(
+              "space-y-0.5 overflow-y-auto pr-0.5 no-scrollbar transition-all duration-150",
+              isExpanded ? 'max-h-[200px]' : 'max-h-[92px]'
+            )}>
+              {visibleJobs.map((job) => {
                 const status = STATUS_CONFIG[job.status] || STATUS_CONFIG.scheduled
                 const start = parseJobDate(job.scheduled_start)
                 return (
                   <Link
                     key={job.id}
                     href={`/admin/jobs/${job.id}`}
+                    prefetch={false}
                     onClick={(event) => event.stopPropagation()}
-                    className="flex items-center gap-1 text-[9px] truncate px-1.5 py-0.5 rounded bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
+                    className={cn(
+                      'admin-card-compact flex items-center gap-1.5 text-[9px] truncate px-2 py-1 border transition-colors',
+                      'bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                    )}
                   >
                     <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status.dot}`} />
                     <span className="text-slate-600 dark:text-slate-300 truncate">{format(start, 'h:mm')} {job.customer_name}</span>
                   </Link>
                 )
               })}
-              {dayJobs.length > 3 && (
-                <p className="text-[9px] text-slate-400 dark:text-slate-400 pl-1">+{dayJobs.length - 3}</p>
+              
+              {/* +N more with inline expansion */}
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleCell(dayKey)
+                  }}
+                  className={cn(
+                    'w-full text-left px-2 py-1 text-[9px] font-medium rounded-md transition-all duration-150',
+                    isExpanded
+                      ? 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/50'
+                      : 'text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50 dark:text-cyan-400 dark:hover:bg-cyan-900/20'
+                  )}
+                >
+                  {isExpanded ? 'Show less' : `+${dayJobs.length - 4} more`}
+                </button>
               )}
             </div>
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ========================================
+// COMPACT DATE RAIL COMPONENT
+// ========================================
+function CompactDateRail({
+  view,
+  currentDate,
+  onViewChange,
+  onDateChange,
+  onToday,
+  isJumpOpen,
+  onJumpToggle,
+  jumpCalendarRef,
+  miniCalendarMonth,
+  onMiniCalendarMonthChange,
+  onMiniCalendarSelect,
+  activeFiltersCount,
+  onFiltersClick,
+}: {
+  view: ScheduleView
+  currentDate: Date
+  onViewChange: (v: ScheduleView) => void
+  onDateChange: (delta: number, unit: 'day' | 'week' | 'month') => void
+  onToday: () => void
+  isJumpOpen: boolean
+  onJumpToggle: () => void
+  jumpCalendarRef: React.RefObject<HTMLDivElement | null>
+  miniCalendarMonth: Date
+  onMiniCalendarMonthChange: (d: Date) => void
+  onMiniCalendarSelect: (d: Date) => void
+  activeFiltersCount: number
+  onFiltersClick: () => void
+}) {
+  const getDateRangeDisplay = () => {
+    if (view === 'day') return format(currentDate, 'MMM d, yyyy')
+    if (view === 'week') {
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
+      const weekEnd = addDays(weekStart, WEEK_LAST_DAY_OFFSET)
+      return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`
+    }
+    return format(currentDate, 'MMMM yyyy')
+  }
+
+  const miniCalendarDays = useMemo(() => {
+    const monthStart = startOfMonth(miniCalendarMonth)
+    const monthEnd = endOfMonth(miniCalendarMonth)
+    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 })
+    const gridEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 0 }), 6)
+    return eachDayOfInterval({ start: gridStart, end: gridEnd })
+  }, [miniCalendarMonth])
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Main Rail */}
+      <div className="flex items-center rounded-xl border border-slate-200/80 bg-white/90 dark:border-slate-700 dark:bg-slate-900/90 overflow-hidden">
+        {/* Previous */}
+        <button
+          type="button"
+          onClick={() => onDateChange(-1, view === 'day' ? 'day' : view === 'week' ? 'week' : 'month')}
+          className="h-9 w-9 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-slate-100 transition-colors"
+          title="Previous"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Today */}
+        <button
+          type="button"
+          onClick={onToday}
+          className="h-9 px-3 text-xs font-mono font-medium text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800/60 transition-colors border-x border-slate-100 dark:border-slate-800"
+        >
+          Today
+        </button>
+
+        {/* Next */}
+        <button
+          type="button"
+          onClick={() => onDateChange(1, view === 'day' ? 'day' : view === 'week' ? 'week' : 'month')}
+          className="h-9 w-9 flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-slate-100 transition-colors"
+          title="Next"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
+        {/* Date Range Display */}
+        <span className="h-9 px-4 flex items-center text-sm font-medium text-slate-700 dark:text-slate-200 border-l border-slate-100 dark:border-slate-800 min-w-[140px] justify-center">
+          {getDateRangeDisplay()}
+        </span>
+
+        {/* Jump Button with Popover */}
+        <div ref={jumpCalendarRef} className="relative">
+          <button
+            type="button"
+            onClick={onJumpToggle}
+            className={cn(
+              'h-9 px-3 flex items-center gap-1.5 text-xs font-mono font-medium border-l border-slate-100 dark:border-slate-800 transition-colors',
+              isJumpOpen
+                ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300'
+                : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60'
+            )}
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Jump
+          </button>
+
+          {/* Jump Popover - High z-index to appear above all panels */}
+          <AnimatePresence>
+            {isJumpOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                transition={{ duration: 0.15 }}
+                className="absolute right-0 top-full z-[100] mt-2 w-[280px] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => onMiniCalendarMonthChange(subMonths(miniCalendarMonth, 1))}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
+                    {format(miniCalendarMonth, 'MMMM yyyy')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onMiniCalendarMonthChange(addMonths(miniCalendarMonth, 1))}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/70"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mb-1 grid grid-cols-7 gap-1">
+                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, idx) => (
+                    <div
+                      key={`mini-day-label-${label}-${idx}`}
+                      className="text-center font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500"
+                    >
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1">
+                  {miniCalendarDays.map((day) => {
+                    const inCurrentMonth = day.getMonth() === miniCalendarMonth.getMonth()
+                    const selected = isSameDay(day, currentDate)
+                    const today = isToday(day)
+
+                    return (
+                      <button
+                        key={`mini-day-${day.toISOString()}`}
+                        type="button"
+                        onClick={() => onMiniCalendarSelect(day)}
+                        className={cn(
+                          'h-8 rounded-md text-xs font-medium transition-colors',
+                          selected
+                            ? 'bg-cyan-500 text-slate-950'
+                            : today
+                              ? 'border border-cyan-300 text-cyan-700 dark:border-cyan-500/40 dark:text-cyan-300'
+                              : inCurrentMonth
+                                ? 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/70'
+                                : 'text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-800/50'
+                        )}
+                        title={`Open ${format(day, 'MMM d, yyyy')}`}
+                      >
+                        {format(day, 'd')}
+                      </button>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Filters Button */}
+        <button
+          type="button"
+          onClick={onFiltersClick}
+          className={cn(
+            'h-9 px-3 flex items-center gap-1.5 text-xs font-mono font-medium border-l border-slate-100 dark:border-slate-800 transition-colors',
+            activeFiltersCount > 0
+              ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300'
+              : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60'
+          )}
+        >
+          Filters
+          {activeFiltersCount > 0 && (
+            <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-500 text-[9px] font-bold text-white px-1">
+              {activeFiltersCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* View Toggle */}
+      <div className="flex items-center rounded-xl border border-slate-200/80 bg-white/90 p-0.5 dark:border-slate-700 dark:bg-slate-900/90">
+        {(['day', 'week', 'month'] as const).map((v) => {
+          const selected = view === v
+          return (
+            <motion.button
+              key={v}
+              type="button"
+              onClick={() => onViewChange(v)}
+              whileTap={{ scale: 0.98 }}
+              className={cn(
+                'relative h-8 min-w-[56px] rounded-lg px-3 font-mono text-[10px] uppercase tracking-[0.14em] transition-colors',
+                selected
+                  ? 'text-slate-950 dark:text-slate-950'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100'
+              )}
+            >
+              {selected && (
+                <motion.span
+                  layoutId="schedule-view-pill-rail"
+                  className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-400 to-indigo-400"
+                  transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                />
+              )}
+              <span className="relative z-10">{v}</span>
+            </motion.button>
+          )
+        })}
+      </div>
+
+      {/* New Button */}
+      <Link href="/admin/jobs/new" data-test="add-appointment">
+        <Button
+          variant="glassPrimary"
+          size="sm"
+          data-test="add-appointment"
+          className="h-9 rounded-xl border border-cyan-300/70 bg-gradient-to-r from-cyan-400 to-indigo-400 px-3 font-mono text-[10px] uppercase tracking-[0.14em] text-slate-950 shadow-[0_10px_24px_-14px_rgba(6,182,212,0.6)] transition-transform hover:-translate-y-0.5"
+          icon={<Plus className="w-3.5 h-3.5" />}
+        >
+          New
+        </Button>
+      </Link>
+    </div>
+  )
+}
+
+// ========================================
+// SUMMARY CARDS COMPONENT
+// ========================================
+function SummaryCards({
+  summaryJobs,
+  unassignedCount,
+  possibleIssuesCount,
+  plannedHours,
+  focus,
+  onFocusChange,
+  periodLabel,
+}: {
+  summaryJobs: Job[]
+  unassignedCount: number
+  possibleIssuesCount: number
+  plannedHours: number
+  focus: 'all' | 'unassigned' | 'possible_issues'
+  onFocusChange: (f: 'all' | 'unassigned' | 'possible_issues') => void
+  periodLabel: string
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+      {/* Jobs Card - clickable */}
+      <button
+        type="button"
+        onClick={() => onFocusChange('all')}
+        className={cn(
+          "admin-card admin-card-compact text-left transition-all duration-150",
+          focus === 'all'
+            ? "bg-slate-100 dark:bg-slate-800 ring-1 ring-slate-300 dark:ring-slate-600"
+            : "hover:bg-slate-50 dark:hover:bg-slate-800/70"
+        )}
+      >
+        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">Jobs</p>
+        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">for {periodLabel}</p>
+        <p className="font-display text-xl text-slate-800 dark:text-slate-100 mt-1">{summaryJobs.length}</p>
+      </button>
+
+      {/* Unassigned Card - clickable filter */}
+      <button
+        type="button"
+        onClick={() => onFocusChange(focus === 'unassigned' ? 'all' : 'unassigned')}
+        className={cn(
+          "admin-card admin-card-compact text-left transition-all duration-150",
+          focus === 'unassigned'
+            ? "bg-amber-100/90 dark:bg-amber-500/20 ring-1 ring-amber-400 dark:ring-amber-400/60"
+            : "bg-amber-50/80 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+        )}
+      >
+        <p className="text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400">Unassigned</p>
+        <p className="text-[9px] text-amber-500/70 dark:text-amber-400/70 mt-0.5">for {periodLabel}</p>
+        <p className="font-display text-xl text-amber-700 dark:text-amber-300 mt-1">{unassignedCount}</p>
+      </button>
+
+      {/* Possible Issues Card - clickable filter */}
+      <button
+        type="button"
+        onClick={() => onFocusChange(focus === 'possible_issues' ? 'all' : 'possible_issues')}
+        className={cn(
+          "admin-card admin-card-compact text-left transition-all duration-150",
+          focus === 'possible_issues'
+            ? "bg-rose-100/90 dark:bg-rose-500/20 ring-1 ring-rose-400 dark:ring-rose-400/60"
+            : "bg-rose-50/80 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20"
+        )}
+      >
+        <p className="text-[10px] font-mono uppercase tracking-widest text-rose-700 dark:text-rose-300">Possible Issues</p>
+        <p className="text-[9px] text-rose-500/70 dark:text-rose-400/70 mt-0.5">for {periodLabel}</p>
+        <p className="font-display text-xl text-rose-700 dark:text-rose-200 mt-1">{possibleIssuesCount}</p>
+      </button>
+
+      {/* Planned Hours Card - not clickable */}
+      <div className="admin-card admin-card-compact bg-emerald-50/80 dark:bg-emerald-500/10">
+        <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Planned Hours</p>
+        <p className="text-[9px] text-emerald-500/70 dark:text-emerald-400/70 mt-0.5">for {periodLabel}</p>
+        <p className="font-display text-xl text-emerald-700 dark:text-emerald-300 mt-1">{plannedHours.toFixed(1)}h</p>
+      </div>
     </div>
   )
 }
@@ -1296,12 +1316,14 @@ export default function SchedulePage() {
   const [miniCalendarMonth, setMiniCalendarMonth] = useState<Date>(() => startOfMonth(new Date()))
   const [openContextMenu, setOpenContextMenu] = useState<null | 'tech' | 'status' | 'service' | 'invoice'>(null)
   const [focusedScheduleJobId, setFocusedScheduleJobId] = useState<string | null>(null)
+  const [summaryFocus, setSummaryFocus] = useState<'all' | 'unassigned' | 'possible_issues'>('all')
   const [focusJumpKey, setFocusJumpKey] = useState(0)
   const [businessId, setBusinessId] = useState('')
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const miniCalendarRef = useRef<HTMLDivElement | null>(null)
   const fetchDebounceRef = useRef<number | null>(null)
   const activeWindowRef = useRef<{ start: Date; end: Date } | null>(null)
+  const [viewTransitioning, setViewTransitioning] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
 
@@ -1649,6 +1671,7 @@ export default function SchedulePage() {
     if (summaryDateFrom !== defaultSummaryRange.from || summaryDateTo !== defaultSummaryRange.to) count += 1
     if (timeFromFilter) count += 1
     if (timeToFilter) count += 1
+    if (summaryFocus !== 'all') count += 1
     return count
   }, [
     searchQuery,
@@ -1661,6 +1684,7 @@ export default function SchedulePage() {
     defaultSummaryRange,
     timeFromFilter,
     timeToFilter,
+    summaryFocus,
   ])
 
   const activeFilterChips = useMemo(() => {
@@ -1738,6 +1762,14 @@ export default function SchedulePage() {
       })
     }
 
+    if (summaryFocus !== 'all') {
+      chips.push({
+        key: 'focus',
+        label: summaryFocus === 'unassigned' ? 'Focus: Unassigned' : 'Focus: Possible Issues',
+        onClear: () => setSummaryFocus('all'),
+      })
+    }
+
     return chips
   }, [
     searchQuery,
@@ -1751,12 +1783,8 @@ export default function SchedulePage() {
     defaultSummaryRange,
     timeFromFilter,
     timeToFilter,
+    summaryFocus,
   ])
-
-  const filteredJobsPreview = useMemo(
-    () => filteredJobs,
-    [filteredJobs]
-  )
 
   const jumpToJobOnSchedule = useCallback((job: Job) => {
     const scheduledAt = parseJobDate(job.scheduled_start)
@@ -1827,6 +1855,7 @@ export default function SchedulePage() {
     setSummaryDateTo(defaults.to)
     setTimeFromFilter('')
     setTimeToFilter('')
+    setSummaryFocus('all')
     setOpenContextMenu(null)
   }
 
@@ -1897,33 +1926,22 @@ export default function SchedulePage() {
     ))
   }
 
-  type ScrubUnit = 'day' | 'week' | 'month' | 'year'
-  const scrubOptions: Array<{ label: string; unit: ScrubUnit }> = [
-    { label: '1 Day', unit: 'day' },
-    { label: '1 Week', unit: 'week' },
-    { label: '1 Month', unit: 'month' },
-    { label: '1 Year', unit: 'year' },
-  ]
-
-  const scrubBack = (unit: ScrubUnit) => {
-    setCurrentDate((prev) => {
-      if (unit === 'day') return addDays(prev, -1)
-      if (unit === 'week') return addDays(prev, -7)
-      if (unit === 'month') return subMonths(prev, 1)
-      return subMonths(prev, 12)
-    })
+  const handleViewChange = (newView: ScheduleView) => {
+    if (newView === view) return
+    setViewTransitioning(true)
+    setTimeout(() => {
+      setView(newView)
+      setTimeout(() => setViewTransitioning(false), 150)
+    }, 150)
   }
 
-  const scrubForward = (unit: ScrubUnit) => {
-    setCurrentDate((prev) => {
-      if (unit === 'day') return addDays(prev, 1)
-      if (unit === 'week') return addDays(prev, 7)
-      if (unit === 'month') return addMonths(prev, 1)
-      return addMonths(prev, 12)
+  const handleDateChange = (delta: number, unit: 'day' | 'week' | 'month') => {
+    setCurrentDate(prev => {
+      if (unit === 'day') return addDays(prev, delta)
+      if (unit === 'week') return addDays(prev, delta * 7)
+      return delta > 0 ? addMonths(prev, 1) : subMonths(prev, 1)
     })
   }
-
-  const defaultScrubUnit: ScrubUnit = view === 'day' ? 'day' : view === 'week' ? 'week' : 'month'
 
   const goToToday = () => setCurrentDate(new Date())
 
@@ -1933,74 +1951,133 @@ export default function SchedulePage() {
     setIsMiniCalendarOpen(false)
   }, [])
 
-  const summaryRange = useMemo(() => {
-    const fallbackStart = startOfWeek(currentDate, { weekStartsOn: 1 })
-    const fallbackEnd = addDays(fallbackStart, WEEK_LAST_DAY_OFFSET)
-
-    const parsedStart = summaryDateFrom ? parseISO(`${summaryDateFrom}T00:00:00`) : fallbackStart
-    const parsedEnd = summaryDateTo ? parseISO(`${summaryDateTo}T23:59:59.999`) : fallbackEnd
-
-    const initialStart = Number.isNaN(parsedStart.getTime())
-      ? new Date(fallbackStart.getFullYear(), fallbackStart.getMonth(), fallbackStart.getDate(), 0, 0, 0, 0)
-      : new Date(parsedStart.getFullYear(), parsedStart.getMonth(), parsedStart.getDate(), 0, 0, 0, 0)
-    const initialEnd = Number.isNaN(parsedEnd.getTime())
-      ? new Date(fallbackEnd.getFullYear(), fallbackEnd.getMonth(), fallbackEnd.getDate(), 23, 59, 59, 999)
-      : new Date(parsedEnd.getFullYear(), parsedEnd.getMonth(), parsedEnd.getDate(), 23, 59, 59, 999)
-
-    if (initialStart <= initialEnd) {
-      return { start: initialStart, end: initialEnd }
-    }
-
-    return { start: initialEnd, end: initialStart }
-  }, [summaryDateFrom, summaryDateTo, currentDate])
+  const periodRange = useMemo(
+    () => getScheduleRange(currentDate, view),
+    [currentDate, view]
+  )
 
   const summaryJobs = useMemo(() => {
     return filteredJobs
       .filter((job) => {
         const jobDate = parseJobDate(job.scheduled_start)
-        return jobDate >= summaryRange.start && jobDate <= summaryRange.end
+        return jobDate >= periodRange.start && jobDate < periodRange.endExclusive
       })
       .sort(
         (a, b) =>
           parseJobDate(a.scheduled_start).getTime() - parseJobDate(b.scheduled_start).getTime()
       )
-  }, [filteredJobs, summaryRange])
-
-  const completedSummaryCount = useMemo(
-    () => summaryJobs.filter((job) => job.status === 'completed').length,
-    [summaryJobs]
-  )
+  }, [filteredJobs, periodRange])
 
   const unassignedSummaryCount = useMemo(
     () => summaryJobs.filter((job) => !job.technician_id).length,
     [summaryJobs]
   )
 
-  const technicianLoadSummary = useMemo(() => {
-    const techLoadMap = new Map<string, { name: string; count: number }>()
+  const possibleIssueJobIds = useMemo(() => {
+    const nowMs = Date.now()
+    const jobIds = new Set<string>()
+
+    const byTechnician = new Map<string, Job[]>()
     for (const job of summaryJobs) {
-      const techId = job.technician_id || 'unassigned'
-      const techName = job.technician_name || 'Unassigned'
-      const existing = techLoadMap.get(techId) || { name: techName, count: 0 }
-      existing.count += 1
-      techLoadMap.set(techId, existing)
+      if (!job.technician_id) continue
+      if (job.status === 'cancelled') continue
+      const current = byTechnician.get(job.technician_id) || []
+      current.push(job)
+      byTechnician.set(job.technician_id, current)
     }
 
-    return Array.from(techLoadMap.entries())
-      .map(([id, value]) => ({ id, ...value }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 4)
+    const getRegionKey = (address: string | null | undefined) => {
+      if (!address) return ''
+      const normalized = address.toLowerCase().trim()
+      const postcode = normalized.match(/\b\d{4,5}\b/)?.[0] || ''
+      const parts = normalized.split(',').map((part) => part.trim()).filter(Boolean)
+      const locality = parts.length >= 2 ? parts[parts.length - 2] : parts[0] || ''
+      return `${locality}|${postcode}`
+    }
+
+    for (const [technicianId, techJobs] of byTechnician.entries()) {
+      const ordered = [...techJobs].sort(
+        (a, b) => parseJobDate(a.scheduled_start).getTime() - parseJobDate(b.scheduled_start).getTime()
+      )
+
+      let totalMinutes = 0
+      for (let i = 0; i < ordered.length; i += 1) {
+        const currentJob = ordered[i]
+        const { start, end, durationMinutes } = getJobInterval(currentJob)
+        totalMinutes += durationMinutes
+
+        if (i === 0) continue
+        const previousJob = ordered[i - 1]
+        const prevInterval = getJobInterval(previousJob)
+        const gapMinutes = Math.floor((start.getTime() - prevInterval.end.getTime()) / 60000)
+
+        if (gapMinutes < 0) {
+          jobIds.add(previousJob.id)
+          jobIds.add(currentJob.id)
+          continue
+        }
+
+        if (gapMinutes < 20) {
+          jobIds.add(currentJob.id)
+        }
+
+        const prevRegion = getRegionKey(previousJob.address)
+        const currentRegion = getRegionKey(currentJob.address)
+        if (prevRegion && currentRegion && prevRegion !== currentRegion && gapMinutes <= 30) {
+          jobIds.add(currentJob.id)
+        }
+      }
+
+      if (totalMinutes > 10 * 60) {
+        for (const job of ordered) jobIds.add(job.id)
+      }
+    }
+
+    for (const job of summaryJobs) {
+      if (job.status === 'completed' || job.status === 'cancelled') continue
+
+      const { start } = getJobInterval(job)
+      const startMs = start.getTime()
+
+      if (!job.technician_id && startMs <= nowMs + 2 * 60 * 60 * 1000) {
+        jobIds.add(job.id)
+      }
+
+      if (job.status === 'scheduled' && startMs < nowMs - 15 * 60 * 1000) {
+        jobIds.add(job.id)
+      }
+    }
+
+    return jobIds
+  }, [summaryJobs])
+
+  const possibleIssuesSummaryCount = possibleIssueJobIds.size
+
+  const displayJobs = useMemo(() => {
+    if (summaryFocus === 'unassigned') {
+      return filteredJobs.filter((job) => !job.technician_id)
+    }
+    if (summaryFocus === 'possible_issues') {
+      return filteredJobs.filter((job) => possibleIssueJobIds.has(job.id))
+    }
+    return filteredJobs
+  }, [filteredJobs, possibleIssueJobIds, summaryFocus])
+
+  const filteredJobsPreview = useMemo(
+    () => displayJobs,
+    [displayJobs]
+  )
+
+  const plannedHoursSummary = useMemo(() => {
+    const totalMinutes = summaryJobs.reduce((sum, job) => {
+      if (job.status === 'cancelled') return sum
+      const { durationMinutes } = getJobInterval(job)
+      return sum + durationMinutes
+    }, 0)
+    return totalMinutes / 60
   }, [summaryJobs])
 
   const plannerVariant: PlannerVariant = 'minimal'
-
-  const miniCalendarDays = useMemo(() => {
-    const monthStart = startOfMonth(miniCalendarMonth)
-    const monthEnd = endOfMonth(miniCalendarMonth)
-    const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 })
-    const gridEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 0 }), 6)
-    return eachDayOfInterval({ start: gridStart, end: gridEnd })
-  }, [miniCalendarMonth])
 
   useEffect(() => {
     const nextMonth = startOfMonth(currentDate)
@@ -2011,6 +2088,12 @@ export default function SchedulePage() {
         : nextMonth
     )
   }, [currentDate])
+
+  const getPeriodLabel = () => {
+    if (view === 'day') return 'selected day'
+    if (view === 'week') return 'selected week'
+    return 'selected month'
+  }
 
   if (loading) {
     return (
@@ -2026,7 +2109,7 @@ export default function SchedulePage() {
             <div className="h-8 w-36 rounded-lg bg-slate-200 dark:bg-slate-800" />
           </div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+        <div className="admin-card p-4">
           <div className="h-[500px] rounded-lg bg-slate-100 dark:bg-slate-800/60" />
         </div>
       </div>
@@ -2035,11 +2118,12 @@ export default function SchedulePage() {
 
   return (
     <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl dark:border-white/5 dark:bg-slate-900/40">
+      <div className="relative overflow-visible rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-xl backdrop-blur-md dark:border-white/5 dark:bg-slate-900/40">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-cyan-500/5" />
-        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-cyan-500/10 blur-[100px] mix-blend-screen" />
+        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-cyan-500/8 blur-[64px] mix-blend-screen" />
 
         <div className="relative z-20 flex flex-col gap-4">
+          {/* Header with Compact Date Rail */}
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-display font-medium text-slate-900 dark:text-white pb-1 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300">
@@ -2047,186 +2131,29 @@ export default function SchedulePage() {
               </h1>
               <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-slate-500 dark:text-cyan-400/80 mt-0.5 font-bold">
                 {activeFiltersCount
-                  ? `${filteredJobs.length} OF ${jobs.length} JOBS SHOWN`
+                  ? `${displayJobs.length} OF ${jobs.length} JOBS SHOWN`
                   : `${jobs.length} JOBS ACROSS OPERATIONS`}
               </p>
             </div>
 
-            <div className="relative z-40 flex flex-wrap items-center gap-2">
-              <Button
-                variant="glass"
-                size="sm"
-                className="rounded-full text-xs"
-                onClick={goToToday}
-              >
-                Today
-              </Button>
-
-              <div ref={miniCalendarRef} className="relative">
-                <Button
-                  variant="glass"
-                  size="sm"
-                  className="rounded-full text-xs"
-                  onClick={() => setIsMiniCalendarOpen((prev) => !prev)}
-                  icon={<CalendarDays className="w-3.5 h-3.5" />}
-                >
-                  Jump
-                </Button>
-
-                {isMiniCalendarOpen && (
-                  <div className="absolute right-0 top-full z-[130] mt-2 w-[280px] rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                    <div className="mb-2 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => setMiniCalendarMonth((prev) => subMonths(prev, 1))}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/70"
-                        aria-label="Previous month"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <p className="font-mono text-xs uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
-                        {format(miniCalendarMonth, 'MMMM yyyy')}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setMiniCalendarMonth((prev) => addMonths(prev, 1))}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/70"
-                        aria-label="Next month"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="mb-1 grid grid-cols-7 gap-1">
-                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, idx) => (
-                        <div
-                          key={`mini-day-label-${label}-${idx}`}
-                          className="text-center font-mono text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500"
-                        >
-                          {label}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1">
-                      {miniCalendarDays.map((day) => {
-                        const inCurrentMonth = day.getMonth() === miniCalendarMonth.getMonth()
-                        const selected = isSameDay(day, currentDate)
-                        const today = isToday(day)
-
-                        return (
-                          <button
-                            key={`mini-day-${day.toISOString()}`}
-                            type="button"
-                            onClick={() => handleMiniCalendarSelect(day)}
-                            className={`h-8 rounded-md text-xs font-medium transition-colors ${selected
-                              ? 'bg-cyan-500 text-slate-950'
-                              : today
-                                ? 'border border-cyan-300 text-cyan-700 dark:border-cyan-500/40 dark:text-cyan-300'
-                                : inCurrentMonth
-                                  ? 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800/70'
-                                  : 'text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-slate-800/50'
-                              }`}
-                            title={`Open ${format(day, 'MMM d, yyyy')}`}
-                          >
-                            {format(day, 'd')}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-visible">
-                <div className="relative group">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => scrubBack(defaultScrubUnit)}
-                    className="h-8 w-8 rounded-none rounded-l-lg border-r border-slate-100 p-0 text-slate-500 shadow-none hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  </Button>
-                  <div className="absolute top-full left-0 mt-1 hidden group-hover:block group-focus-within:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[120] min-w-[120px]">
-                    {scrubOptions.map((option) => (
-                      <button type="button"
-                        key={`back-${option.unit}`}
-                        onClick={() => scrubBack(option.unit)}
-                        className="block w-full text-left px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                      >
-                        - {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <span className="px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 min-w-[170px] text-center">
-                  {view === 'day' && format(currentDate, 'MMM d, yyyy')}
-                  {view === 'week' &&
-                    `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(
-                      addDays(startOfWeek(currentDate, { weekStartsOn: 1 }), WEEK_LAST_DAY_OFFSET),
-                      'MMM d'
-                    )}`}
-                  {view === 'month' && format(currentDate, 'MMMM yyyy')}
-                </span>
-
-                <div className="relative group">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => scrubForward(defaultScrubUnit)}
-                    className="h-8 w-8 rounded-none rounded-r-lg border-l border-slate-100 p-0 text-slate-500 shadow-none hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
-                  >
-                    <ChevronRight className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  </Button>
-                  <div className="absolute top-full right-0 mt-1 hidden group-hover:block group-focus-within:block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-[120] min-w-[120px]">
-                    {scrubOptions.map((option) => (
-                      <button type="button"
-                        key={`forward-${option.unit}`}
-                        onClick={() => scrubForward(option.unit)}
-                        className="block w-full text-left px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                      >
-                        + {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
-                {(['day', 'week', 'month'] as const).map((v, index) => (
-                  <Button
-                    key={v}
-                    variant={view === v ? 'glassPrimary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setView(v)}
-                    className={`h-8 rounded-none px-3 text-xs font-medium capitalize shadow-none ${index === 0 ? 'rounded-l-full' : ''
-                      } ${index === 2 ? 'rounded-r-full' : ''} ${index > 0 ? 'border-l border-slate-100 dark:border-slate-800' : ''
-                      } ${view === v
-                        ? '!bg-cyan-600 dark:!bg-cyan-500 !text-white'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                      }`}
-                  >
-                    {v}
-                  </Button>
-                ))}
-              </div>
-
-              <Link href="/admin/jobs/new" data-test="add-appointment">
-                <Button
-                  variant="glassPrimary"
-                  size="sm"
-                  data-test="add-appointment"
-                  className="rounded-full text-xs"
-                  icon={<Plus className="w-3.5 h-3.5" />}
-                >
-                  New
-                </Button>
-              </Link>
-            </div>
+            <CompactDateRail
+              view={view}
+              currentDate={currentDate}
+              onViewChange={handleViewChange}
+              onDateChange={handleDateChange}
+              onToday={goToToday}
+              isJumpOpen={isMiniCalendarOpen}
+              onJumpToggle={() => setIsMiniCalendarOpen(prev => !prev)}
+              jumpCalendarRef={miniCalendarRef}
+              miniCalendarMonth={miniCalendarMonth}
+              onMiniCalendarMonthChange={setMiniCalendarMonth}
+              onMiniCalendarSelect={handleMiniCalendarSelect}
+              activeFiltersCount={activeFiltersCount}
+              onFiltersClick={() => setIsMatchesPanelOpen(prev => !prev)}
+            />
           </div>
 
+          {/* Filters Section */}
           <section className="sticky top-2 z-[70] rounded-2xl border border-slate-200/80 bg-white/90 p-3 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/85">
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -2246,10 +2173,12 @@ export default function SchedulePage() {
                     <button
                       type="button"
                       onClick={() => setOpenContextMenu((prev) => (prev === 'tech' ? null : 'tech'))}
-                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${technicianFilter !== 'all'
-                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
-                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
-                        }`}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors',
+                        technicianFilter !== 'all'
+                          ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                          : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                      )}
                     >
                       Tech: {selectedTechnicianLabel}
                     </button>
@@ -2296,10 +2225,12 @@ export default function SchedulePage() {
                     <button
                       type="button"
                       onClick={() => setOpenContextMenu((prev) => (prev === 'status' ? null : 'status'))}
-                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${statusFilter !== 'all'
-                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
-                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
-                        }`}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors',
+                        statusFilter !== 'all'
+                          ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                          : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                      )}
                     >
                       Status: {selectedStatusLabel}
                     </button>
@@ -2343,10 +2274,12 @@ export default function SchedulePage() {
                     <button
                       type="button"
                       onClick={() => setOpenContextMenu((prev) => (prev === 'service' ? null : 'service'))}
-                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${serviceFilter !== 'all'
-                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
-                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
-                        }`}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors',
+                        serviceFilter !== 'all'
+                          ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                          : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                      )}
                     >
                       Service: {selectedServiceLabel}
                     </button>
@@ -2383,10 +2316,12 @@ export default function SchedulePage() {
                     <button
                       type="button"
                       onClick={() => setOpenContextMenu((prev) => (prev === 'invoice' ? null : 'invoice'))}
-                      className={`rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors ${invoiceStatusFilter !== 'all'
-                        ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
-                        : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
-                        }`}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-[10px] font-mono uppercase tracking-wide transition-colors',
+                        invoiceStatusFilter !== 'all'
+                          ? 'border-cyan-300 bg-cyan-50 text-cyan-800 dark:border-cyan-500/40 dark:bg-cyan-500/15 dark:text-cyan-200'
+                          : 'border-slate-200/80 bg-white/80 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:bg-slate-800/70'
+                      )}
                     >
                       Invoice: {selectedInvoiceStatusLabel}
                     </button>
@@ -2455,52 +2390,51 @@ export default function SchedulePage() {
             </div>
           </section>
 
-          <section className="grid grid-cols-2 gap-2 md:grid-cols-5">
-            <div className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">Jobs</p>
-              <p className="font-display text-xl text-slate-800 dark:text-slate-100">{summaryJobs.length}</p>
-            </div>
-            <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/80 px-3 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Done</p>
-              <p className="font-display text-xl text-emerald-700 dark:text-emerald-300">{completedSummaryCount}</p>
-            </div>
-            <div className="rounded-xl border border-amber-200/70 bg-amber-50/80 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-amber-600 dark:text-amber-400">Open</p>
-              <p className="font-display text-xl text-amber-700 dark:text-amber-300">{unassignedSummaryCount}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200/80 bg-white/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/70">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 dark:text-slate-500">Filters</p>
-              <p className="font-display text-xl text-slate-800 dark:text-slate-100">{activeFiltersCount}</p>
-            </div>
-            <div className="rounded-xl border border-cyan-200/70 bg-cyan-50/80 px-3 py-2 dark:border-cyan-500/30 dark:bg-cyan-500/10">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-cyan-700 dark:text-cyan-300">Top Tech Load</p>
-              <p className="font-display text-xl text-cyan-700 dark:text-cyan-200">{technicianLoadSummary[0]?.count ?? 0}</p>
-            </div>
-          </section>
+          {/* Summary Cards */}
+          <SummaryCards
+            summaryJobs={summaryJobs}
+            unassignedCount={unassignedSummaryCount}
+            possibleIssuesCount={possibleIssuesSummaryCount}
+            plannedHours={plannedHoursSummary}
+            focus={summaryFocus}
+            onFocusChange={setSummaryFocus}
+            periodLabel={getPeriodLabel()}
+          />
 
+          {/* Calendar Views with Transition */}
           <div className="grid grid-cols-1 gap-4">
-
             <div className="space-y-3">
               <div
                 data-test="calendar"
                 className="relative z-0 bg-white/40 dark:bg-slate-900/30 rounded-[28px] border border-white/20 dark:border-white/5 overflow-hidden shadow-2xl backdrop-blur-md"
               >
-                <>
+                <div
+                  className={cn(
+                    "transition-all duration-150",
+                    viewTransitioning ? "opacity-0" : "opacity-100"
+                  )}
+                  style={{
+                    transition: 'opacity 150ms ease, transform 200ms ease',
+                    transform: viewTransitioning ? 'scale(0.99)' : 'scale(1)',
+                  }}
+                >
                   {view === 'day' && (
                     <DayView
+                      key={`day-${format(currentDate, 'yyyy-MM-dd')}`}
                       currentDate={currentDate}
-                      jobs={filteredJobs}
+                      jobs={displayJobs}
                       technicians={technicians}
                       variant={plannerVariant}
                       cardVariant={scheduleCardVariant}
                       focusedJobId={focusedScheduleJobId}
+                      expandDenseByFilters={activeFiltersCount > 0}
                       onJobMove={handleJobMove}
                     />
                   )}
                   {view === 'week' && (
                     <WeekView
                       currentDate={currentDate}
-                      jobs={filteredJobs}
+                      jobs={displayJobs}
                       technicians={technicians}
                       variant={plannerVariant}
                       cardVariant={scheduleCardVariant}
@@ -2511,15 +2445,15 @@ export default function SchedulePage() {
                   {view === 'month' && (
                     <MonthView
                       currentDate={currentDate}
-                      jobs={filteredJobs}
+                      jobs={displayJobs}
                       variant={plannerVariant}
                       onSelectDay={(selectedDay) => {
                         setCurrentDate(selectedDay)
-                        setView('day')
+                        handleViewChange('day')
                       }}
                     />
                   )}
-                </>
+                </div>
               </div>
 
               {isMatchesPanelOpen && (
@@ -2530,7 +2464,7 @@ export default function SchedulePage() {
                     </p>
                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                       {activeFiltersCount
-                        ? `${filteredJobs.length} job${filteredJobs.length === 1 ? '' : 's'} selected by active filters`
+                        ? `${displayJobs.length} job${displayJobs.length === 1 ? '' : 's'} selected by active filters`
                         : 'Apply filters to populate this list'}
                     </p>
                   </div>
@@ -2540,7 +2474,7 @@ export default function SchedulePage() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         Set at least one filter to preview matching jobs and jump directly to them on the schedule.
                       </p>
-                    ) : filteredJobs.length === 0 ? (
+                    ) : displayJobs.length === 0 ? (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         No jobs match the current filters.
                       </p>
@@ -2568,7 +2502,6 @@ export default function SchedulePage() {
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -2621,7 +2554,7 @@ function AgendaView({
           return (
             <div
               key={key}
-              className="rounded-xl border border-slate-200/80 bg-white/85 p-3 dark:border-slate-700/70 dark:bg-slate-900/65"
+              className="admin-card admin-card-compact"
             >
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
@@ -2643,6 +2576,7 @@ function AgendaView({
                       <Link
                         key={job.id}
                         href={`/admin/jobs/${job.id}`}
+                        prefetch={false}
                         data-test="event-block"
                         className="block rounded-lg border border-slate-200/80 bg-slate-50/80 px-2.5 py-2 transition-colors hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/60 dark:hover:bg-slate-700/70"
                       >
@@ -2726,7 +2660,7 @@ function TechnicianBoardView({
   if (grouped.length === 0) {
     return (
       <div className="p-4">
-        <div className="rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-700 dark:bg-slate-900/70">
+        <div className="admin-card p-4">
           <p className="text-sm text-slate-500 dark:text-slate-400">No jobs in this range.</p>
         </div>
       </div>
@@ -2739,7 +2673,7 @@ function TechnicianBoardView({
         {grouped.map((group) => (
           <div
             key={group.id}
-            className="rounded-xl border border-slate-200/80 bg-white/85 p-3 dark:border-slate-700/70 dark:bg-slate-900/65"
+            className="admin-card admin-card-compact"
           >
             <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.name}</p>
@@ -2755,6 +2689,7 @@ function TechnicianBoardView({
                   <Link
                     key={job.id}
                     href={`/admin/jobs/${job.id}`}
+                    prefetch={false}
                     data-test="event-block"
                     className="block rounded-lg border border-slate-200/80 bg-slate-50/80 px-2.5 py-2 transition-colors hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/60 dark:hover:bg-slate-700/70"
                   >
@@ -2785,5 +2720,3 @@ function TechnicianBoardView({
     </div>
   )
 }
-
-

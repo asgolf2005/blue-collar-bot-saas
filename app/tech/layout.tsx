@@ -29,17 +29,19 @@ export default async function TechLayout({
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-28 right-[18%] h-[680px] w-[680px] rounded-full bg-cyan-400/10 blur-[140px] dark:bg-cyan-400/16" />
-        <div className="absolute bottom-[-260px] left-[12%] h-[680px] w-[680px] rounded-full bg-emerald-400/8 blur-[140px] dark:bg-emerald-400/12" />
-        <div className="absolute inset-x-0 top-0 h-[320px] bg-gradient-to-b from-white/70 via-white/35 to-transparent dark:from-slate-950/85 dark:via-slate-950/45 dark:to-transparent" />
+        {/* Deep Spatial Background */}
+        <div className="absolute inset-x-0 -top-40 h-[1000px] w-full [background:radial-gradient(ellipse_at_top,rgba(6,182,212,0.18)_0%,transparent_70%)] dark:[background:radial-gradient(ellipse_at_top,rgba(34,211,238,0.22)_0%,transparent_70%)]" />
+        <div className="absolute -left-[20%] top-[40%] h-[600px] w-[600px] rounded-full bg-emerald-400/10 blur-[130px] dark:bg-emerald-400/15" />
+
+        {/* Mesh Grid */}
         <div
-          className="absolute inset-0 opacity-[0.02] dark:opacity-[0.03]"
+          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.04]"
           style={{
             backgroundImage: `
-              linear-gradient(rgba(31, 58, 95, 0.28) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(31, 58, 95, 0.28) 1px, transparent 1px)
+              linear-gradient(rgba(31, 58, 95, 0.4) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(31, 58, 95, 0.4) 1px, transparent 1px)
             `,
-            backgroundSize: '64px 64px',
+            backgroundSize: '48px 48px',
           }}
         />
       </div>
@@ -47,8 +49,8 @@ export default async function TechLayout({
       <TechNav userName={profile.full_name} />
       <GlobalSearch />
       <GlobalKeyboardShortcuts role="tech" />
-      <main className="relative min-h-screen pb-24 lg:pb-10">
-        <div className="mx-auto w-full max-w-[1800px] px-4 py-4 sm:px-6 lg:px-10 lg:py-6 lg:pl-[104px]">
+      <main className="relative min-h-[calc(100vh-80px)] pb-24 md:pb-10">
+        <div className="mx-auto w-full max-w-lg px-3 py-4 sm:px-4 md:py-6">
           {children}
         </div>
       </main>

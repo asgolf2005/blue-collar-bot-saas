@@ -1,8 +1,8 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState } from 'react'
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, isWithinInterval, startOfDay, endOfDay, parseISO, addWeeks } from 'date-fns'
-import { Calendar, Filter, ChevronRight, ChevronLeft, Clock, MapPin, Wrench } from '@/components/ui/icons'
+import { Calendar, Filter, ChevronRight, ChevronLeft, Clock, MapPin, Wrench } from '@/components/ui/lucide'
 import { useRouter } from 'next/navigation'
 import type { JobWithDetails } from '@/lib/types'
 
@@ -28,48 +28,42 @@ const BUSINESS_HOURS = {
   end: 19,  // 7 PM
 }
 
-// Status color mapping for Industrial Futurism theme
-const STATUS_STYLES: Record<JobStatus, { border: string; glow: string; bg: string; text: string; label: string }> = {
+// Status color mapping - Muted, consistent with admin theme
+const STATUS_STYLES: Record<JobStatus, { border: string; bg: string; text: string; label: string }> = {
   scheduled: {
-    border: 'border-cyan-500',
-    glow: 'shadow-[0_0_20px_rgba(6,182,212,0.3)]',
+    border: 'border-cyan-500/50',
     bg: 'bg-cyan-500/10',
-    text: 'text-cyan-400',
+    text: 'text-cyan-600 dark:text-cyan-400',
     label: 'Scheduled',
   },
   on_the_way: {
-    border: 'border-amber-500',
-    glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+    border: 'border-amber-500/50',
     bg: 'bg-amber-500/10',
-    text: 'text-amber-400',
+    text: 'text-amber-600 dark:text-amber-400',
     label: 'On the way',
   },
   arrived: {
-    border: 'border-amber-500',
-    glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+    border: 'border-amber-500/50',
     bg: 'bg-amber-500/10',
-    text: 'text-amber-400',
+    text: 'text-amber-600 dark:text-amber-400',
     label: 'Arrived',
   },
   in_progress: {
-    border: 'border-blue-500',
-    glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
+    border: 'border-blue-500/50',
     bg: 'bg-blue-500/10',
-    text: 'text-blue-400',
+    text: 'text-blue-600 dark:text-blue-400',
     label: 'In progress',
   },
   completed: {
-    border: 'border-emerald-500',
-    glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]',
+    border: 'border-emerald-500/50',
     bg: 'bg-emerald-500/10',
-    text: 'text-emerald-400',
+    text: 'text-emerald-600 dark:text-emerald-400',
     label: 'Completed',
   },
   cancelled: {
-    border: 'border-gray-600',
-    glow: '',
-    bg: 'bg-gray-500/10',
-    text: 'text-gray-400',
+    border: 'border-slate-400/50',
+    bg: 'bg-slate-500/10',
+    text: 'text-slate-500 dark:text-slate-400',
     label: 'Cancelled',
   },
 }
@@ -225,22 +219,22 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
 
   return (
     <div className="w-full p-6">
-      {/* Main Card */}
-      <div className="relative bg-[#111827] rounded-lg overflow-hidden">
-        {/* Blueprint Corner Accents */}
-        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-500/50" />
-        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyan-500/50" />
-        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyan-500/30" />
-        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-500/30" />
+      {/* Main Card - Using theme-aware colors */}
+      <div className="relative bg-slate-900 dark:bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+        {/* Blueprint Corner Accents - Muted */}
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-cyan-500/30" />
+        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-cyan-500/30" />
+        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-cyan-500/20" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-cyan-500/20" />
 
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 border-b border-gray-800">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 border-b border-slate-800">
           {/* Left: Title & Subtitle */}
           <div>
-            <h2 className="font-['Bebas_Neue'] text-4xl tracking-wide text-white uppercase">
+            <h2 className="font-display text-4xl tracking-wide text-white uppercase">
               Technician Schedule
             </h2>
-            <p className="font-mono text-sm text-gray-500 mt-1">
+            <p className="font-mono text-sm text-slate-500 mt-1">
               Weekly dispatch overview
             </p>
           </div>
@@ -248,7 +242,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
           {/* Right: Controls */}
           <div className="flex flex-wrap items-center gap-3">
             {/* View Mode Toggle - Pill Buttons */}
-            <div className="flex items-center bg-gray-900 rounded-full p-1 border border-gray-800">
+            <div className="flex items-center bg-slate-800 rounded-full p-1 border border-slate-700">
               {(['day', 'week', 'fortnight', 'month'] as ViewMode[]).map(mode => (
                 <button type="button"
                   key={mode}
@@ -256,8 +250,8 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                   className={`
                     px-4 py-1.5 rounded-full text-sm font-mono transition-all duration-300
                     ${viewMode === mode 
-                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50' 
-                      : 'text-gray-400 hover:text-gray-200'
+                      ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' 
+                      : 'text-slate-400 hover:text-slate-200'
                     }
                   `}
                 >
@@ -267,24 +261,24 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
             </div>
 
             {/* Date Navigation */}
-            <div className="flex items-center gap-2 bg-gray-900 rounded-lg border border-gray-800 px-3 py-1.5">
+            <div className="flex items-center gap-2 bg-slate-800 rounded-lg border border-slate-700 px-3 py-1.5">
               <button type="button"
                 onClick={() => navigateDate('prev')}
-                className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors duration-200"
+                className="p-1.5 text-slate-400 hover:text-cyan-400 transition-colors duration-200"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               
               <div className="flex items-center gap-2 px-2">
                 <Calendar className="w-4 h-4 text-cyan-500" />
-                <span className="font-mono text-sm text-gray-300 whitespace-nowrap">
+                <span className="font-mono text-sm text-slate-300 whitespace-nowrap">
                   {getDateRangeLabel()}
                 </span>
               </div>
 
               <button type="button"
                 onClick={() => navigateDate('next')}
-                className="p-1.5 text-gray-400 hover:text-cyan-400 transition-colors duration-200"
+                className="p-1.5 text-slate-400 hover:text-cyan-400 transition-colors duration-200"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -293,13 +287,13 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
             {/* Today Button */}
             <button type="button"
               onClick={goToToday}
-              className="px-3 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-sm font-mono text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200"
+              className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-mono text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200"
             >
               Today
             </button>
 
             {/* Filter Button */}
-            <button className="flex items-center gap-2 px-4 py-1.5 bg-gray-900 border border-gray-800 rounded-lg text-sm font-mono text-gray-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200">
+            <button className="flex items-center gap-2 px-4 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-sm font-mono text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-200">
               <Filter className="w-4 h-4" />
               Filter
             </button>
@@ -317,7 +311,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                 {timeSlots.map(hour => (
                   <div
                     key={hour}
-                    className="h-16 font-mono text-xs text-gray-500 pt-1"
+                    className="h-16 font-mono text-xs text-slate-500 pt-1"
                   >
                     {format(new Date().setHours(hour, 0), 'h a')}
                   </div>
@@ -325,9 +319,9 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
               </div>
 
               {/* Technicians Sidebar */}
-              <div className="flex-shrink-0 w-64 border-r border-gray-800 pr-4">
+              <div className="flex-shrink-0 w-64 border-r border-slate-800 pr-4">
                 <div className="h-16 flex items-end pb-3 mb-3">
-                  <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">
+                  <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
                     Technicians
                   </span>
                 </div>
@@ -335,9 +329,9 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                 {technicians.map(tech => (
                   <div 
                     key={tech.id} 
-                    className="h-[720px] border-b border-gray-800/50 last:border-b-0"
+                    className="h-[720px] border-b border-slate-800/50 last:border-b-0"
                   >
-                    <div className="sticky top-0 bg-[#111827] py-3 flex items-center gap-3">
+                    <div className="sticky top-0 bg-slate-900 dark:bg-slate-950 py-3 flex items-center gap-3">
                       {/* Avatar */}
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center">
                         <span className="font-mono text-sm font-bold text-cyan-400">
@@ -346,10 +340,10 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                       </div>
                       {/* Name & Role */}
                       <div>
-                        <div className="font-mono text-sm font-medium text-gray-200">
+                        <div className="font-mono text-sm font-medium text-slate-200">
                           {tech.name}
                         </div>
-                        <div className="font-mono text-xs text-gray-500">
+                        <div className="font-mono text-xs text-slate-500">
                           {tech.role}
                         </div>
                       </div>
@@ -362,11 +356,11 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
               <div className="flex-1 min-w-[600px] relative">
                 {/* Day Header */}
                 <div className="h-16 flex items-end pb-3 mb-3 text-center">
-                  <div className={`w-full py-2 rounded-lg border ${isSameDay(selectedDate, today) ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-gray-800'}`}>
-                    <div className="font-mono text-sm font-medium text-gray-200">
+                  <div className={`w-full py-2 rounded-lg border ${isSameDay(selectedDate, today) ? 'border-cyan-500/40 bg-cyan-500/5' : 'border-slate-800'}`}>
+                    <div className="font-mono text-sm font-medium text-slate-200">
                       {format(selectedDate, 'EEEE')}
                     </div>
-                    <div className={`font-mono text-xs ${isSameDay(selectedDate, today) ? 'text-cyan-400' : 'text-gray-500'}`}>
+                    <div className={`font-mono text-xs ${isSameDay(selectedDate, today) ? 'text-cyan-400' : 'text-slate-500'}`}>
                       {format(selectedDate, 'MMM d')}
                     </div>
                   </div>
@@ -377,7 +371,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                   {timeSlots.map((hour, idx) => (
                     <div
                       key={hour}
-                      className="h-16 border-t border-gray-800/50 first:border-gray-700"
+                      className="h-16 border-t border-slate-800/50 first:border-slate-700"
                     />
                   ))}
                 </div>
@@ -389,7 +383,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                   return (
                     <div
                       key={tech.id}
-                      className="h-[720px] relative border-b border-gray-800/50 last:border-b-0"
+                      className="h-[720px] relative border-b border-slate-800/50 last:border-b-0"
                     >
                       {techJobs.map(job => {
                         const position = getJobPosition(job)
@@ -407,7 +401,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                               absolute left-2 right-2 min-h-[48px] rounded-lg p-3 cursor-pointer
                               border ${statusStyle.border} ${statusStyle.bg}
                               transition-all duration-300
-                              ${isHovered ? `scale-[1.02] ${statusStyle.glow} z-10` : 'hover:scale-[1.01]'}
+                              ${isHovered ? 'scale-[1.02] ring-2 ring-cyan-500/20 z-10' : 'hover:scale-[1.01]'}
                             `}
                             onMouseEnter={() => setHoveredJob(job.id)}
                             onMouseLeave={() => setHoveredJob(null)}
@@ -427,11 +421,11 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                               {formatTimeRange(job.scheduled_start!, job.scheduled_end)}
                             </div>
                             {/* Customer */}
-                            <div className="font-mono text-sm font-medium text-gray-200 leading-tight">
+                            <div className="font-mono text-sm font-medium text-slate-200 leading-tight">
                               {job.customer?.name || 'Unknown Customer'}
                             </div>
                             {/* Job Type */}
-                            <div className="font-mono text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            <div className="font-mono text-xs text-slate-500 mt-1 flex items-center gap-1">
                               <Wrench className="w-3 h-3" />
                               {job.description || 'Service Call'}
                             </div>
@@ -451,9 +445,9 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
             // WEEK / FORTNIGHT / MONTH VIEW
             <div className="flex gap-4 overflow-x-auto">
               {/* Technicians Sidebar */}
-              <div className="flex-shrink-0 w-72 border-r border-gray-800 pr-4 sticky left-0 bg-[#111827] z-20">
+              <div className="flex-shrink-0 w-72 border-r border-slate-800 pr-4 sticky left-0 bg-slate-900 dark:bg-slate-950 z-20">
                 <div className="h-20 flex items-end pb-3 mb-3">
-                  <span className="font-mono text-xs text-gray-500 uppercase tracking-widest">
+                  <span className="font-mono text-xs text-slate-500 uppercase tracking-widest">
                     Technicians ({technicians.length})
                   </span>
                 </div>
@@ -461,7 +455,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                 {technicians.map(tech => (
                   <div
                     key={tech.id}
-                    className="h-24 py-3 flex items-center gap-4 border-b border-gray-800/50 last:border-b-0"
+                    className="h-24 py-3 flex items-center gap-4 border-b border-slate-800/50 last:border-b-0"
                   >
                     {/* Avatar */}
                     <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 flex items-center justify-center flex-shrink-0">
@@ -471,10 +465,10 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                     </div>
                     {/* Name & Role */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-mono text-sm font-medium text-gray-200 whitespace-nowrap">
+                      <div className="font-mono text-sm font-medium text-slate-200 whitespace-nowrap">
                         {tech.name}
                       </div>
-                      <div className="font-mono text-xs text-gray-500 mt-0.5">
+                      <div className="font-mono text-xs text-slate-500 mt-0.5">
                         {tech.role}
                       </div>
                       {/* Job count for this period */}
@@ -505,17 +499,17 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                         className={`
                           h-20 p-2 text-center rounded-lg border transition-all duration-200
                           ${isToday 
-                            ? 'border-cyan-500/50 bg-cyan-500/5' 
+                            ? 'border-cyan-500/40 bg-cyan-500/5' 
                             : isWeekend 
-                              ? 'border-gray-800/50 bg-gray-900/30' 
-                              : 'border-gray-800'
+                              ? 'border-slate-800/50 bg-slate-900/30' 
+                              : 'border-slate-800'
                           }
                         `}
                       >
-                        <div className={`font-mono text-xs uppercase tracking-wider ${isWeekend ? 'text-gray-600' : 'text-gray-500'}`}>
+                        <div className={`font-mono text-xs uppercase tracking-wider ${isWeekend ? 'text-slate-600' : 'text-slate-500'}`}>
                           {format(day, 'EEE')}
                         </div>
-                        <div className={`font-mono text-lg font-medium mt-1 ${isToday ? 'text-cyan-400' : isWeekend ? 'text-gray-600' : 'text-gray-300'}`}>
+                        <div className={`font-mono text-lg font-medium mt-1 ${isToday ? 'text-cyan-400' : isWeekend ? 'text-slate-600' : 'text-slate-300'}`}>
                           {format(day, 'd')}
                         </div>
                         {isToday && (
@@ -532,7 +526,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                 {technicians.map(tech => (
                   <div
                     key={tech.id}
-                    className="grid gap-1 h-24 items-center border-b border-gray-800/50 last:border-b-0"
+                    className="grid gap-1 h-24 items-center border-b border-slate-800/50 last:border-b-0"
                     style={{ 
                       gridTemplateColumns: `repeat(${days.length}, minmax(100px, 1fr))`,
                     }}
@@ -561,7 +555,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                                     flex-1 min-h-[60px] rounded-lg p-2 cursor-pointer
                                     border ${statusStyle.border} ${statusStyle.bg}
                                     transition-all duration-300
-                                    ${isHovered ? `scale-[1.02] ${statusStyle.glow} z-10` : 'hover:scale-[1.01]'}
+                                    ${isHovered ? 'scale-[1.02] ring-2 ring-cyan-500/20 z-10' : 'hover:scale-[1.01]'}
                                   `}
                                   role="button"
                                   tabIndex={0}
@@ -577,15 +571,15 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                                     {format(parseISO(job.scheduled_start!), 'h:mm a')}
                                   </div>
                                   {/* Customer */}
-                                  <div className="font-mono text-xs text-gray-200 leading-tight mt-1 whitespace-nowrap">
+                                  <div className="font-mono text-xs text-slate-200 leading-tight mt-1 whitespace-nowrap">
                                     {job.customer?.name || 'Unknown'}
                                   </div>
                                   {/* Job Type */}
-                                  <div className="font-mono text-[10px] text-gray-500 mt-1 truncate">
+                                  <div className="font-mono text-[10px] text-slate-500 mt-1 truncate">
                                     {job.description || 'Service'}
                                   </div>
                                   {/* Status Indicator */}
-                                  <div className={`mt-1.5 w-2 h-2 rounded-full ${statusStyle.text.replace('text-', 'bg-')}`} />
+                                  <div className={`mt-1.5 w-2 h-2 rounded-full ${statusStyle.text.replace('text-', 'bg-').replace('dark:', '')}`} />
                                 </div>
                               )
                             })}
@@ -598,7 +592,7 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
                           key={dayIdx}
                           className={`
                             h-20 rounded-lg border border-dashed
-                            ${isPast ? 'border-gray-800/30 bg-gray-900/20' : 'border-gray-800/50'}
+                            ${isPast ? 'border-slate-800/30 bg-slate-900/20' : 'border-slate-800/50'}
                           `}
                         />
                       )
@@ -611,8 +605,8 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
         </div>
 
         {/* Legend */}
-        <div className="px-6 py-4 border-t border-gray-800 flex flex-wrap items-center gap-6">
-          <span className="font-mono text-xs text-gray-500 uppercase tracking-wider">Status:</span>
+        <div className="px-6 py-4 border-t border-slate-800 flex flex-wrap items-center gap-6">
+          <span className="font-mono text-xs text-slate-500 uppercase tracking-wider">Status:</span>
           {Object.entries(STATUS_STYLES)
             .filter(([key]) => key !== 'cancelled')
             .map(([status, style]) => (
@@ -628,4 +622,3 @@ export default function TechnicianSchedule({ jobs, businessId }: TechnicianSched
     </div>
   )
 }
-

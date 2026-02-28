@@ -49,29 +49,29 @@ export default function CustomerDetailsCard({ customer, showMap = true, onGetDir
   }
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.10),transparent_55%)] dark:opacity-70 dark:[background:radial-gradient(circle_at_25%_0%,rgba(34,211,238,0.12),transparent_55%)]" />
-      <div className="relative mb-4">
-        <h2 className="font-semibold text-slate-900 dark:text-slate-100">Customer Details</h2>
+    <div className="relative overflow-hidden rounded-[2.5rem] bg-white/40 p-6 shadow-xl ring-1 ring-slate-200/50 backdrop-blur-xl dark:bg-slate-900/40 dark:ring-slate-800/50">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.1),transparent_60%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.15),transparent_60%)]" />
+      <div className="relative mb-5">
+        <h2 className="font-display-soft text-xl font-bold tracking-tight text-slate-900 dark:text-white">Customer Details</h2>
       </div>
 
       {/* Customer Info */}
-      <div className="relative mb-4 space-y-3">
-        <div className="font-medium text-slate-900 dark:text-slate-100">{customer.name}</div>
+      <div className="relative mb-5 space-y-4 rounded-[1.5rem] bg-white/50 p-5 ring-1 ring-slate-200/50 dark:bg-slate-950/20 dark:ring-slate-800/50 shadow-inner">
+        <div className="font-sans text-lg font-bold tracking-tight text-slate-900 dark:text-white">{customer.name}</div>
 
         {customer.phone && (
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <a
                 href={`tel:${customer.phone}`}
-                className="text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200 transition"
+                className="font-mono text-[13px] font-semibold text-cyan-600 transition hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 {customer.phone}
               </a>
             </div>
             <button type="button"
               onClick={callCustomer}
-              className="px-3 py-1 text-xs font-semibold rounded-lg transition border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-400/25 dark:bg-emerald-400/10 dark:text-emerald-200 dark:hover:bg-emerald-400/15"
+              className="rounded-xl bg-cyan-500/10 px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-cyan-700 ring-1 ring-cyan-500/30 transition hover:bg-cyan-500/20 dark:bg-cyan-400/10 dark:text-cyan-300 dark:hover:bg-cyan-400/20"
             >
               Call
             </button>
@@ -83,14 +83,14 @@ export default function CustomerDetailsCard({ customer, showMap = true, onGetDir
             <div className="flex items-center min-w-0">
               <a
                 href={`mailto:${customer.email}`}
-                className="truncate text-cyan-700 hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200 transition"
+                className="truncate font-mono text-[13px] font-semibold text-cyan-600 transition hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300"
               >
                 {customer.email}
               </a>
             </div>
             <button type="button"
               onClick={emailCustomer}
-              className="ml-2 flex-shrink-0 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-200 dark:hover:bg-cyan-400/15"
+              className="ml-2 flex-shrink-0 rounded-xl bg-cyan-500/10 px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-cyan-700 ring-1 ring-cyan-500/30 transition hover:bg-cyan-500/20 dark:bg-cyan-400/10 dark:text-cyan-300 dark:hover:bg-cyan-400/20"
             >
               Email
             </button>
@@ -98,33 +98,34 @@ export default function CustomerDetailsCard({ customer, showMap = true, onGetDir
         )}
 
         {customer.address && (
-          <div className="flex items-start">
-            <span className="text-sm text-slate-700 dark:text-slate-200">{customer.address}</span>
+          <div className="flex items-start pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+            <span className="font-sans text-[13px] font-medium leading-relaxed text-slate-700 dark:text-slate-300">{customer.address}</span>
           </div>
         )}
       </div>
 
       {/* Google Maps Preview */}
       {showMap && customer.address && googleMapsApiKey && (
-        <div className="mb-4">
-          <div className="relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+        <div className="mb-5">
+          <div className="group relative overflow-hidden rounded-[1.5rem] bg-white/50 ring-1 ring-slate-200/50 dark:bg-slate-900/50 dark:ring-slate-800/50 shadow-inner">
             <img
               src={getStaticMapUrl() || ''}
               alt="Location map"
-              className="h-40 w-full object-cover"
+              className="h-44 w-full object-cover transition-transform duration-700 group-hover:scale-105"
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
               onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                ; (e.currentTarget as HTMLImageElement).style.display = 'none'
               }}
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
             <button type="button"
               onClick={openMaps}
-              className="absolute top-2 right-2 rounded-xl border border-slate-200 bg-white/85 px-2.5 py-1.5 text-xs font-semibold text-slate-700 backdrop-blur-sm transition hover:bg-white dark:border-slate-700 dark:bg-slate-900/75 dark:text-slate-200 dark:hover:bg-slate-900"
+              className="absolute bottom-4 right-4 rounded-xl bg-white/90 px-4 py-2 font-sans text-xs font-bold uppercase tracking-widest text-slate-800 shadow-lg backdrop-blur-md transition-all hover:scale-105 hover:bg-white dark:bg-slate-900/90 dark:text-slate-200 dark:hover:bg-slate-900"
               title="Open in Google Maps"
             >
-              Open
+              Open Maps
             </button>
           </div>
         </div>
@@ -135,16 +136,16 @@ export default function CustomerDetailsCard({ customer, showMap = true, onGetDir
         <div className="grid grid-cols-2 gap-3">
           <button type="button"
             onClick={openMaps}
-            className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white/70 px-4 py-2.5 text-sm font-semibold text-slate-800 backdrop-blur transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-slate-800/60"
+            className="flex h-12 items-center justify-center rounded-[1.2rem] bg-white/50 px-4 font-sans text-[13px] font-bold tracking-wide text-slate-800 shadow-sm ring-1 ring-slate-200/50 backdrop-blur-md transition-all hover:bg-white/80 dark:bg-slate-900/50 dark:text-slate-200 dark:ring-slate-800/50 dark:hover:bg-slate-900/80 hover:scale-[1.02]"
           >
             View Map
           </button>
           <button type="button"
             onClick={openDirections}
-            className="group relative flex items-center justify-center overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold text-white"
+            className="group relative flex h-12 items-center justify-center overflow-hidden rounded-[1.2rem] px-4 font-sans text-[13px] font-bold tracking-wide text-slate-950 transition-all hover:scale-[1.02]"
           >
-            <span className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-blue-600 opacity-90 transition-opacity group-hover:opacity-100 dark:from-cyan-500 dark:to-blue-500" />
-            <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.35),transparent_55%)]" />
+            <span className="absolute inset-0 bg-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-opacity" />
+            <span className="absolute inset-0 opacity-50 [background:radial-gradient(circle_at_30%_0%,rgba(255,255,255,0.4),transparent_55%)]" />
             <span className="relative inline-flex items-center justify-center gap-2">Get Directions</span>
           </button>
         </div>
