@@ -12,6 +12,10 @@
   .border-border {
     border-color: rgb(var(--border-default));
   }
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 900px;
+  }
 }
 
 /* ========================================
@@ -220,7 +224,154 @@
   }
 }
 
+/* ========================================
+   CARD SHELL DESIGN SYSTEM
+   ======================================== */
+
 @layer components {
+  /* Card base - one consistent shell */
+  .admin-card {
+    @apply rounded-xl border border-slate-200/60 bg-white dark:border-slate-700/60 dark:bg-slate-900;
+    @apply shadow-sm;
+  }
+
+  /* Card hover - subtle only */
+  .admin-card-hover {
+    @apply transition-shadow duration-200 hover:shadow-md;
+  }
+
+  /* Card header - consistent spacing */
+  .admin-card-header {
+    @apply px-5 py-4 border-b border-slate-100 dark:border-slate-800;
+  }
+
+  /* Card body - consistent padding */
+  .admin-card-body {
+    @apply p-5;
+  }
+
+  /* Compact variant for dense lists */
+  .admin-card-compact {
+    @apply rounded-lg p-3;
+  }
+
+  /* ========================================
+     BADGE TONE STANDARDIZATION
+     ======================================== */
+
+  /* Muted badges - default */
+  .badge-muted {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300;
+  }
+
+  /* Status badges - only for critical states */
+  .badge-status-success {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+  }
+  .badge-status-warning {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+  .badge-status-danger {
+    @apply bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400;
+  }
+  .badge-status-info {
+    @apply bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400;
+  }
+
+  /* ========================================
+     FOCUS RING STANDARDIZATION
+     ======================================== */
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900;
+  }
+
+  /* ========================================
+     ICON SIZE STANDARDIZATION
+     ======================================== */
+
+  /* Icon sizing scale */
+  .icon-sm {
+    @apply w-4 h-4;
+  }
+  .icon-md {
+    @apply w-5 h-5;
+  }
+  .icon-lg {
+    @apply w-6 h-6;
+  }
+
+  /* ========================================
+     TYPOGRAPHY SCALE
+     ======================================== */
+
+  /* Page title */
+  .page-title {
+    @apply font-display text-4xl sm:text-5xl tracking-wide text-slate-900 dark:text-white;
+  }
+
+  /* Section title */
+  .section-title {
+    @apply font-display text-lg font-bold tracking-widest text-slate-900 dark:text-white uppercase;
+  }
+
+  /* Metric label */
+  .metric-label {
+    @apply font-mono text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400;
+  }
+
+  /* Helper text */
+  .helper-text {
+    @apply font-sans text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  /* ========================================
+     EMPTY STATE TEMPLATE
+     ======================================== */
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center p-8 text-center;
+    @apply rounded-xl border border-dashed border-slate-300 dark:border-slate-700;
+  }
+  .empty-state-icon {
+    @apply mb-3 text-slate-400 dark:text-slate-600;
+  }
+  .empty-state-title {
+    @apply font-sans text-sm font-medium text-slate-900 dark:text-white;
+  }
+  .empty-state-desc {
+    @apply mt-1 font-sans text-xs text-slate-500 dark:text-slate-400;
+  }
+
+  /* ========================================
+     SKELETON STANDARDIZATION
+     ======================================== */
+
+  .skeleton {
+    @apply animate-pulse rounded bg-slate-200 dark:bg-slate-800;
+  }
+  .skeleton-text {
+    @apply h-4 w-3/4;
+  }
+  .skeleton-title {
+    @apply h-6 w-1/2;
+  }
+
+  /* ========================================
+     FILTER BAR STANDARDIZATION
+     ======================================== */
+
+  .filter-bar {
+    @apply flex flex-wrap items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50;
+    @apply sticky top-0 z-10;
+  }
+
+  /* ========================================
+     LEGACY ADMIN COMPONENTS
+     (Preserved for backwards compatibility)
+     ======================================== */
+
   .admin-page-header {
     @apply font-display text-3xl uppercase tracking-wide text-slate-900 dark:text-slate-100 mb-6;
     font-weight: 700;
@@ -230,20 +381,16 @@
     @apply font-sans text-lg font-semibold text-slate-800 dark:text-slate-200;
   }
 
-  .admin-card {
-    @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg;
-  }
-
   .admin-btn-primary {
-    @apply bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold rounded-md;
+    @apply bg-cyan-600 text-white font-semibold rounded-md hover:bg-cyan-700;
   }
 
   .admin-btn-secondary {
-    @apply bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-semibold rounded-md;
+    @apply bg-slate-100 text-slate-900 font-semibold rounded-md hover:bg-slate-200 dark:bg-slate-800 dark:text-white;
   }
 
   .admin-btn-danger {
-    @apply bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-semibold rounded-md;
+    @apply bg-rose-600 text-white font-semibold rounded-md hover:bg-rose-700;
   }
 
   .admin-input {
