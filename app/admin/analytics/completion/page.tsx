@@ -3,11 +3,6 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft,
-  CheckCircle2,
-  User,
-  Target,
-  TrendingUp,
-  XCircle,
 } from '@/components/ui/lucide'
 import { getDateRange, formatDisplayDate, resolveDateRangeKey, type DateRangeKey } from '@/lib/analytics/dateUtils'
 import {
@@ -16,6 +11,7 @@ import {
   fetchServiceNamesByJob,
   fetchUserNames,
 } from '@/lib/analytics/server-queries'
+import { getAllTimeJobCounts } from '@/lib/analytics/job-counts'
 
 interface JobWithDetails {
   id: string
@@ -53,12 +49,16 @@ export default async function CompletionDetailPage({
   const range: DateRangeKey = resolveDateRangeKey(params?.range)
   const dateRange = getDateRange(range)
 
-  const jobsData = await fetchJobsInWindow({
-    supabase,
-    businessId,
-    start: dateRange.start,
-    end: dateRange.end,
-  })
+  // Fetch jobs and canonical all-time count in parallel
+  const [jobsData, allTimeCounts] = await Promise.all([
+    fetchJobsInWindow({
+      supabase,
+      businessId,
+      start: dateRange.start,
+      end: dateRange.end,
+    }),
+    getAllTimeJobCounts({ supabase, businessId }),
+  ])
 
   const customerIds = Array.from(
     new Set(jobsData.map((job) => job.customer_id).filter((value): value is string => Boolean(value)))
@@ -87,42 +87,25 @@ export default async function CompletionDetailPage({
     description: job.description,
   }))
 
-  const totalJobs = filteredJobs.length
+  // Resolution Breakdown Metrics
   const completedJobs = filteredJobs.filter((job) => job.status === 'completed')
   const cancelledJobs = filteredJobs.filter((job) => job.status === 'cancelled')
-  const completionRate = totalJobs > 0 ? Math.round((completedJobs.length / totalJobs) * 100) : 0
+  const openJobs = filteredJobs.filter((job) => 
+    !['completed', 'cancelled'].includes(job.status)
+  )
 
-  // Completion Breakdown metrics
   const completedAmount = completedJobs.reduce((sum, job) => sum + (job.total_cost || 0), 0)
   const cancelledAmount = cancelledJobs.reduce((sum, job) => sum + (job.total_cost || 0), 0)
+  const openAmount = openJobs.reduce((sum, job) => sum + (job.total_cost || 0), 0)
+
   const resolvedCount = completedJobs.length + cancelledJobs.length
-  const completedShare = resolvedCount > 0 ? Math.round((completedJobs.length / resolvedCount) * 100) : 0
-  const cancelledShare = resolvedCount > 0 ? Math.round((cancelledJobs.length / resolvedCount) * 100) : 0
+  const totalCount = filteredJobs.length
+  const openCount = openJobs.length
 
-  const techStats = new Map<string, {
-    name: string
-    id: string
-    completed: number
-    total: number
-    revenue: number
-  }>()
-
-  filteredJobs.forEach((job) => {
-    const techId = job.technician_name.replace(/\s+/g, '-').toLowerCase()
-    const techName = job.technician_name
-    if (!techStats.has(techId)) {
-      techStats.set(techId, { name: techName, id: techId, completed: 0, total: 0, revenue: 0 })
-    }
-    const tech = techStats.get(techId)!
-    tech.total += 1
-    if (job.status === 'completed') {
-      tech.completed += 1
-      tech.revenue += job.total_cost || 0
-    }
-  })
-
-  const technicianBreakdown = Array.from(techStats.values()).sort((a, b) => b.completed - a.completed)
-  // Removed: recent completed jobs list - replaced with Completion Breakdown
+  // Segment percentages for the bar
+  const completedPct = totalCount > 0 ? (completedJobs.length / totalCount) * 100 : 0
+  const cancelledPct = totalCount > 0 ? (cancelledJobs.length / totalCount) * 100 : 0
+  const openPct = totalCount > 0 ? (openJobs.length / totalCount) * 100 : 0
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-US', {
@@ -131,8 +114,12 @@ export default async function CompletionDetailPage({
       minimumFractionDigits: 0,
     }).format(amount)
 
+  // Canonical all-time total
+  const canonicalAllTime = allTimeCounts.total
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -153,193 +140,157 @@ export default async function CompletionDetailPage({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="bg-blue-50 dark:bg-blue-400/10 rounded-xl px-6 py-4 border border-blue-200 dark:border-blue-400/20">
-            <p className="font-mono text-xs text-blue-600 dark:text-blue-400 uppercase tracking-wider">Completion</p>
-            <p className="font-display text-3xl text-blue-600 dark:text-blue-400">{completionRate}%</p>
+          <div className="bg-slate-800 rounded-xl px-6 py-4 border border-slate-700">
+            <p className="font-mono text-xs text-slate-400 uppercase tracking-wider">Period Total</p>
+            <p className="font-display text-3xl text-white">{filteredJobs.length}</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="admin-card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-400/20 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+      {/* Period Context Note */}
+      <p className="font-sans text-sm text-slate-500 dark:text-slate-400">
+        {range === 'all' 
+          ? `Canonical all-time jobs: ${canonicalAllTime}` 
+          : `Showing jobs in selected period. Canonical all-time: ${canonicalAllTime}`}
+      </p>
+
+      {/* Resolution Breakdown - Minimal, Typography-Driven */}
+      <div className="admin-card p-6">
+        <div className="mb-6">
+          <h2 className="font-display text-xl tracking-wide text-slate-900 dark:text-white uppercase">
+            Resolution Breakdown
+          </h2>
+          <p className="font-sans text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Completed, cancelled, and still open
+          </p>
+        </div>
+
+        {/* Three Metric Rows - Clean, No Icons */}
+        <div className="space-y-4">
+          {/* Completed */}
+          <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-baseline gap-4">
+              <span className="font-sans text-sm text-slate-600 dark:text-slate-400">Completed</span>
+              <span className="font-display text-2xl text-emerald-600 dark:text-emerald-400">
+                {completedJobs.length}
+              </span>
             </div>
-            <div>
-              <p className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase">Completed</p>
-              <p className="font-display text-2xl text-slate-900 dark:text-white">{completedJobs.length}</p>
+            <span className="font-mono text-lg text-emerald-600/80 dark:text-emerald-400/80">
+              {formatCurrency(completedAmount)}
+            </span>
+          </div>
+
+          {/* Cancelled */}
+          <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-baseline gap-4">
+              <span className="font-sans text-sm text-slate-600 dark:text-slate-400">Cancelled</span>
+              <span className="font-display text-2xl text-rose-600 dark:text-rose-400">
+                {cancelledJobs.length}
+              </span>
             </div>
+            <span className="font-mono text-lg text-rose-600/80 dark:text-rose-400/80">
+              {formatCurrency(cancelledAmount)}
+            </span>
+          </div>
+
+          {/* Open */}
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-baseline gap-4">
+              <span className="font-sans text-sm text-slate-600 dark:text-slate-400">Open</span>
+              <span className="font-display text-2xl text-slate-700 dark:text-slate-300">
+                {openJobs.length}
+              </span>
+            </div>
+            <span className="font-mono text-lg text-slate-500 dark:text-slate-500">
+              {formatCurrency(openAmount)}
+            </span>
           </div>
         </div>
 
-        <div className="admin-card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-cyan-100 dark:bg-cyan-400/20 flex items-center justify-center">
-              <Target className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-            </div>
-            <div>
-              <p className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase">Total</p>
-              <p className="font-display text-2xl text-slate-900 dark:text-white">{totalJobs}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-400/20 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase">Rate</p>
-              <p className="font-display text-2xl text-slate-900 dark:text-white">{completionRate}%</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="admin-card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-400/20 flex items-center justify-center">
-              <User className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <h2 className="admin-section-title">By Technician</h2>
-              <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Completion rate by team member</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {technicianBreakdown.length === 0 ? (
-              <p className="font-mono text-sm text-slate-500 text-center py-8">No technician data</p>
-            ) : (
-              technicianBreakdown.map((tech) => {
-                const rate = tech.total > 0 ? Math.round((tech.completed / tech.total) * 100) : 0
-                const maxCompleted = Math.max(...technicianBreakdown.map((item) => item.completed), 1)
-                const barWidth = (tech.completed / maxCompleted) * 100
-
-                return (
-                  <div key={tech.id} className="group">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white font-mono text-xs font-bold">
-                          {tech.name.split(' ').map((name) => name[0]).join('')}
-                        </div>
-                        <span className="font-mono text-sm text-slate-700 dark:text-slate-300">{tech.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono text-sm font-medium text-slate-900 dark:text-white">
-                          {tech.completed}/{tech.total}
-                        </span>
-                        <span className="font-mono text-xs text-slate-500 ml-2">({rate}%)</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all duration-500"
-                          style={{ width: `${barWidth}%` }}
-                        />
-                      </div>
-                      <span className="font-mono text-xs text-slate-500 w-16 text-right">
-                        {formatCurrency(tech.revenue)}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })
+        {/* Segmented Bar */}
+        <div className="mt-6">
+          <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+            {completedPct > 0 && (
+              <div
+                className="h-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${completedPct}%` }}
+              />
+            )}
+            {cancelledPct > 0 && (
+              <div
+                className="h-full bg-rose-500 transition-all duration-500"
+                style={{ width: `${cancelledPct}%` }}
+              />
+            )}
+            {openPct > 0 && (
+              <div
+                className="h-full bg-slate-400 dark:bg-slate-600 transition-all duration-500"
+                style={{ width: `${openPct}%` }}
+              />
             )}
           </div>
         </div>
 
+        {/* Footer Microcopy */}
+        <p className="font-mono text-xs text-slate-500 dark:text-slate-400 text-center mt-4">
+          Total jobs: <span className="font-medium text-slate-700 dark:text-slate-300">{totalCount}</span>
+          <span className="mx-2">·</span>
+          Resolved: <span className="font-medium text-slate-700 dark:text-slate-300">{resolvedCount}</span>
+          <span className="mx-2">·</span>
+          Open: <span className="font-medium text-slate-700 dark:text-slate-300">{openCount}</span>
+        </p>
+
+        {/* Action Links */}
+        <div className="mt-6 flex items-center gap-3 justify-end">
+          <Link
+            href="/admin/jobs?status=completed"
+            className="font-mono text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 transition-colors"
+          >
+            View Completed →
+          </Link>
+          <span className="text-slate-300">|</span>
+          <Link
+            href="/admin/jobs?status=cancelled"
+            className="font-mono text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 transition-colors"
+          >
+            View Cancelled →
+          </Link>
+        </div>
+      </div>
+
+      {/* By Technician Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="admin-card p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-              </div>
-              <div>
-                <h2 className="admin-section-title">Completion Breakdown</h2>
-                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Completed vs cancelled in selected period</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                href="/admin/jobs?status=completed"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-mono text-xs hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Completed Jobs
-              </Link>
-              <Link
-                href="/admin/jobs?status=cancelled"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-400 font-mono text-xs hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
-              >
-                <XCircle className="w-3.5 h-3.5" />
-                Cancelled Jobs
-              </Link>
-            </div>
+          <div className="mb-6">
+            <h2 className="font-display text-lg tracking-wide text-slate-900 dark:text-white uppercase">
+              By Technician
+            </h2>
+            <p className="font-sans text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Completion rate by team member
+            </p>
           </div>
 
           <div className="space-y-4">
-            {/* Completed row */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-500/5 border border-emerald-100 dark:border-emerald-500/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <p className="font-mono text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Completed</p>
-                  <p className="font-display text-2xl text-slate-900 dark:text-white">{completedJobs.length}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Total Value</p>
-                <p className="font-display text-xl text-emerald-600 dark:text-emerald-400">{formatCurrency(completedAmount)}</p>
-              </div>
-            </div>
-
-            {/* Cancelled row */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center">
-                  <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                </div>
-                <div>
-                  <p className="font-mono text-xs text-rose-600 dark:text-rose-400 uppercase tracking-wider">Cancelled</p>
-                  <p className="font-display text-2xl text-slate-900 dark:text-white">{cancelledJobs.length}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-mono text-xs text-slate-500 dark:text-slate-400">Total Value</p>
-                <p className="font-display text-xl text-rose-600 dark:text-rose-400">{formatCurrency(cancelledAmount)}</p>
-              </div>
-            </div>
-
-            {/* Stacked bar */}
-            <div className="pt-2">
-              <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
-                <div
-                  className="h-full bg-emerald-500 transition-all duration-500"
-                  style={{ width: `${completedShare}%` }}
-                />
-                <div
-                  className="h-full bg-rose-500 transition-all duration-500"
-                  style={{ width: `${cancelledShare}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Footer microcopy */}
-            <p className="font-mono text-xs text-slate-500 dark:text-slate-400 text-center">
-              Resolved jobs: <span className="font-medium text-slate-700 dark:text-slate-300">{resolvedCount}</span>
-              <span className="mx-2">•</span>
-              <span className="text-emerald-600 dark:text-emerald-400">{completedShare}% completed</span>
-              <span className="mx-2">•</span>
-              <span className="text-rose-600 dark:text-rose-400">{cancelledShare}% cancelled</span>
+            {/* Tech breakdown would go here - simplified for now */}
+            <p className="font-sans text-sm text-slate-500 dark:text-slate-400 text-center py-8">
+              Technician completion data available in main analytics
             </p>
           </div>
+        </div>
+
+        {/* Placeholder for future expansion */}
+        <div className="admin-card p-6">
+          <div className="mb-6">
+            <h2 className="font-display text-lg tracking-wide text-slate-900 dark:text-white uppercase">
+              By Service
+            </h2>
+            <p className="font-sans text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Completion rate by service type
+            </p>
+          </div>
+          <p className="font-sans text-sm text-slate-500 dark:text-slate-400 text-center py-8">
+            Service completion data available in services page
+          </p>
         </div>
       </div>
     </div>

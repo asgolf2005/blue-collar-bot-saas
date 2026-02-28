@@ -31,6 +31,7 @@ interface AnalyticsClientProps {
   technicianData: TechnicianData[]
   serviceData: ServiceData[]
   dateRangeHint?: string | null
+  allTimeJobCount?: number
 }
 
 // CSV Export helper
@@ -64,6 +65,7 @@ export default function AnalyticsClient({
   technicianData,
   serviceData,
   dateRangeHint,
+  allTimeJobCount,
 }: AnalyticsClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -220,18 +222,25 @@ export default function AnalyticsClient({
 
       {/* Section 1: Live Metrics */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Activity className="w-4 h-4 text-emerald-500" />
-          <h2 className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-            Key Metrics
-          </h2>
-          <span className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-500" />
+            <h2 className="font-mono text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Key Metrics
+            </h2>
+            <span className="flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              Live Data
             </span>
-            Live Data
-          </span>
+          </div>
+          {allTimeJobCount !== undefined && (
+            <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+              Canonical all-time: {allTimeJobCount.toLocaleString()} jobs
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">

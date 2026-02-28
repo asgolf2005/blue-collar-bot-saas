@@ -20,6 +20,7 @@ import {
   fetchServiceNamesByJob,
   fetchUserNames,
 } from '@/lib/analytics/server-queries'
+import { getAllTimeJobCounts } from '@/lib/analytics/job-counts'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -211,6 +212,12 @@ export default async function AnalyticsPage({
   const technicianData = calculateTechnicianData(currentJobs, currentInvoices)
   const serviceData = calculateServiceData(currentJobs, currentInvoices)
 
+  // Fetch canonical all-time job count for consistency across pages
+  const allTimeCounts = await getAllTimeJobCounts({
+    supabase,
+    businessId,
+  })
+
   const techCount = users.filter((user) => user?.role === 'tech').length
   const activeStatuses = new Set(['scheduled', 'on_the_way', 'arrived', 'in_progress'])
   const demandJobs = windowJobs.filter((job) => job.status !== 'cancelled').length
@@ -261,6 +268,7 @@ export default async function AnalyticsPage({
       technicianData={technicianData}
       serviceData={serviceData}
       dateRangeHint={dateRangeHint}
+      allTimeJobCount={allTimeCounts.total}
     />
   )
 }

@@ -346,6 +346,7 @@ export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [totalJobsAllTime, setTotalJobsAllTime] = useState(0)
   const [totalBilledAllTime, setTotalBilledAllTime] = useState(0)
+  const [canonicalAllTime, setCanonicalAllTime] = useState(0)
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -407,16 +408,18 @@ export default function ServicesPage() {
           .eq('business_id', profile.business_id)
           .order('created_at', { ascending: false })
 
-        const [usageRows, allJobs, allInvoices] = await Promise.all([
+        const [usageRows, allJobs, allInvoices, canonicalCounts] = await Promise.all([
           fetchAllJobServiceUsage(supabase, profile.business_id),
           fetchAllBusinessJobs(supabase, profile.business_id),
           fetchAllBusinessInvoices(supabase, profile.business_id),
+          fetch('/api/admin/job-counts').then(r => r.ok ? r.json() : { total: 0 }),
         ])
         
         // Filter jobs by date range
         const filteredJobs = allJobs.filter(job => isDateInRange(getJobDate(job), dateRange.start, dateRange.end))
 
         setTotalJobsAllTime(filteredJobs.length)
+        setCanonicalAllTime(canonicalCounts.total || 0)
 
         // Filter usage rows to only include jobs in date range
         const filteredUsageRows = usageRows.filter(row => {
