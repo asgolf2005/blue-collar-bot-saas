@@ -10,6 +10,7 @@ import AIContextCard from './AIContextCard'
 import AIVoiceLogger from './AIVoiceLogger'
 import { useGoogleMaps } from '@/hooks/useGoogleMaps'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils/cn'
 
 // -- Types & Helpers (borrowed from TodayViewClient) --
 type JobStatus = 'scheduled' | 'on_the_way' | 'arrived' | 'in_progress' | 'completed' | 'cancelled'
@@ -23,8 +24,6 @@ interface RawJob {
     customer?: any
     services?: any
 }
-
-const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ')
 
 function normalizeJob(job: RawJob) {
     if (!job.scheduled_start || !job.id) return null
@@ -407,7 +406,7 @@ export default function UberTechDashboardClient({
                                                     type="button"
                                                     onClick={() => setChecklist(p => ({ ...p, [key]: !p[key] }))}
                                                     disabled={eodSubmitted}
-                                                    className={cx(
+                                                    className={cn(
                                                         "w-full flex items-center gap-3 p-4 rounded-2xl border transition-all text-left",
                                                         isChecked
                                                             ? "bg-slate-800/80 border-slate-700"
@@ -422,7 +421,7 @@ export default function UberTechDashboardClient({
                                                     ) : (
                                                         <Circle className="w-5 h-5 text-slate-600" />
                                                     )}
-                                                    <span className={cx(
+                                                    <span className={cn(
                                                         "text-sm font-medium transition-colors",
                                                         isChecked ? "text-slate-300 line-through decoration-slate-600" : "text-slate-200"
                                                     )}>
@@ -452,7 +451,7 @@ export default function UberTechDashboardClient({
                                             whileTap={isEodReady ? { scale: 0.98 } : {}}
                                             onClick={() => { if (isEodReady) setEodSubmitted(true) }}
                                             disabled={!isEodReady}
-                                            className={cx(
+                                            className={cn(
                                                 "w-full flex items-center justify-center gap-2 p-4 rounded-2xl font-bold transition-all shadow-lg",
                                                 isEodReady
                                                     ? "bg-cyan-600 text-white shadow-cyan-500/25 hover:bg-cyan-500"
