@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-smart.cjs",
+    "dev:webpack": "next dev --webpack",
+    "dev:next": "next dev --webpack",
+    "dev:turbo": "next dev",
+    "dev:nofork": "node scripts/dev-nofork.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -15,7 +19,8 @@
     "e2e:tech:headed": "playwright test e2e/tech-ui-redesign.spec.ts --headed",
     "capture:tech": "node capture-tech-screenshots.cjs",
     "capture:admin:desktop": "node capture-vercel-screenshots.cjs",
-    "capture:admin:mobile": "node capture-vercel-screenshots-mobile.cjs"
+    "capture:admin:mobile": "node capture-vercel-screenshots-mobile.cjs",
+    "auth:reset-password": "node scripts/reset-auth-user-password.cjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -25,7 +30,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.3.1",
-    "framer-motion": "^12.34.3",
+    "framer-motion": "^12.34.5",
     "jspdf": "^4.1.0",
     "lucide-react": "^0.562.0",
     "next": "^16.1.0",
